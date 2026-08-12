@@ -149,6 +149,20 @@
       },
       "blocked": null,
       "depends_on": ["H004"]
+    },
+    {
+      "id": "H006",
+      "title": "Hermes answers from an incrementally maintained Azure knowledge base",
+      "behavior": "From Telegram or an operator-requested managed-folder sync, Hermes validates and ingests supported internal documents through one channel-neutral lifecycle, preserves citation-grade provenance, updates Azure AI Search by verified document generation, retrieves hybrid BM25 and vector evidence with access filtering, and produces grounded answers with truthful citations, bounded citation repair, explicit insufficiency, and version-aware conflict disclosure.",
+      "verification": {
+        "layer_1": "python tests/verify_knowledge.py --layer 1",
+        "layer_2": "python tests/verify_knowledge.py --layer 2",
+        "layer_3": "fresh Hermes process, approved Azure resources, and approved Telegram chat complete docs/plan/Rag.md End-to-End Release Checklist A-G"
+      },
+      "state": "active",
+      "evidence": null,
+      "blocked": null,
+      "depends_on": ["H005"]
     }
   ]
 }
