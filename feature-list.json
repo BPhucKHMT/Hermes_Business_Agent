@@ -1,0 +1,136 @@
+{
+  "schema_version": 1,
+  "project": "Hermes",
+  "wip_limit": 1,
+  "allowed_states": ["not_started", "active", "blocked", "passing"],
+  "state_authority": {
+    "active": "implementation agent",
+    "blocked": "implementation agent with progress record",
+    "passing": "independent verifier"
+  },
+  "features": [
+    {
+      "id": "H001",
+      "title": "Root engineering harness exists",
+      "behavior": "Root contains the engineering operating contract and durable state artifacts without creating runtime source or changing the installed Hermes system.",
+      "verification": {
+        "layer_1": "python -m json.tool feature-list.json",
+        "layer_2": "python -c \"from pathlib import Path; required=('.gitignore','AGENTS.md','CLAUDE.md','PROGRESS.md','feature-list.json','DECISIONS.md'); missing=[p for p in required if not Path(p).is_file()]; assert not missing, missing\"",
+        "layer_3": "python -c \"from pathlib import Path; forbidden=('src','pyproject.toml','package.json','config.yaml'); found=[p for p in forbidden if Path(p).exists()]; assert not found, found\""
+      },
+      "state": "passing",
+      "evidence": {
+        "verified_at_utc": "2026-08-10T10:00:08Z",
+        "verifier": "independent verifier",
+        "layer_1": "exit 0",
+        "layer_2": "exit 0",
+        "layer_3": "exit 0"
+      },
+      "blocked": null,
+      "depends_on": []
+    },
+    {
+      "id": "H002",
+      "title": "Customer requirements are captured in Vietnamese",
+      "behavior": "Root contains requirement_customer.md summarizing customer goals, actors, functional and non-functional requirements, guardrails, acceptance criteria, recommended feature order, and unresolved questions from docs/Hermes Project.docx while excluding its proposed implementation plan and technology choices.",
+      "verification": {
+        "layer_1": "python -c \"from pathlib import Path; p=Path('requirement_customer.md'); assert p.is_file(); s=p.read_text(encoding='utf-8'); required=('# Yêu cầu khách hàng','## Mục tiêu','## Đối tượng sử dụng','## Yêu cầu chức năng','## Yêu cầu phi chức năng','## Guardrails bắt buộc','## Tiêu chí nghiệm thu','## Thứ tự tính năng đề xuất','## Điểm cần khách hàng xác nhận'); assert all(x in s for x in required)\"",
+        "layer_2": "python -c \"from pathlib import Path; s=Path('requirement_customer.md').read_text(encoding='utf-8'); required=('REQ-KB-01','REQ-RESEARCH-01','REQ-DECK-01','REQ-SALES-01','REQ-INVOICE-01','NFR-SEC-01','AC-01'); assert all(x in s for x in required)\"",
+        "layer_3": "python -c \"from pathlib import Path; a=Path('AGENTS.md').read_text(encoding='utf-8'); r=Path('requirement_customer.md').read_text(encoding='utf-8').lower(); forbidden=('claude agent sdk','target architecture','two-week plan'); assert 'requirement_customer.md' in a; assert not any(x in r for x in forbidden); assert not any(Path(p).exists() for p in ('src','pyproject.toml','package.json','config.yaml'))\""
+      },
+      "state": "passing",
+      "evidence": {
+        "verified_at_utc": "2026-08-11T02:15:37Z",
+        "verifier": "independent verifier",
+        "layer_1": "exit 0",
+        "layer_2": "exit 0",
+        "layer_3": "exit 0"
+      },
+      "blocked": null,
+      "depends_on": ["H001"]
+    },
+    {
+      "id": "H003",
+      "title": "Hermes discovers the project coordinator skill",
+      "behavior": "The src directory is the complete isolated Hermes workspace. A temporary Hermes profile uses terminal.cwd=src and skills.external_dirs=src/skills, discovers hermes-project, and does not require or expose repository-root engineering artifacts.",
+      "verification": {
+        "layer_1": "python -c \"from pathlib import Path; required=('AGENTS.md','src/AGENTS.md','src/README.md','src/skills/hermes-project/SKILL.md','docs/plan/init.md'); missing=[p for p in required if not Path(p).is_file()]; assert not missing, missing; forbidden=('src/.hermes.md','src/mcp','src/scripts','src/templates','src/context'); found=[p for p in forbidden if Path(p).exists()]; assert not found, found\"",
+        "layer_2": "python -c \"from pathlib import Path; import re; root=Path('AGENTS.md').read_text(encoding='utf-8'); files=[p for p in Path('src').rglob('*') if p.is_file()]; text='\\n'.join(p.read_text(encoding='utf-8') for p in files); required_root=('coding workspace','production project root','.hermes.md','is forbidden','%LOCALAPPDATA%\\\\hermes'); required_runtime=('name: hermes-project','platforms: [windows]','Không gửi customer PII','human approval','citation/provenance','Không truy cập thư mục cha'); forbidden=('DECISIONS.md','PROGRESS.md','feature-list.json','requirement_customer.md','../','..\\\\'); assert all(x in root for x in required_root); assert all(x in text for x in required_runtime); assert not any(x in text for x in forbidden); paths=re.findall(r'C:/Hermes agent([^`\\s]*)', text); assert all(x.startswith('/src') for x in paths), paths\"",
+        "layer_3": "temporary HERMES_HOME with terminal.cwd=C:/Hermes agent/src and skills.external_dirs=C:/Hermes agent/src/skills; hermes skills list --source local; assert hermes-project is listed"
+      },
+      "state": "passing",
+      "evidence": {
+        "verified_at_utc": "2026-08-11T04:37:23Z",
+        "verifier": "independent verifier",
+        "schema": {
+          "command": "python -m json.tool feature-list.json",
+          "exit_status": 0,
+          "result": "valid JSON"
+        },
+        "layer_1": {
+          "command": "verification.layer_1",
+          "exit_status": 0,
+          "result": "required tree exists; forbidden paths absent"
+        },
+        "layer_2": {
+          "command": "verification.layer_2",
+          "exit_status": 0,
+          "result": "runtime files remain inside the src-only boundary"
+        },
+        "layer_3": {
+          "command": "temporary HERMES_HOME; terminal.cwd=<worktree>/src; skills.external_dirs=<worktree>/src/skills; hermes skills list --source local",
+          "exit_status": 0,
+          "result": "hermes-project listed as local and enabled; temporary profile removed"
+        }
+      },
+      "blocked": null,
+      "depends_on": ["H001", "H002"]
+    },
+    {
+      "id": "H004",
+      "title": "Runtime workspace is portable and English-only",
+      "behavior": "Runtime-owned documentation and skill instructions are written in English, use no deployment-specific absolute workspace path, use src as the sole source of project instructions and persistent context, and permit explicitly requested external task execution within operator permissions.",
+      "verification": {
+        "layer_1": "python -m json.tool feature-list.json",
+        "layer_2": "python -c \"from pathlib import Path; files=tuple(Path('src').rglob('*.md')); text='\\n'.join(p.read_text(encoding='utf-8') for p in files); assert files; assert 'C:/Hermes agent' not in text; forbidden=('là ','Không ','Chưa ','Dùng ','Điều phối ','thư mục cha','Do not read, write, or infer content outside this workspace','Use only files and skills inside this workspace','Do not access parent directories outside this workspace'); assert not any(x in text for x in forbidden); required=('only source of project instructions','does not restrict task execution','operator permissions'); assert all(x in text for x in required)\"",
+        "layer_3": "temporary HERMES_HOME configured with an arbitrary workspace path; hermes skills list --source local; assert hermes-project is listed"
+      },
+      "state": "passing",
+      "evidence": {
+        "verified_at_utc": "2026-08-11T06:22:53Z",
+        "verifier": "independent verifier",
+        "layer_1": {
+          "command": "python -m json.tool feature-list.json",
+          "exit_status": 0,
+          "result": "valid JSON"
+        },
+        "layer_2": {
+          "command": "verification.layer_2",
+          "exit_status": 0,
+          "result": "runtime Markdown is English and path-portable; src is instruction context only; authorized external task execution remains allowed"
+        },
+        "layer_3": {
+          "command": "copy src to arbitrary path; configure temporary HERMES_HOME; hermes skills list --source local",
+          "exit_status": 0,
+          "result": "hermes-project listed as local and enabled; temporary workspace and profile removed"
+        }
+      },
+      "blocked": null,
+      "depends_on": ["H003"]
+    },
+    {
+      "id": "H005",
+      "title": "Hermes performs evidence-grounded web research",
+      "behavior": "From Telegram, Hermes confirms a brief for complex research, discovers and reads public-web or user-supplied sources, iterates from evidence gaps, produces a cited executive brief and HTML report, answers same-session follow-ups from evidence, and persists a dossier only on explicit save, track, or watch intent.",
+      "verification": {
+        "layer_1": "python tests/verify_research.py --layer 1",
+        "layer_2": "python tests/verify_research.py --layer 2",
+        "layer_3": "fresh Hermes process and approved Telegram chat complete docs/plan/research_agent.md Phase 1 End-to-End Release Checklist A-E"
+      },
+      "state": "active",
+      "evidence": null,
+      "blocked": null,
+      "depends_on": ["H004"]
+    }
+  ]
+}
