@@ -23,7 +23,7 @@ def load_module(name: str, path: Path):
 def expect_error(fn, text: str) -> None:
     try:
         fn()
-    except (KeyError, ValueError) as exc:
+    except (KeyError, RuntimeError, ValueError) as exc:
         assert text.lower() in str(exc).lower(), exc
     else:
         raise AssertionError(f"expected error containing {text!r}")
@@ -41,8 +41,15 @@ def layer_1() -> None:
         "layer_2": "python tests/verify_knowledge.py --layer 2",
         "layer_3": "fresh Hermes process, approved Azure resources, and approved Telegram chat complete docs/plan/Rag.md End-to-End Release Checklist A-G",
     }
-    required = (TOOLS / "contracts.py", TOOLS / "manifest.py")
+    required = (TOOLS / "contracts.py", TOOLS / "manifest.py", TOOLS / "azure.py", ROOT / "src/.env.example")
     assert all(path.is_file() for path in required), "knowledge contract files missing"
+    env_names = {line.split("=", 1)[0] for line in (ROOT / "src/.env.example").read_text(encoding="utf-8").splitlines() if "=" in line}
+    assert env_names == {
+        "AZURE_STORAGE_CONNECTION_STRING", "AZURE_STORAGE_CONTAINER", "AZURE_SEARCH_ENDPOINT",
+        "AZURE_SEARCH_ADMIN_KEY", "AZURE_SEARCH_QUERY_KEY", "AZURE_SEARCH_INDEX",
+        "AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT", "AZURE_DOCUMENT_INTELLIGENCE_KEY",
+        "AZURE_OPENAI_ENDPOINT", "AZURE_OPENAI_API_KEY", "AZURE_OPENAI_EMBEDDING_DEPLOYMENT",
+    }
     ignored = (ROOT / ".gitignore").read_text(encoding="utf-8")
     assert "src/.runtime/" in ignored and ".env" in ignored
     tracked_text = "\n".join(path.read_text(encoding="utf-8", errors="ignore") for path in ROOT.rglob("*") if path.is_file() and ".git" not in path.parts and ".worktrees" not in path.parts)
@@ -50,9 +57,26 @@ def layer_1() -> None:
     assert not any(re.search(pattern, tracked_text) for pattern in secret_patterns), "possible committed secret"
 
 
+def azure_config():
+    return {
+        "AZURE_STORAGE_CONNECTION_STRING": "DefaultEndpointsProtocol=https;AccountName=test;AccountKey=storage-secret",
+        "AZURE_STORAGE_CONTAINER": "knowledge",
+        "AZURE_SEARCH_ENDPOINT": "https://search.example",
+        "AZURE_SEARCH_ADMIN_KEY": "admin-secret",
+        "AZURE_SEARCH_QUERY_KEY": "query-secret",
+        "AZURE_SEARCH_INDEX": "knowledge",
+        "AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT": "https://document.example",
+        "AZURE_DOCUMENT_INTELLIGENCE_KEY": "document-secret",
+        "AZURE_OPENAI_ENDPOINT": "https://openai.example",
+        "AZURE_OPENAI_API_KEY": "openai-secret",
+        "AZURE_OPENAI_EMBEDDING_DEPLOYMENT": "text-embedding-3-small",
+    }
+
+
 def layer_2() -> None:
     contracts = load_module("contracts", TOOLS / "contracts.py")
     manifest_module = load_module("manifest", TOOLS / "manifest.py")
+    azure = load_module("azure", TOOLS / "azure.py")
 
     for bad in ("", "../x.pdf", "a/../x.pdf", "C:/x.pdf", "x.exe", "a\\x.pdf"):
         expect_error(lambda value=bad: contracts.validate_source_path(value), "source" if bad != "x.exe" else "unsupported")
@@ -95,6 +119,55 @@ def layer_2() -> None:
         loaded = manifest_module.Manifest.load(path)
         assert loaded.active_snapshot() == {first.document_id: 2}
         assert not path.with_name(f".{path.name}.tmp").exists()
+
+    config = azure_config()
+    assert azure.load_config(config) == config
+    missing = dict(config); del missing["AZURE_SEARCH_QUERY_KEY"]
+    expect_error(lambda: azure.load_config(missing), "AZURE_SEARCH_QUERY_KEY")
+    insecure = dict(config); insecure["AZURE_SEARCH_ENDPOINT"] = "http://search.example"
+    expect_error(lambda: azure.load_config(insecure), "https")
+
+    calls = []
+    sleeps = []
+    responses = [
+        azure.Response(429, {"Retry-After": "2"}, b'{"error":"throttled"}'),
+        azure.Response(503, {}, b"untrusted source body with admin-secret"),
+        azure.Response(200, {}, b'{"value":[]}'),
+    ]
+    def fake_transport(method, url, headers, body, timeout):
+        calls.append((method, url, dict(headers), body, timeout))
+        return responses.pop(0)
+
+    client = azure.AzureClient(fake_transport, timeout=4, max_attempts=3, sleeper=sleeps.append, jitter=lambda: 0)
+    search = azure.SearchClients(config, client)
+    assert search.query({"search": "pricing"}).json() == {"value": []}
+    assert len(calls) == 3 and sleeps == [2.0, 2]
+    assert all(call[2]["api-key"] == "query-secret" for call in calls)
+    assert all("admin-secret" not in str(call[3]) for call in calls)
+
+    mutation_calls = []
+    mutation = azure.SearchClients(config, azure.AzureClient(lambda *args: mutation_calls.append(args) or azure.Response(200, {}, b"{}")))
+    mutation.mutate({"value": []})
+    assert mutation_calls[0][2]["api-key"] == "admin-secret"
+
+    for status, code in ((401, "unauthorized"), (403, "unauthorized"), (400, "request_failed"), (500, "retry_exhausted")):
+        failing = azure.AzureClient(lambda *args, value=status: azure.Response(value, {}, b"customer-private-body"), max_attempts=1)
+        expect_error(lambda current=failing: current.request("GET", "https://service.example"), code)
+    timeout = azure.AzureClient(lambda *args: (_ for _ in ()).throw(azure.AzureError("azure_timeout")), max_attempts=2, sleeper=lambda _: None)
+    expect_error(lambda: timeout.request("GET", "https://service.example"), "timeout")
+    invalid = azure.Response(200, {}, b"not-json")
+    expect_error(invalid.json, "invalid_json")
+
+    sensitive_values = [config[name] for name in azure.SECRET_ENV]
+    redacted = azure.redact(" ".join(sensitive_values), config)
+    assert all(value not in redacted for value in sensitive_values)
+    assert redacted.count("[REDACTED]") == len(sensitive_values)
+    for error in (
+        azure.AzureError("azure_unauthorized", 401), azure.AzureError("azure_request_failed", 400),
+        azure.AzureError("azure_retry_exhausted", 500), azure.AzureError("azure_timeout"),
+    ):
+        rendered = str(error)
+        assert "customer-private-body" not in rendered and "secret" not in rendered
 
 
 if __name__ == "__main__":

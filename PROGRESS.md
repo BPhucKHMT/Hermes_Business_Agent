@@ -16,28 +16,30 @@
 
 ## H006 Current Work
 
-- Added structured `EvidenceResult`; retrieval contracts cannot contain a generated answer.
-- Added supported relative source-path validation and truthful format locator rules.
-- Added atomic manifest writes, stable document IDs, SHA-256 idempotency, pending/active generations, full expected chunk-set activation, prior-generation preservation on failure, and active manifest snapshots.
-- Added `tests/verify_knowledge.py` for H006 state, runtime/secret boundaries, contracts, add/idempotency, partial activation rejection, replacement failure, retry, and generation swap.
+- Batch 1 commit `5a29a5b` added `EvidenceResult`, path contracts, and atomic manifest generation lifecycle.
+- Added secret-free `src/.env.example` Azure deployment contract.
+- Added dependency-free injectable Azure HTTP boundary for Python 3.9: strict HTTPS/config validation, timeout, bounded retries/backoff, `Retry-After`, sanitized error codes, and no response-body leakage.
+- Search query uses only query key; mutation uses admin key.
+- Fake transport covers success, timeout, 401/403, 400, 429, 5xx, retry exhaustion, invalid JSON, credential separation, and secret redaction.
 
 ## Operational State
 
+- Python runtime is 3.9.13; Azure SDK packages are not installed. Task 4 uses stdlib transport rather than adding dependencies.
 - Production Hermes CWD remains deployed `src/`.
 - Installed Hermes source under `%LOCALAPPDATA%\hermes\hermes-agent` remains unchanged.
 - `docs/` remains local-only and Git-ignored; implementation must not depend on it at runtime.
 
 ## Blockers
 
-- None for offline Tasks 1–8.
+- None for offline Tasks 5–8.
 - Layer 3 owner: operator/user. Unblock condition: approved Azure resources/credentials, approved synthetic or customer corpus, and approved Telegram test chat.
 - Customer acceptance owner: user. Unblock condition: real approved documents plus 10 KB questions and 5 task runs.
 
 ## Next Action
 
-1. Run H006 JSON, Layer 1, then Layer 2 verification; fix only batch 1 failures.
-2. Commit Task 1–3 checkpoint.
-3. Next session inspects dependencies and implements Task 4 Azure client boundary with fake transport.
+1. Commit Task 4 Azure boundary checkpoint.
+2. Next batch implements Task 5 extraction/chunking/ingestion with proved format fixtures; do not claim formats lacking installed parser support.
+3. Keep Azure service payloads behind current injected client and test with fake transport before live resources.
 4. Do not move H006 to `passing`; independent verifier owns that transition after Layer 3.
 
 ## Handoff Notes
