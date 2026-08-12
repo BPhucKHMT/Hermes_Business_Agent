@@ -2,50 +2,52 @@
 
 ## Harness Status
 
-- Phase: H005 evidence-grounded research implementation.
-- Scope: manual Telegram research V1 under `src/`; cron and Gmail deferred.
-- Git: initialized at project root.
-- WIP limit: 1.
-
-## Current Work
-
-- H005 — `active`.
-- Plan: `docs/plan/research_agent.md`.
-- Latest approved Telegram research session: `20260811_172604_40cdbf34`.
-- Root cause confirmed: initial HTML directive was backtick-wrapped and intentionally ignored by the gateway parser; retry exposed an unverified streaming-delivery boundary.
-- `2026-08-12`: added project-owned regression contract requiring an existing report and a bare final `MEDIA:<absolute-path>` line; no Hermes installation source changed.
-- `2026-08-12`: implemented canonical dossier validation, atomic temporary/saved storage, `save`/`track`/`watch`/`load`/`delete`/TTL cleanup, and replaceable safe HTML rendering under `src/.runtime/research/`. Removed generated reports from `src/` root.
-- Current step: run fresh inbound Telegram research and persistence lifecycle verification.
-
-## Baseline Verification
-
-- Verified at: `2026-08-10T10:00:08Z`.
-- Layer 1: exit `0`.
-- Layer 2: exit `0`.
-- Layer 3: exit `0`.
+- Phase: H005 complete; next feature not yet activated.
+- Scope delivered: manual Telegram evidence-grounded research V1 under `src/`; cron and Gmail remain deferred.
+- Workspace: `C:\Hermes-Business-Agent`.
+- Git remote: `https://github.com/BPhucKHMT/Hermes_Business_Agent.git`.
+- WIP limit: 1; current active count: 0.
 
 ## Completed
 
-- H001 — state `passing`.
-- H002 — state `passing`.
-- H003 — state `passing`; independent verification `2026-08-11T04:37:23Z`, schema và Layer 1–3 exit `0`.
-- H004 — state `passing`; independent verification `2026-08-11T06:22:53Z`, Layer 1–3 exit `0`.
+- H001–H004 — `passing` with recorded independent evidence.
+- H005 — `passing` at `2026-08-12T07:13:00Z` from user acceptance plus runtime evidence review.
+- Complex Telegram flow passed: brief/confirmation, iterative search/read, cited executive brief, native HTML attachment, and evidence-based follow-up.
+- Persistence flow passed: temporary default, explicit `save`, fresh-session `load`, manual `track`, intent-only `watch`, `delete`, then `not found`.
+- Canonical `dossier.json` drives replaceable safe HTML; future PPTX must read dossier data, not parse HTML.
+- Temporary and durable artifacts live under `src/.runtime/research/`; generated reports no longer pollute `src/` root.
+- Layer 1 and Layer 2 passed after workspace rename; `feature-list.json` is valid.
+
+## Operational State
+
+- Workspace renamed from `C:\Hermes agent` to `C:\Hermes-Business-Agent`.
+- Operator config now uses `C:/Hermes-Business-Agent/src` and `C:/Hermes-Business-Agent/src/skills`.
+- Config backup: `%LOCALAPPDATA%\hermes\config.yaml.20260812T070312Z.bak`.
+- Installed Hermes source under `%LOCALAPPDATA%\hermes\hermes-agent` remains unchanged.
+- Gateway must be started by operator after workspace rename.
+
+## Git State
+
+- New clean history published to `origin/main`; head before this handoff update: `d66d288`.
+- Commit author is only `BPhucKHMT <23521208@gm.uit.edu.vn>`; no AI/co-author metadata.
+- `docs/` is local-only and Git-ignored by user request. It is not available to fresh clones.
+- `.claude/`, `.h005*.json`, and `src/.runtime/` are local-only and ignored.
+- Local branch `backup/pre-clean-history` preserves old history and must not be pushed.
 
 ## Blockers
 
-- H005 Telegram HTML attachment Layer 3 — owner: independent verifier. Project-owned contract fix passes Layer 1 and Layer 2. Fresh Hermes one-shot states that the actual directive must be plain text, backticks/code fences are forbidden, and missing files must not emit `MEDIA:`.
-- Unblock condition: approved Telegram chat completes a fresh inbound research run; verifier confirms HTML arrives and records gateway upload evidence, command/event, UTC timestamp, exit status, and result.
+- None for H005.
+- No H006 entry exists yet; do not start implementation before defining behavior, verification Layers 1–3, dependency on H005, and moving only H006 to `active`.
 
 ## Next Action
 
-1. Reload gateway through documented operator mechanism so fresh sessions read updated `src/skills/research`.
-2. Send one bounded inbound research request from approved Telegram chat and confirm brief when requested.
-3. Verify final raw response ends with bare `MEDIA:<absolute-path>`, report exists, and Telegram receives native HTML document.
-4. Record independent Layer 3 evidence; keep H005 `active` until remaining release checklist passes.
+1. Start a fresh planning session and read startup files in the order required by `AGENTS.md`.
+2. Select the next requirement from `requirement_customer.md`; PPTX/deck generation from canonical `dossier.json` is the current candidate.
+3. Add H006 as `not_started`, define acceptance gates, then move it to `active` while keeping WIP=1.
+4. Keep HTML renderer replaceable; do not make PPTX depend on parsing HTML.
 
 ## Handoff Notes
 
-- Read according to startup order.
-- `feature-list.json` is state authority; H005 is the only active feature.
-- H005 passes only after the real Telegram → search → read → evidence → HTML → follow-up → persistence/no-persistence flow receives independent verifier evidence.
-- Do not modify `%LOCALAPPDATA%\hermes\hermes-agent`; back up operator `config.yaml` before routing Hermes to deployed `src`.
+- `feature-list.json` is state authority; all defined features currently pass.
+- Runtime instructions remain English and portable; repository engineering records may be Vietnamese.
+- Never commit secrets, tokens, customer PII, runtime dossiers, local usage files, or `docs/`.

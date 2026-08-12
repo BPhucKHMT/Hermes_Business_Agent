@@ -127,8 +127,26 @@
         "layer_2": "python tests/verify_research.py --layer 2",
         "layer_3": "fresh Hermes process and approved Telegram chat complete docs/plan/research_agent.md Phase 1 End-to-End Release Checklist A-E"
       },
-      "state": "active",
-      "evidence": null,
+      "state": "passing",
+      "evidence": {
+        "verified_at_utc": "2026-08-12T07:13:00Z",
+        "verifier": "user acceptance plus independent runtime evidence review",
+        "layer_1": {
+          "command": "python tests/verify_research.py --layer 1",
+          "exit_status": 0,
+          "result": "research skill, contracts, storage paths, and renderer requirements pass"
+        },
+        "layer_2": {
+          "command": "python tests/verify_research.py --layer 2",
+          "exit_status": 0,
+          "result": "dossier validation, atomic temporary and durable lifecycle, cleanup, citation references, and safe HTML rendering pass"
+        },
+        "layer_3": {
+          "event": "approved Telegram chat completed complex brief confirmation, research, cited HTML delivery, follow-up, save, fresh-session load, track, watch intent, delete, and post-delete load failure",
+          "exit_status": 0,
+          "result": "user explicitly confirmed all prompts passed; gateway telemetry and runtime filesystem independently corroborated temporary report creation, watch/delete/post-delete events, cited claims, and empty saved directory after deletion"
+        }
+      },
       "blocked": null,
       "depends_on": ["H004"]
     }

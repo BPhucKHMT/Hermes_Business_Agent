@@ -80,3 +80,21 @@
 - Decision: H005 uses an independently functional Hermes-native search/read/gap-analysis loop. Optional deep-research providers supply candidate findings only. Material claims require opened-source evidence and citations. Research remains session-scoped unless the user explicitly requests `save`, `track`, or `watch`; V1 stores watch intent but does not run cron. Telegram delivers a brief plus HTML report; cron and Gmail are separate future work.
 - Consequences: Native behavior and provider-disabled E2E are release gates. Report delivery does not imply durable storage. Operator config may point Hermes to deployed `src` after backup, but installed Hermes source and secrets remain untouched.
 - Revisit when: A provider is selected, a second capability needs shared source policy, or scheduled email research starts.
+
+## D010 — Clean public history excludes local documents
+
+- Date: 2026-08-12
+- Status: accepted
+- Context: The user requested a new public repository history without prior contributor metadata and without the local `docs/` directory.
+- Decision: Publish a clean grouped history to `origin/main` using the configured human Git identity. Keep `docs/`, runtime dossiers, local usage records, and editor-agent state Git-ignored. Preserve old history only in local `backup/pre-clean-history`; never push that branch.
+- Consequences: Fresh clones receive harness, runtime skills, tests, and durable state, but not local plans or source documents. `PROGRESS.md`, `feature-list.json`, and `DECISIONS.md` must carry all required handoff context.
+- Revisit when: The user explicitly chooses safe documents for publication.
+
+## D011 — Renderers consume canonical dossiers
+
+- Date: 2026-08-12
+- Status: accepted
+- Context: HTML is a temporary delivery format and PPTX is the likely next capability.
+- Decision: `dossier.json` remains canonical; HTML and future PPTX are replaceable derived renderers. A renderer must not parse another renderer's output.
+- Consequences: Research evidence, citations, confidence, persistence, and lifecycle stay independent from presentation format.
+- Revisit when: The canonical dossier schema needs a versioned migration.
