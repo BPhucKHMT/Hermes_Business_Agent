@@ -98,3 +98,12 @@
 - Decision: `dossier.json` remains canonical; HTML and future PPTX are replaceable derived renderers. A renderer must not parse another renderer's output.
 - Consequences: Research evidence, citations, confidence, persistence, and lifecycle stay independent from presentation format.
 - Revisit when: The canonical dossier schema needs a versioned migration.
+
+## D012 — Azure Hybrid RAG uses one incremental ingestion core
+
+- Date: 2026-08-12
+- Status: accepted
+- Context: Customer requires multi-format internal Q&A, scanned-PDF OCR, verifiable citations, rerunnable updates, and conflict disclosure. Inputs must work from Telegram and a managed local folder, with UI later. Initial corpus is 20–50 documents and the real evaluation set is not available yet.
+- Decision: Use one event-triggered incremental ingestion core backed by Azure Blob Storage, Azure AI Search, Azure Document Intelligence for scan/layout, and Azure OpenAI embeddings. Project code selects extraction, preserves citation locators, chunks, embeds, and pushes versioned batches to Search instead of treating Blob Indexer as a conditional Document Intelligence router. Retrieval uses BM25 plus vector search merged by RRF; Semantic Ranker is configurable in project-owned RAG config and disabled by default. Telegram add/replace/delete and managed-folder sync reuse the core; replace/delete require confirmation. Conflicts show all sources without implicit precedence.
+- Consequences: The smallest Azure stack covers source storage, OCR, embeddings, and hybrid retrieval while project code owns deterministic extraction, chunk lifecycle, citation, conflict, and safety policy. Knowledge freshness begins only after successful Search batch verification, not on an unobserved filesystem change. V1 `access_groups` is an application query filter, not Entra document-level authorization. Local V1 API keys remain operator-managed secrets; Azure-hosted production should migrate to Managed Identity.
+- Revisit when: The real 10-question evaluation shows hybrid retrieval is insufficient; an approved freshness SLO requires a scheduler or watcher; multiple access domains require Entra authorization; measured multi-hop or relation-heavy failures justify Agentic Retrieval or Graph RAG; or Azure hosting permits Managed Identity.
