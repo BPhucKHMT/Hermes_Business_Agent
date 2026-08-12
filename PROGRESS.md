@@ -17,29 +17,30 @@
 ## H006 Current Work
 
 - Batch 1 commit `5a29a5b` added `EvidenceResult`, path contracts, and atomic manifest generation lifecycle.
-- Added secret-free `src/.env.example` Azure deployment contract.
-- Added dependency-free injectable Azure HTTP boundary for Python 3.9: strict HTTPS/config validation, timeout, bounded retries/backoff, `Retry-After`, sanitized error codes, and no response-body leakage.
-- Search query uses only query key; mutation uses admin key.
-- Fake transport covers success, timeout, 401/403, 400, 429, 5xx, retry exhaustion, invalid JSON, credential separation, and secret redaction.
+- Batch 2 commit `ba9e784` added secret-free Azure config and injected HTTP client boundary.
+- Added deterministic structure-aware extraction/chunking: TXT/Markdown headings and lines, HTML text, CSV headers/rows, PDF pages with deterministic OCR fallback, PPTX slides, and XLSX sheets/rows/cell ranges.
+- DOCX fails actionable because `python-docx` is not installed; runtime does not claim support yet.
+- Added channel-neutral ingestion orchestration: validate access groups, extract, chunk, embed, upload pending generation, verify complete chunk-ID set, atomically activate manifest, then delete prior generation.
+- Offline fixtures prove deterministic chunk IDs/locators, PDF OCR routing, PPTX/XLSX parsing, unchanged idempotency, replacement cleanup, and failed activation preservation.
 
 ## Operational State
 
-- Python runtime is 3.9.13; Azure SDK packages are not installed. Task 4 uses stdlib transport rather than adding dependencies.
-- Production Hermes CWD remains deployed `src/`.
-- Installed Hermes source under `%LOCALAPPDATA%\hermes\hermes-agent` remains unchanged.
-- `docs/` remains local-only and Git-ignored; implementation must not depend on it at runtime.
+- Python runtime is 3.9.13. Installed parsers: `pypdf`, `python-pptx`, `openpyxl`, BeautifulSoup/stdlib HTML support. `python-docx` absent.
+- Azure SDK packages are not installed; current Azure boundary uses injected stdlib transport.
+- Production Hermes CWD remains deployed `src/`; installed Hermes source remains unchanged.
+- `docs/` remains local-only and Git-ignored; implementation does not depend on it.
 
 ## Blockers
 
-- None for offline Tasks 5–8.
+- DOCX support owner: implementation/operator dependency decision. Unblock condition: approve/use installed `python-docx` or add it explicitly, then add a real DOCX fixture.
 - Layer 3 owner: operator/user. Unblock condition: approved Azure resources/credentials, approved synthetic or customer corpus, and approved Telegram test chat.
 - Customer acceptance owner: user. Unblock condition: real approved documents plus 10 KB questions and 5 task runs.
 
 ## Next Action
 
-1. Commit Task 4 Azure boundary checkpoint.
-2. Next batch implements Task 5 extraction/chunking/ingestion with proved format fixtures; do not claim formats lacking installed parser support.
-3. Keep Azure service payloads behind current injected client and test with fake transport before live resources.
+1. Commit Task 5 extraction/ingestion checkpoint.
+2. Next batch implements Task 6 hybrid retrieval request, manifest-snapshot generation filters, and `EvidenceResult` mapping with fake Search/embedding clients.
+3. Do not claim DOCX support until parser and fixture pass.
 4. Do not move H006 to `passing`; independent verifier owns that transition after Layer 3.
 
 ## Handoff Notes

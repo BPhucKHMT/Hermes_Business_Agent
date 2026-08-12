@@ -41,7 +41,10 @@ def layer_1() -> None:
         "layer_2": "python tests/verify_knowledge.py --layer 2",
         "layer_3": "fresh Hermes process, approved Azure resources, and approved Telegram chat complete docs/plan/Rag.md End-to-End Release Checklist A-G",
     }
-    required = (TOOLS / "contracts.py", TOOLS / "manifest.py", TOOLS / "azure.py", ROOT / "src/.env.example")
+    required = (
+        TOOLS / "contracts.py", TOOLS / "manifest.py", TOOLS / "azure.py",
+        TOOLS / "extract.py", TOOLS / "ingest.py", ROOT / "src/.env.example",
+    )
     assert all(path.is_file() for path in required), "knowledge contract files missing"
     env_names = {line.split("=", 1)[0] for line in (ROOT / "src/.env.example").read_text(encoding="utf-8").splitlines() if "=" in line}
     assert env_names == {
@@ -77,6 +80,8 @@ def layer_2() -> None:
     contracts = load_module("contracts", TOOLS / "contracts.py")
     manifest_module = load_module("manifest", TOOLS / "manifest.py")
     azure = load_module("azure", TOOLS / "azure.py")
+    extraction = load_module("extract", TOOLS / "extract.py")
+    ingestion = load_module("ingest", TOOLS / "ingest.py")
 
     for bad in ("", "../x.pdf", "a/../x.pdf", "C:/x.pdf", "x.exe", "a\\x.pdf"):
         expect_error(lambda value=bad: contracts.validate_source_path(value), "source" if bad != "x.exe" else "unsupported")
@@ -168,6 +173,62 @@ def layer_2() -> None:
     ):
         rendered = str(error)
         assert "customer-private-body" not in rendered and "secret" not in rendered
+
+    markdown_units = extraction.extract("handbook/policy.md", b"# Refunds\n\nApproval required.\n\n# Travel\n\nReceipts required.")
+    assert [unit.section_heading for unit in markdown_units] == ["Refunds", "Travel"]
+    assert markdown_units[0].line_range == "3-3"
+    html_units = extraction.extract("web/policy.html", b"<h1>Policy</h1><p>Keep records.</p>")
+    assert html_units and "Keep records" in html_units[0].text
+    csv_units = extraction.extract("data/prices.csv", b"sku,price\nPRO,99\nBASIC,20\n")
+    assert csv_units[0].text == "sku: PRO | price: 99" and csv_units[0].line_range == "2"
+    expect_error(lambda: extraction.extract("word/policy.docx", b"fake"), "python-docx")
+
+    ocr_calls = []
+    ocr_units = extraction.extract(
+        "scan/policy.pdf", b"not-a-pdf",
+        lambda content: ocr_calls.append(content) or [extraction.Unit("Scanned rule", page_number=1, extraction_method="document-intelligence", is_ocr=True)],
+    )
+    assert ocr_calls == [b"not-a-pdf"] and ocr_units[0].is_ocr
+
+    chunks = extraction.chunk_units("doc", 2, [extraction.Unit("one two three four five", page_number=4)], target_words=3, overlap_words=1)
+    assert [chunk.chunk_id for chunk in chunks] == ["doc:g2:c1", "doc:g2:c2", "doc:g2:c3"]
+    assert all(chunk.page_number == 4 for chunk in chunks)
+
+    from pptx import Presentation
+    ppt = Presentation(); slide = ppt.slides.add_slide(ppt.slide_layouts[5]); slide.shapes.title.text = "Quarterly Plan"
+    ppt_buffer = __import__("io").BytesIO(); ppt.save(ppt_buffer)
+    ppt_units = extraction.extract("slides/plan.pptx", ppt_buffer.getvalue())
+    assert ppt_units[0].slide_number == 1 and "Quarterly Plan" in ppt_units[0].text
+
+    from openpyxl import Workbook
+    workbook = Workbook(); sheet = workbook.active; sheet.title = "Pricing"; sheet.append(["sku", "price"]); sheet.append(["PRO", 99])
+    xlsx_buffer = __import__("io").BytesIO(); workbook.save(xlsx_buffer)
+    xlsx_units = extraction.extract("tables/pricing.xlsx", xlsx_buffer.getvalue())
+    assert xlsx_units[0].sheet_name == "Pricing" and xlsx_units[0].cell_range == "A2:B2"
+
+    with tempfile.TemporaryDirectory() as tmp:
+        ingest_manifest = manifest_module.Manifest(Path(tmp) / "manifest.json")
+        uploads = []; deletes = []
+        service = ingestion.IngestionService(
+            ingest_manifest,
+            lambda texts: [[float(i + 1)] for i, _ in enumerate(texts)],
+            uploads.extend,
+            lambda document_id, generation: [item["chunk_id"] for item in uploads if item["document_id"] == document_id and item["generation"] == generation],
+            lambda document_id, generation: deletes.append((document_id, generation)),
+        )
+        first_result = service.ingest("kb/policy.md", b"# Policy\n\nApproval required.", ["internal"])
+        assert first_result["status"] == "indexed" and first_result["generation"] == 1
+        assert uploads[0]["access_groups"] == ["internal"] and uploads[0]["content_vector"] == [1.0]
+        unchanged = service.ingest("kb/policy.md", b"# Policy\n\nApproval required.", ["internal"])
+        assert unchanged["status"] == "unchanged" and len(uploads) == 1
+        second_result = service.ingest("kb/policy.md", b"# Policy\n\nManager approval required.", ["internal"])
+        assert second_result["generation"] == 2 and deletes == [(first_result["document_id"], 1)]
+
+        failing_manifest = manifest_module.Manifest(Path(tmp) / "failed.json")
+        failing_service = ingestion.IngestionService(failing_manifest, lambda texts: [[1.0]], lambda docs: None, lambda document_id, generation: [], lambda document_id, generation: None)
+        expect_error(lambda: failing_service.ingest("kb/fail.md", b"# Fail\n\nText", ["internal"]), "chunk set")
+        failed_record = next(iter(failing_manifest.records.values()))
+        assert failed_record.state == "failed" and failed_record.active_generation is None
 
 
 if __name__ == "__main__":
