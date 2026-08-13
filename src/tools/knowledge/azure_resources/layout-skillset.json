@@ -1,0 +1,8 @@
+{
+  "name":"knowledge-layout-skillset",
+  "skills":[
+    {"@odata.type":"#Microsoft.Skills.Util.DocumentIntelligenceLayoutSkill","name":"layout","context":"/document","outputMode":"oneToMany","outputFormat":"text","extractionOptions":["locationMetadata"],"chunkingProperties":{"unit":"characters","maximumLength":2000,"overlapLength":200},"inputs":[{"name":"file_data","source":"/document/file_data"}],"outputs":[{"name":"text_sections","targetName":"chunks"}]},
+    {"@odata.type":"#Microsoft.Skills.Text.AzureOpenAIEmbeddingSkill","name":"embedding","context":"/document/chunks/*","resourceUri":"${AZURE_OPENAI_ENDPOINT}","deploymentId":"${AZURE_OPENAI_EMBEDDING_DEPLOYMENT}","modelName":"${AZURE_OPENAI_EMBEDDING_MODEL}","dimensions":"${AZURE_OPENAI_EMBEDDING_DIMENSIONS}","inputs":[{"name":"text","source":"/document/chunks/*/content"}],"outputs":[{"name":"embedding","targetName":"vector"}]}
+  ],
+  "indexProjections":{"selectors":[{"targetIndexName":"${AZURE_SEARCH_INDEX}","parentKeyFieldName":"parent_id","sourceContext":"/document/chunks/*","mappings":[{"name":"content","source":"/document/chunks/*/content"},{"name":"content_vector","source":"/document/chunks/*/vector"},{"name":"page_number","source":"/document/chunks/*/locationMetadata/pageNumber"},{"name":"title","source":"/document/metadata_storage_name"},{"name":"source_path","source":"/document/source_path"},{"name":"access_groups","source":"/document/access_groups"}]}],"parameters":{"projectionMode":"skipIndexingParentDocuments"}}
+}

@@ -102,8 +102,17 @@
 ## D012 — Azure Hybrid RAG uses one incremental ingestion core
 
 - Date: 2026-08-12
+- Status: superseded by D013
+- Context: Initial design prioritized deterministic locators and generation activation before proving Azure managed ingestion.
+- Decision: Project-owned extraction, chunking, embedding, Search push, and generation manifest were selected.
+- Consequences: Early implementation duplicated supported Azure services and SDK behavior.
+- Revisit when: Never; D013 replaces this decision after official Azure feature research.
+
+## D013 — Azure owns Knowledge Base ingestion and retrieval primitives
+
+- Date: 2026-08-13
 - Status: accepted
-- Context: Customer requires multi-format internal Q&A, scanned-PDF OCR, verifiable citations, rerunnable updates, and conflict disclosure. Inputs must work from Telegram and a managed local folder, with UI later. Initial corpus is 20–50 documents and the real evaluation set is not available yet.
-- Decision: Use one event-triggered incremental ingestion core backed by Azure Blob Storage, Azure AI Search, Azure Document Intelligence for scan/layout, and Azure OpenAI embeddings. Project code selects extraction, preserves citation locators, chunks, embeds, and pushes versioned batches to Search instead of treating Blob Indexer as a conditional Document Intelligence router. Retrieval uses BM25 plus vector search merged by RRF; Semantic Ranker is configurable in project-owned RAG config and disabled by default. Telegram add/replace/delete and managed-folder sync reuse the core; replace/delete require confirmation. Conflicts show all sources without implicit precedence.
-- Consequences: The smallest Azure stack covers source storage, OCR, embeddings, and hybrid retrieval while project code owns deterministic extraction, chunk lifecycle, citation, conflict, and safety policy. Knowledge freshness begins only after successful Search batch verification, not on an unobserved filesystem change. V1 `access_groups` is an application query filter, not Entra document-level authorization. Local V1 API keys remain operator-managed secrets; Azure-hosted production should migrate to Managed Identity.
-- Revisit when: The real 10-question evaluation shows hybrid retrieval is insufficient; an approved freshness SLO requires a scheduler or watcher; multiple access domains require Entra authorization; measured multi-hop or relation-heavy failures justify Agentic Retrieval or Graph RAG; or Azure hosting permits Managed Identity.
+- Context: Azure AI Search supports Blob indexers, Document Intelligence Layout Skill, Text Split Skill, Azure OpenAI Embedding Skill, Index Projections, integrated query vectorization, hybrid RRF retrieval, and soft-delete propagation. Handwritten parsing, chunking, embedding orchestration, HTTP retries, and generation manifests duplicate managed capabilities without evidence that Hermes needs custom behavior.
+- Decision: Use Azure-managed ingestion and classic hybrid retrieval. Hermes only validates Telegram/folder operations, uploads or deletes Blobs with access metadata, triggers and observes the indexer, maps Search results to `EvidenceResult`, and owns answer/citation policy. Use official Azure SDKs. Keep Semantic Ranker optional and Agentic Retrieval deferred. Treat Layout Skill availability and locator fidelity as Layer 3 gates.
+- Consequences: Delete app-owned parser, chunker, embedding loop, raw Azure HTTP client, and manifest lifecycle. Azure resource definitions become source-controlled behavior. Do not claim exact format locators or production readiness before real region/tier and corpus verification.
+- Revisit when: Azure E2E proves a required format or locator unavailable, real evaluation proves classic hybrid insufficient, or production identity requires Managed Identity migration.

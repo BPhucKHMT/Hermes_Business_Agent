@@ -1,0 +1,1 @@
+{"name":"knowledge-text-source","type":"azureblob","credentials":{"connectionString":"${AZURE_STORAGE_CONNECTION_STRING}"},"container":{"name":"${AZURE_STORAGE_TEXT_CONTAINER}"},"dataDeletionDetectionPolicy":{"@odata.type":"#Microsoft.Azure.Search.NativeBlobSoftDeleteDeletionDetectionPolicy"}}
