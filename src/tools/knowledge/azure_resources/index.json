@@ -1,0 +1,21 @@
+{
+  "name": "${AZURE_SEARCH_INDEX}",
+  "fields": [
+    {"name":"chunk_id","type":"Edm.String","key":true,"filterable":true,"analyzer":"keyword"},
+    {"name":"parent_id","type":"Edm.String","filterable":true},
+    {"name":"content","type":"Edm.String","searchable":true},
+    {"name":"content_vector","type":"Collection(Edm.Single)","searchable":true,"dimensions":"${AZURE_OPENAI_EMBEDDING_DIMENSIONS}","vectorSearchProfile":"knowledge-vector-profile"},
+    {"name":"title","type":"Edm.String","searchable":true},
+    {"name":"source_path","type":"Edm.String","filterable":true},
+    {"name":"access_groups","type":"Collection(Edm.String)","filterable":true},
+    {"name":"document_version","type":"Edm.String","filterable":true},
+    {"name":"effective_date","type":"Edm.String","filterable":true},
+    {"name":"page_number","type":"Edm.Int32","filterable":true},
+    {"name":"section_heading","type":"Edm.String","searchable":true},
+    {"name":"slide_number","type":"Edm.Int32","filterable":true},
+    {"name":"sheet_name","type":"Edm.String","filterable":true},
+    {"name":"cell_range","type":"Edm.String","filterable":true}
+  ],
+  "vectorSearch":{"algorithms":[{"name":"knowledge-hnsw","kind":"hnsw"}],"profiles":[{"name":"knowledge-vector-profile","algorithm":"knowledge-hnsw","vectorizer":"knowledge-vectorizer"}],"vectorizers":[{"name":"knowledge-vectorizer","kind":"azureOpenAI","azureOpenAIParameters":{"resourceUri":"${AZURE_OPENAI_ENDPOINT}","deploymentId":"${AZURE_OPENAI_EMBEDDING_DEPLOYMENT}","modelName":"${AZURE_OPENAI_EMBEDDING_MODEL}"}}]},
+  "semantic":{"configurations":[{"name":"knowledge-semantic","prioritizedFields":{"titleField":{"fieldName":"title"},"prioritizedContentFields":[{"fieldName":"content"}],"prioritizedKeywordsFields":[]}}]}
+}
