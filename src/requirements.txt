@@ -1,2 +1,0 @@
-azure-search-documents>=11.6,<12
-azure-storage-blob>=12.25,<13

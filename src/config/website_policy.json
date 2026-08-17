@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "crawl_budget": {
+    "wall_clock_seconds": 900,
+    "download_bytes": 104857600,
+    "content_asset_bytes": 52428800,
+    "screenshot_bytes": 20971520,
+    "consecutive_no_progress": 5,
+    "navigation_actions": 500,
+    "network_requests": 5000
+  },
+  "capture": {"images": "relevant", "canvas": "when_semantic", "media": "metadata_only"}
+}
