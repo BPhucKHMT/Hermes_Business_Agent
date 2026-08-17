@@ -17,11 +17,30 @@ terminal:
 skills:
   external_dirs:
     - <absolute path to this workspace>/skills
+
+plugins:
+  enabled:
+    - telegram-album
 ```
 
-Start a new Hermes session with this workspace configured. Use
-`/hermes-project` for capability routing or `/research` for evidence-grounded
-manual research over public web sources and user-supplied documents.
+Set `HERMES_ENABLE_PROJECT_PLUGINS=1` in the operator environment. This opts into trusted code under `.hermes/plugins/`; never enable project plugins from an untrusted workspace. Restart Hermes after changing either setting.
+
+## Python Tool Runtime
+
+Install [uv](https://docs.astral.sh/uv/getting-started/installation/) on the host, then bootstrap the locked Python 3.12 environment and Chromium once after each deployment update:
+
+```text
+Windows: setup.cmd
+Linux:   chmod +x setup.sh && ./setup.sh
+```
+
+Do not copy or commit `.venv`; uv recreates it from `.python-version`, `pyproject.toml`, and `uv.lock`. Skills invoke project tools with `uv run --frozen python ...`, so their interpreter and dependencies do not depend on the Python used by Hermes itself. Operator setup owns dependency and browser installation; chat-driven agents must not run `uv sync`, modify the lockfile, or install packages.
+
+Start a new Hermes session with this workspace configured. Use `/hermes-project` for capability routing, `/research` for public-web evidence or current-response document analysis, and `/hermes-azure-rag` when approved documents must persist beyond the current response or a question uses retained company knowledge. Durable attachments go to Azure and must not fall back to generic memory or OCR.
+
+All bot users share the fixed `internal` knowledge group in V1. The CLI does
+not accept access groups from chat. Every user may search and manage documents;
+delete still requires explicit confirmation of the exact source path.
 
 Research keeps ordinary runs in session only. Durable dossiers require an
 explicit `save`, `track`, or `watch` request; V1 records watch intent but does

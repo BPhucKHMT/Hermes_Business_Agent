@@ -27,16 +27,15 @@ capabilities and refuses to claim unimplemented capabilities work.
 Use this skill to inspect available Hermes capabilities or select a suitable
 skill under `skills/`.
 
-Route public-web, supplied-document, competitor, market, or due-diligence
-research to the `research` skill. Knowledge Q&A, decks, lead qualification,
-invoices, Slack, ingestion, payments, scheduled research, and Gmail delivery
-are not supported yet.
+Route by requested evidence and data lifecycle. Public-web evidence and current-response supplied-document analysis belong to `research`. Approved documents that must outlive the current response, questions about retained company knowledge, and its update or deletion belong to `hermes-azure-rag`. A public URL plus `save`, `retain`, `ingest`, `lưu`, or `knowledge base` intent must use the `hermes-azure-rag` Website Lifecycle; never convert the page into a generic Markdown upload. Follow-ups stay with retained knowledge unless the user explicitly asks for refresh, comparison with the live source, current-web verification, or new research. A retrieval gap does not change routing and must not trigger browser/web extraction. If current-only versus durable use is unclear, ask one lifecycle question. Never substitute generic memory, OCR, Telegram cache operations, or direct source rereading for durable knowledge.
+
+Decks, lead qualification, invoices, Slack, payments, scheduled research, and Gmail delivery are not supported yet.
 
 ## Procedure
 
 1. Read `AGENTS.md` in the current workspace.
 2. Inspect skills and capabilities present under `skills/`.
-3. Route supported research requests to `research` and follow its confirmation, evidence, citation, and persistence rules.
+3. Route supported research requests to `research` and authorized internal knowledge requests to `hermes-azure-rag`; follow the selected skill's evidence, citation, authorization, and persistence rules.
 4. If a capability is absent, state that it is unsupported; do not simulate success.
 5. For an available capability, use the smallest file scope and permission set.
 6. Before real knowledge or research output, verify citation/provenance.

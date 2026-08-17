@@ -1,0 +1,8 @@
+name: telegram-album
+label: Telegram Album Reliability Override
+kind: platform
+version: 0.1.0
+description: Project-local Telegram adapter override that keeps in-flight album siblings in one event.
+author: Hermes project team
+requires_env:
+  - TELEGRAM_BOT_TOKEN

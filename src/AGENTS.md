@@ -23,8 +23,9 @@ and other runtime-owned files belong in this workspace.
 ## Current Capability
 
 - `/hermes-project` coordinates requests within capabilities present in `skills/`.
-- `/research` defines evidence-grounded manual research over public web sources and user-supplied documents. Runtime and connector verification may still be pending; report limitations truthfully.
-- No project-owned MCP, deep-research provider, database, ingestion, web UI, Slack, sales, deck, invoice, cron-research, or Gmail integration exists yet.
+- `/research` defines evidence-grounded manual research over public web sources and user-supplied documents.
+- `/hermes-azure-rag` defines authorized Azure-managed company knowledge search and document lifecycle. Future-Q&A persistence must not use generic memory or OCR. Telegram release verification may still be pending; report limitations truthfully.
+- No project-owned MCP, deep-research provider, web UI, Slack, sales, deck, invoice, cron-research, or Gmail integration exists yet.
 - Do not claim an unverified integration works.
 
 ## Operating Rules
