@@ -85,7 +85,33 @@ def layer_1():
     ))
     assert "`hermes-azure-rag`" in coordinator
     assert all(value in coordinator for value in ("must use the `hermes-azure-rag` Website Lifecycle", "never convert the page into a generic Markdown upload", "retrieval gap does not change routing"))
+    routing_contract = (
+        "first matching route wins", "fresh session", "retained-knowledge candidate",
+        "public website", "hôm nay", "hiện tại", "mới nhất", "vừa cập nhật",
+        "stable general knowledge", "transform the supplied input", "one bounded KB attempt",
+        "explicit consent before web", "wrong facet", "document_version", "effective_date",
+    )
+    assert all(value in coordinator + skill for value in routing_contract)
+    assert all(value in coordinator for value in (
+        "1 project ở Titan AI thường cần nhiêu tiền", "Giá Titan AI mới nhất hôm nay",
+        "RAG là gì?", "Dịch đoạn này",
+    ))
+    assert all(value in skill for value in (
+        "original query", "at most two short query variants", "Merge evidence by `chunk_id`",
+        "no_evidence", "requested facet", "ask whether the user wants live web research",
+    ))
     assert "/hermes-azure-rag" in agents and "/hermes-azure-rag" in readme
+    agents_routing = (
+        "Source Routing", "first matching route wins", "fresh session",
+        "retained-knowledge candidate", "hôm nay", "hiện tại", "mới nhất", "vừa cập nhật",
+        "stable general knowledge", "no silent web fallback",
+        "1 project ở Titan AI thường cần nhiêu tiền", "Giá Titan AI mới nhất hôm nay",
+        "RAG là gì?", "Dịch đoạn này",
+        "no_evidence", "wrong facet", "explicit consent before web",
+        "retrieval gap does not change routing",
+    )
+    assert all(value in agents for value in agents_routing), \
+        [v for v in agents_routing if v not in agents]
     cli = (TOOLS / "knowledge.py").read_text(encoding="utf-8")
     assert 'add_argument("--access-group"' not in cli
     assert 'INTERNAL_GROUP = "internal"' in cli
