@@ -74,6 +74,8 @@ When the user asks to see an extracted image, rendered page, recreated diagram, 
 
 Upload or update only after explicit durable intent. Confirm the source path before replacement. Upload every intended original attachment with `uv run --frozen python tools/knowledge/knowledge.py upload "<cached-path>"`. Trigger only indexers relevant to the uploaded pipelines, then poll `status`. Report receipt and per-file progress for multi-file requests. Report ready only when every intended upload succeeded, each relevant indexer reports `success`, and search returns evidence attributable to every intended source. Report timeout, partial failure, errors, and warnings truthfully. Never claim a file is remembered, saved, indexed, or available for future Q&A based only on generic memory, session history, Telegram cache presence, or indexer success alone.
 
+> **Image indexer note:** When `HERMES_IMAGE_INDEXER=false` (operator-set in `.env`), the tool automatically skips image asset uploads and omits the image indexer from all runs and `status` output. Do not treat the absence of `AZURE_SEARCH_IMAGE_INDEXER` in the status response as an error. The `layout` and `text` indexers remain active and are sufficient for text-based knowledge.
+
 Delete is destructive external state. Require explicit confirmation of the exact source path, run `delete`, then `index`, poll `status`, and search for the deleted content. Report complete only after stale evidence is absent. Silence, denial, or timeout is never confirmation.
 
 ## Website Lifecycle
@@ -82,7 +84,11 @@ Treat website ingestion as adaptive agent work, not a crawler recipe. Project-ow
 
 A URL enters this workflow only when the user clearly asks to retain, ingest, or save it as company knowledge. A URL supplied for research or a current response must not mutate Azure. Clear durable intent authorizes autonomous ingestion; ask again only for a risky boundary, credentials, an operator-budget increase, or removal of retained content.
 
-1. **Trusted crawl and capture:** Run `uv run --frozen python tools/knowledge/knowledge.py web-crawl "<public-url>"`. This exact `uv run --frozen` prefix is mandatory for every knowledge command. If `uv` is unavailable or the locked environment is missing, stop and report an operator runtime error; never retry with `python`, `py`, another interpreter, or another crawler. Project-owned Crawl4AI renders each approved route and produces clean Markdown, links, media metadata, and screenshots; project policy retains same-origin discovery, convergence, URL safety, resource accounting, and artifact binding. Do not inspect crawler source files or manually create/edit `.runtime` observation, frontier, or capture JSON during ordinary ingestion.
+1. **Trusted crawl and capture:** Run `uv run --frozen python tools/knowledge/knowledge.py web-crawl "<public-url>" --scope <page|site>`. This exact `uv run --frozen` prefix is mandatory for every knowledge command. If `uv` is unavailable or the locked environment is missing, stop and report an operator runtime error; never retry with `python`, `py`, another interpreter, or another crawler. Project-owned Crawl4AI renders each approved route and produces clean Markdown, links, media metadata, and screenshots; project policy retains same-origin discovery, convergence, URL safety, resource accounting, and artifact binding. Do not inspect crawler source files or manually create/edit `.runtime` observation, frontier, or capture JSON during ordinary ingestion.
+   - **Scope Selection & Clarification:**
+     - When the user explicitly requests a single page or article, use `--scope page`.
+     - When the user explicitly requests an entire website or whole domain, use `--scope site`.
+     - When the user supplies a URL with ambiguous scope (without specifying whether to capture only that single page or crawl the whole site), the agent must ask one scope clarification question asking whether the user wants to ingest only this single page (`page`) or the entire website (`site`). You must never infer or assume `page` or `site`.
 2. **Respect the safety envelope:** Public HTTP/HTTPS and same-origin navigation only. Never send credentials or cross login, CAPTCHA, paywall, private-network, admin, checkout, form submission, upload, or destructive controls. Chat may reduce but never raise operator budgets. Emergency action/request ceilings are runaway circuit breakers, not crawl targets. There is no page-count, link-depth, or fixed scroll recipe.
 3. **Interpret routes truthfully:** URL fragments are in-page state hints. They enrich one canonical page when interaction changes content; they are not child pages by default. Distinct same-origin canonical routes require distinct trusted observations and captures.
 4. **Ingest and verify:** Run `web-ingest <validated-capture>` using the path returned by `web-crawl`. Poll `status`; after relevant indexers succeed, run `web-verify <validated-capture>`. Report ready only when browser coverage completed truthfully and Azure returns `ready` for every retained page by exact website, page, generation, and canonical URL. Report partial coverage, blocked boundaries, failed controls, and missing page IDs otherwise.
@@ -113,3 +119,29 @@ Keep Azure resource names and secrets in operator environment, topology in `azur
 - [ ] Citations use only verified locator fields.
 - [ ] Conflicts and insufficiency are explicit.
 - [ ] No secret, ACL detail, or sensitive trace was disclosed.
+
+## Workspace Isolation
+
+When operating within a named workspace (Protein Bar, Client Projects, or TITAN AI), all
+`upload` and `search` commands must include the matching `--workspace <tag>` flag to enforce
+document isolation in Azure AI Search.
+
+| Workspace | Tag |
+|---|---|
+| Protein Bar | `protein-bar` |
+| Client Projects | `client-projects` |
+| TITAN AI | `titan-ai` |
+
+Upload with workspace tag:
+```
+uv run --frozen python tools/knowledge/knowledge.py upload "<file>" --workspace protein-bar
+```
+
+Search with workspace filter:
+```
+uv run --frozen python tools/knowledge/knowledge.py search "<question>" --workspace protein-bar
+```
+
+Omit `--workspace` only when the operator explicitly requests a cross-workspace search
+(requires explicit approval) or when working outside named workspaces.
+
