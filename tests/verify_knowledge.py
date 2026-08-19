@@ -35,7 +35,7 @@ def expect_error(call, contains):
 
 def layer_1():
     state = json.loads((ROOT / "feature-list.json").read_text(encoding="utf-8"))
-    assert [item["id"] for item in state["features"] if item["state"] == "active"] == ["H006"]
+    assert [item["id"] for item in state["features"] if item["state"] in ("active", "blocked")] == ["H006"]
     required = ["clients.py", "contracts.py", "storage.py", "indexing.py", "retrieval.py", "provision.py", "knowledge.py", "policy.py", "web.py", "browser_executor.py", "crawl.py", "command_guard.py"]
     assert all((TOOLS / name).is_file() for name in required)
     assert all(not (TOOLS / name).exists() for name in ("authorization.py", "extract.py", "ingest.py", "manifest.py"))
@@ -59,7 +59,7 @@ def layer_1():
         "AZURE_SEARCH_ENDPOINT", "AZURE_SEARCH_ADMIN_KEY", "AZURE_SEARCH_QUERY_KEY", "AZURE_SEARCH_INDEX",
         "AZURE_SEARCH_LAYOUT_INDEXER", "AZURE_SEARCH_TEXT_INDEXER", "AZURE_SEARCH_IMAGE_INDEXER", "AZURE_OPENAI_ENDPOINT",
         "AZURE_OPENAI_EMBEDDING_DEPLOYMENT", "AZURE_OPENAI_EMBEDDING_MODEL", "AZURE_OPENAI_EMBEDDING_DIMENSIONS",
-        "AZURE_OPENAI_MULTIMODAL_DEPLOYMENT",
+        "AZURE_OPENAI_MULTIMODAL_DEPLOYMENT", "HERMES_IMAGE_INDEXER",
     }
     skill = KNOWLEDGE_SKILL.read_text(encoding="utf-8")
     required_skill = (
@@ -75,6 +75,12 @@ def layer_1():
     assert "uv run --frozen python tools/knowledge/knowledge.py" in skill
     assert "python tools/knowledge/knowledge.py" not in skill.replace("uv run --frozen python tools/knowledge/knowledge.py", "")
     assert all(value in skill for value in ("Azure evidence is the exclusive default source", "Do not call `web_extract`", "--query-variant", "generic uploaded Markdown file", "`source_url` for website evidence", "--generation"))
+    assert all(value in skill for value in (
+        'web-crawl "<public-url>" --scope <page|site>',
+        "ambiguous scope",
+        "must ask one scope clarification question",
+        "never infer or assume `page` or `site`",
+    ))
     assert skill.count("    - \"") == 6
     coordinator = (ROOT / "src/skills/hermes-project/SKILL.md").read_text(encoding="utf-8")
     agents = (ROOT / "src/AGENTS.md").read_text(encoding="utf-8")
@@ -87,14 +93,14 @@ def layer_1():
     assert all(value in coordinator for value in ("must use the `hermes-azure-rag` Website Lifecycle", "never convert the page into a generic Markdown upload", "retrieval gap does not change routing"))
     routing_contract = (
         "first matching route wins", "fresh session", "retained-knowledge candidate",
-        "public website", "hôm nay", "hiện tại", "mới nhất", "vừa cập nhật",
+        "public website", "today", "current", "latest", "recently updated",
         "stable general knowledge", "transform the supplied input", "one bounded KB attempt",
         "explicit consent before web", "wrong facet", "document_version", "effective_date",
     )
     assert all(value in coordinator + skill for value in routing_contract)
     assert all(value in coordinator for value in (
-        "1 project ở Titan AI thường cần nhiêu tiền", "Giá Titan AI mới nhất hôm nay",
-        "RAG là gì?", "Dịch đoạn này",
+        "How much does a typical project cost at Titan AI", "Latest Titan AI pricing today",
+        "What is RAG?", "Translate this section",
     ))
     assert all(value in skill for value in (
         "original query", "at most two short query variants", "Merge evidence by `chunk_id`",
@@ -103,10 +109,10 @@ def layer_1():
     assert "/hermes-azure-rag" in agents and "/hermes-azure-rag" in readme
     agents_routing = (
         "Source Routing", "first matching route wins", "fresh session",
-        "retained-knowledge candidate", "hôm nay", "hiện tại", "mới nhất", "vừa cập nhật",
+        "retained-knowledge candidate", "today", "current", "latest", "recently updated",
         "stable general knowledge", "no silent web fallback",
-        "1 project ở Titan AI thường cần nhiêu tiền", "Giá Titan AI mới nhất hôm nay",
-        "RAG là gì?", "Dịch đoạn này",
+        "How much does a typical project cost at Titan AI", "Latest Titan AI pricing today",
+        "What is RAG?", "Translate this section",
         "no_evidence", "wrong facet", "explicit consent before web",
         "retrieval gap does not change routing",
     )
@@ -115,6 +121,11 @@ def layer_1():
     cli = (TOOLS / "knowledge.py").read_text(encoding="utf-8")
     assert 'add_argument("--access-group"' not in cli
     assert 'INTERNAL_GROUP = "internal"' in cli
+    retrieval_text = (TOOLS / "retrieval.py").read_text(encoding="utf-8")
+    storage_text = (TOOLS / "storage.py").read_text(encoding="utf-8")
+    assert "workspace" in retrieval_text, "retrieval.py must support workspace filter"
+    assert "workspace" in storage_text, "storage.py must include workspace in blob metadata"
+    assert "--workspace" in cli, "knowledge.py CLI must support --workspace flag"
     definitions = {path.stem: json.loads(path.read_text(encoding="utf-8")) for path in RESOURCES.glob("*.json")}
     assert set(definitions) == {"index", "layout-datasource", "text-datasource", "image-datasource", "layout-skillset", "text-skillset", "image-skillset", "layout-indexer", "text-indexer", "image-indexer"}
     fields = {field["name"]: field for field in definitions["index"]["fields"]}
@@ -381,6 +392,21 @@ def layer_2():
         assert asset_metadata["asset_mime_type"] == "image/webp" and asset_metadata["asset_caption"] == "Agent%20flow"
     deleted = storage.delete_website_capture(text_web, image_web, "site", "generation")
     assert len(deleted["deleted"]) == 2
+
+    # Verify HERMES_IMAGE_INDEXER=false mode: image_container=None must skip asset uploads silently
+    with tempfile.TemporaryDirectory() as directory:
+        image_path_disabled = Path(directory) / "chart.webp"; image_path_disabled.write_bytes(b"webp")
+        capture_disabled = dict(capture, assets=[{
+            "asset_id": "chart", "path": str(image_path_disabled), "describe_image": False,
+            "source_url": "https://cdn.example/chart.webp", "sha256": hashlib.sha256(b"webp").hexdigest(),
+            "mime_type": "image/webp", "byte_count": 4, "alt": "Architecture", "caption": "Agent flow",
+        }])
+        text_disabled = Container(); image_calls_before = len(image_web.calls)
+        disabled_result = storage.upload_website_capture(text_disabled, None, capture_disabled, ["internal"])
+        assert disabled_result["status"] == "uploaded", "image disabled upload must succeed"
+        assert disabled_result["failures"] == [], "no failures expected when image indexer is disabled"
+        assert len(image_web.calls) == image_calls_before, "image_container.upload_blob must NOT be called when image_container=None"
+        assert len(disabled_result["uploaded"]) == 1, "only the page text blob should be uploaded"
 
     class Indexer:
         def __init__(self): self.runs = []

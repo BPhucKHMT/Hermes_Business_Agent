@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Iterable, Mapping
+from typing import Iterable, Mapping, Optional
 from urllib.parse import quote
 
 from contracts import validate_source_path
@@ -21,12 +21,15 @@ def _metadata(values: Mapping[str, object]) -> dict[str, str]:
     return {str(key): quote(str(value), safe="-._~:/[]\"") for key, value in values.items()}
 
 
-def upload_source(layout_container, text_container, source_path: str, content: bytes, access_groups: Iterable[str]) -> Mapping[str, object]:
+def upload_source(layout_container, text_container, source_path: str, content: bytes, access_groups: Iterable[str], workspace: Optional[str] = None) -> Mapping[str, object]:
     path = validate_source_path(source_path); groups = _groups(access_groups)
     pipeline = "layout" if "." + path.rsplit(".", 1)[-1].lower() in LAYOUT_SUFFIXES else "text"
     container = layout_container if pipeline == "layout" else text_container
-    container.upload_blob(path, content, overwrite=True, metadata={"source_path": path, "display_name": path.rsplit("/", 1)[-1], "access_groups": json.dumps(groups, separators=(",", ":"))})
-    return {"status": "uploaded", "pipeline": pipeline, "source_path": path, "access_groups": groups}
+    meta = {"source_path": path, "display_name": path.rsplit("/", 1)[-1], "access_groups": json.dumps(groups, separators=(",", ":"))}
+    if workspace:
+        meta["workspace"] = workspace.strip().lower()
+    container.upload_blob(path, content, overwrite=True, metadata=meta)
+    return {"status": "uploaded", "pipeline": pipeline, "source_path": path, "access_groups": groups, "workspace": workspace}
 
 
 def delete_source(layout_container, text_container, source_path: str) -> Mapping[str, str]:
@@ -46,6 +49,9 @@ def upload_website_capture(text_container, image_container, capture: dict, acces
     body = ("# %s\n\n%s\n" % (title, capture.get("rendered_text", ""))).encode("utf-8")
     text_container.upload_blob(source_path, body, overwrite=True, metadata=metadata)
     uploaded, failures = [source_path], []
+    if image_container is None:
+        # Image indexer disabled (HERMES_IMAGE_INDEXER=false) — skip asset uploads.
+        return {"status": "uploaded", "website_id": website_id, "generation": generation, "uploaded": uploaded, "failures": failures}
     for asset in capture.get("assets", []):
         try:
             path = Path(str(asset.get("path", ""))); suffix = path.suffix.lower()

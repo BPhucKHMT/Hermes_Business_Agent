@@ -14,7 +14,8 @@ SELECT_FIELDS = [
 def knowledge_search(client, query: str, access_groups: Iterable[str], top_k: int = 8,
                      semantic_configuration: str = "knowledge-semantic",
                      source_path: Optional[str] = None, website_id: Optional[str] = None,
-                     generation: Optional[str] = None) -> EvidenceResult:
+                     generation: Optional[str] = None,
+                     workspace: Optional[str] = None) -> EvidenceResult:
     query = query.strip(); groups = sorted({group.strip() for group in access_groups if group.strip()})
     if not query or not groups or top_k < 1 or (source_path and website_id) or (generation and not website_id):
         raise ValueError("query, access groups, valid top_k, and at most one valid source scope are required")
@@ -25,6 +26,8 @@ def knowledge_search(client, query: str, access_groups: Iterable[str], top_k: in
         filters.append("website_id eq '%s'" % website_id.replace("'", "''"))
     if generation:
         filters.append("generation eq '%s'" % generation.replace("'", "''"))
+    if workspace:
+        filters.append("workspace eq '%s'" % workspace.strip().lower().replace("'", "''"))
     options = {
         "search_text": query,
         "vector_queries": [VectorizableTextQuery(text=query, k_nearest_neighbors=top_k, fields="content_vector")],
@@ -44,13 +47,14 @@ def knowledge_search(client, query: str, access_groups: Iterable[str], top_k: in
 
 def knowledge_search_many(client, queries: Iterable[str], access_groups: Iterable[str], top_k: int = 8,
                           semantic_configuration: str = "knowledge-semantic", source_path: Optional[str] = None,
-                          website_id: Optional[str] = None, generation: Optional[str] = None) -> EvidenceResult:
+                          website_id: Optional[str] = None, generation: Optional[str] = None,
+                          workspace: Optional[str] = None) -> EvidenceResult:
     variants = list(dict.fromkeys(query.strip() for query in queries if query and query.strip()))
     if not 1 <= len(variants) <= 3:
         raise ValueError("one to three query variants are required")
     merged, warnings = {}, []
     for query in variants:
-        result = knowledge_search(client, query, access_groups, top_k, semantic_configuration, source_path, website_id, generation)
+        result = knowledge_search(client, query, access_groups, top_k, semantic_configuration, source_path, website_id, generation, workspace=workspace)
         warnings.extend(result.warnings)
         for item in result.evidence:
             merged.setdefault(item.chunk_id, item)
