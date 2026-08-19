@@ -27,7 +27,7 @@ def knowledge_search(client, query: str, access_groups: Iterable[str], top_k: in
     if generation:
         filters.append("generation eq '%s'" % generation.replace("'", "''"))
     if workspace:
-        filters.append("workspace eq '%s'" % workspace.strip().lower().replace("'", "''"))
+        filters.append("search.ismatch('%s', 'source_path')" % workspace.strip().lower().replace("'", "''"))
     options = {
         "search_text": query,
         "vector_queries": [VectorizableTextQuery(text=query, k_nearest_neighbors=top_k, fields="content_vector")],
@@ -75,7 +75,7 @@ def _evidence(item) -> Evidence:
         evidence_type=item.get("evidence_type"),
         document_version=item.get("document_version"),
         effective_date=item.get("effective_date"),
-        page_number=item.get("page_number"),
+        page_number=None if item.get("source_path", "").lower().endswith(".docx") else item.get("page_number"),
         section_heading=item.get("section_heading"),
         slide_number=item.get("slide_number"),
         sheet_name=item.get("sheet_name"),
