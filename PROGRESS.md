@@ -128,3 +128,34 @@
 - A bounded KB attempt now means the original query plus at most two short query variants in one repair command. Evidence must cover the requested facet. Remaining `no_evidence` or wrong-facet results report insufficiency and require explicit user consent before live-web research; version/effective-date conflicts remain explicit.
 - TDD evidence: new Layer 1 routing assertions failed before skill changes at 2026-08-17T09:04:43Z, then passed at 2026-08-17T09:07:28Z. Full regression gates passed at 2026-08-17T09:07:50Z: uv lock, knowledge Layer 2, research Layer 1/2, Telegram album, compileall, and `git diff --check`, exit 0; expected Azure SDK subtype and line-ending warnings only.
 - H006 remains `active`. Static contract tests do not prove model tool choice. Unblock this routing slice with fresh Telegram tool traces for retained hit, no-evidence/wrong-facet consent gate, explicit live query, stable general knowledge, and transform-only prompts.
+
+## 2026-08-18 Image indexer disabled (quota throttling fix)
+
+- Azure image indexer (`knowledge-image-indexer`) was blocking crawl pipeline due to Azure Cognitive Services free-tier quota exhaustion (20 docs/day). Indexer entered `transientfailure` and retried indefinitely, stalling the entire `web-ingest` flow.
+- Added `HERMES_IMAGE_INDEXER` env var (default `true`). Set to `false` in `src/.env` to disable image asset uploads and image indexer runs without removing any code.
+- Changed files: `src/tools/knowledge/knowledge.py` (4 gate points), `src/tools/knowledge/storage.py` (early return when `image_container=None`), `src/.env`, `src/.env.example`, `src/skills/hermes-azure-rag/SKILL.md` (note in Document Lifecycle), `tests/verify_knowledge.py` (Layer 1 env set + Layer 2 None-container test case).
+- All 4 verification gates re-run and confirmed pass at 2026-08-18T04:56:49Z, exit 0: knowledge Layer 1/2, research Layer 1/2; expected Azure SDK subtype warning only.
+- Gateway restarted to pick up new env var. `layout` and `text` indexers remain active and sufficient for all text-based knowledge workflows.
+- To re-enable image indexing: set `HERMES_IMAGE_INDEXER=true` in `src/.env` and restart gateway. No code changes needed.
+
+## 2026-08-19 Project Hermes v2 Build Doc assimilation
+
+- Read and analyzed full specification from `docs/Project_Hermes_v2_Build_Doc.docx` (August 2026, prepared by Klaus), which supersedes the initial 2-week intern brief.
+- Updated `requirement_customer.md` to reflect the comprehensive AI Chief of Staff & Sub-Agent Fleet vision: 3 isolated business workspaces (Protein Bar [doors open 8 Dec 2026], Client Projects, TITAN AI), 5-layer logical isolation, 13 sub-agent fleet, 4 autonomy tiers (Tier 0-3), machine-verifiable evidence layer, proactive engine & ADHD support, 5-layer memory architecture, and 6+2 week rollout plan.
+- Updated `DECISIONS.md` with durable architectural decisions D014 (Single agent with 5-layer workspace isolation vs 3 separate bots), D015 (Workspace priority rollout order: Protein Bar > Client Projects > TITAN AI), D016 (4-tier autonomy with no silent money movement), D017 (Independent machine-verifiable evidence layer), and D018 (Layered memory architecture & Obsidian vault).
+- Updated `AGENTS.md` Reference Map to include `docs/Project_Hermes_v2_Build_Doc.docx`.
+- Verified H002 requirements assertions in `feature-list.json`: `requirements verification: PASS`.
+- All verification layers re-confirmed: knowledge Layer 1/2, research Layer 1/2, `python -m json.tool feature-list.json`, and `git diff --check`.
+
+## 2026-08-19 Protein Bar Workspace Scaffold & Azure RAG Isolation
+
+- Implemented the first fully isolated business workspace (`protein-bar`) grounded in Klaus's authentic documents (`protein_bar_master_plan.docx`, `protein_bar_budget_plan.xlsx`, `Protein Cafe.xlsx`).
+- Added `--workspace <tag>` CLI argument and blob metadata support in `storage.py` and `knowledge.py`.
+- Added OData filter `search.ismatch('<workspace>', 'source_path')` in `retrieval.py` for scoped multi-workspace search without index schema modifications. Fixed DOCX page_number mapping (`page_number=None`) to strictly satisfy `contracts.py` invariant.
+- Updated `src/skills/hermes-azure-rag/SKILL.md` with workspace isolation guidance.
+- Created `protein-bar` Hermes profile via CLI (`hermes profile create protein-bar --clone`) with `terminal.cwd=src` and local skills directory, plus authentic `SOUL.md` persona enforcing Tier 2 Draft-Only landlord policy and 8 Dec 2026 opening date.
+- Uploaded all 3 authentic files to Azure AI Search layout pipeline; Layout indexer succeeded with zero errors.
+- Verified positive scoped search (`--workspace protein-bar` returns relevant master plan and setup budget evidence) and negative cross-workspace isolation (`--workspace titan-ai` returns `no_evidence` with 0 chunks).
+- Created interactive HTML workflow dashboard at `docs/plan/protein_bar_workflow.html`.
+- Verification gates passed: `verify_knowledge.py --layer 1` (exit 0) and `--layer 2` (exit 0). Added D019 to `DECISIONS.md`.
+

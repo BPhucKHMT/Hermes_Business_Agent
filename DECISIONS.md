@@ -116,3 +116,61 @@
 - Decision: Use Azure-managed ingestion and classic hybrid retrieval. Hermes only validates Telegram/folder operations, uploads or deletes Blobs with access metadata, triggers and observes the indexer, maps Search results to `EvidenceResult`, and owns answer/citation policy. Use official Azure SDKs. Keep Semantic Ranker optional and Agentic Retrieval deferred. Treat Layout Skill availability and locator fidelity as Layer 3 gates.
 - Consequences: Delete app-owned parser, chunker, embedding loop, raw Azure HTTP client, and manifest lifecycle. Azure resource definitions become source-controlled behavior. Do not claim exact format locators or production readiness before real region/tier and corpus verification.
 - Revisit when: Azure E2E proves a required format or locator unavailable, real evaluation proves classic hybrid insufficient, or production identity requires Managed Identity migration.
+
+## D014 — Single Agent Instance Serving Three Workspaces
+
+- Date: 2026-08-19
+- Status: accepted
+- Context: Project Hermes v2 serves three distinct businesses (Protein Bar, Client Projects, TITAN AI) plus HQ/Unsorted. A choice existed between deploying three separate bots or a single unified agent with logical isolation.
+- Decision: Run a single Hermes Agent instance serving all three workspaces with five enforced isolation layers in code: 1) Channel/contact binding before inference, 2) Ask-don't-guess when ambiguous, 3) Scoped subagent retrieval in code, 4) Mandatory `workspace` field on all state records, and 5) 20-prompt adversarial context-bleed audit.
+- Consequences: Unified morning brief, cross-business prioritisation, single decision-debt queue, unified preference/style store, and one deployment footprint. Context bleed is prevented by structural enforcement rather than prompt politeness.
+- Revisit when: Hard legal separation or partner divestiture requires physically separated instances.
+
+## D015 — Workspace Priority Rollout Order
+
+- Date: 2026-08-19
+- Status: accepted
+- Context: Building 13 sub-agent capabilities across 3 businesses requires a disciplined rollout sequence to avoid stalled parallel work.
+- Decision: Prioritize workspaces in strict order: 1) Protein Bar (hard unmovable opening date: 8 Dec 2026, highest time-sensitivity for suppliers, lease, and licensing), 2) Client Projects (live external revenue and client commitments, e.g. TWJ app), 3) TITAN AI (richest content and agency operations, onboards after core engine is proven).
+- Consequences: Core engine (routing, memory, daily sync, approval gate, verifier) is proven first on Protein Bar before onboarding subsequent workspaces. Runtime Top-3 scoring weights Protein Bar highest until 8 Dec 2026.
+- Revisit when: Protein Bar launch gate completes on 8 Dec 2026.
+
+## D016 — Four-Tier Autonomy System with Zero Silent Money Movement
+
+- Date: 2026-08-19
+- Status: accepted
+- Context: LLM agents acting in operational business contexts risk catastrophic errors if allowed unbounded external actions.
+- Decision: Enforce four autonomy tiers in the action executor: Tier 0 (Silent/Internal), Tier 1 (Do & Report in brief), Tier 2 (Draft & Approve via 1-tap Telegram/dashboard), Tier 3 (Human Only). All external communications, invoices, bookings, and landlord negotiations start at Tier 2. Landlord negotiations remain permanently draft-only. Money movement, payments, and legal signing are permanently Tier 3 (Hermes never moves money). Trust graduation to Tier 1 requires ≥95% unedited approval rate over 2+ weeks (≥10 volume) with instant demotion on any error.
+- Consequences: Safe automation envelope. High-risk actions cannot be bypassed by prompt injection or model hallucination.
+- Revisit when: Operator updates the approved tier matrix.
+
+## D017 — Multi-Level Independent Machine-Verifiable Evidence Layer
+
+- Date: 2026-08-19
+- Status: accepted
+- Context: LLM agents frequently suffer from false-completion hallucination (claiming "done" without executing or verifying the actual external state).
+- Decision: No action is marked "done" without machine-verifiable evidence declared up-front (Gmail message ID, Calendar event ID, Notion block ID, PDF URL, execution ID, PNR). A deterministic verifier separate from the executing agent checks evidence against the target system via API. "No evidence = not done" with one retry then human escalation. End-of-day reconciliation diffs claimed actions against reality, and 10% daily spot-checks run continuously.
+- Consequences: Eliminates silent failure. State DB and dashboard maintain an objective reliability scoreboard.
+- Revisit when: Target third-party systems deprecate read APIs or require webhook-only verification.
+
+## D018 — Layered Memory Architecture and Obsidian-Compatible Vault
+
+- Date: 2026-08-19
+- Status: accepted
+- Context: Relying solely on chat history or a single database creates context drift and opaque state.
+- Decision: Implement a 5-layer memory architecture: 1) Native platform memory (MEMORY.md/USER.md), 2) Small structured state DB (9 tables: workspaces, contacts, tasks, threads, events, approvals, evidence, ledger, audit_log), 3) Per-workspace file-based KB, 4) Human-readable Obsidian-compatible Markdown vault synced to Drive+Git (Klaus can read/edit directly), and 5) Preference/style store updated by diffing draft edits.
+- Consequences: High continuity across sessions ("where were we on X"), total auditability, and resilience against platform loss.
+- Revisit when: Workspace document corpus exceeds file-retrieval latency thresholds and justifies vector migration.
+
+## D019 — Multi-Workspace Isolation via Azure AI Search Tagging and Hermes Profiles
+
+- Date: 2026-08-19
+- Status: accepted
+- Context: Project Hermes v2 requires strict isolation between Protein Bar, Client Projects, and TITAN AI to prevent cross-business context bleeding and confidential data leakage.
+- Decision: Enforce isolation across the entire stack:
+  1) Runtime Profile Layer: Dedicated profile created via `hermes profile create <workspace> --clone` with custom `SOUL.md` persona, rules, and `terminal.cwd` pointing to `src/`.
+  2) Blob Storage Layer: Documents stored under `<workspace>/<filename>` hierarchy with `workspace=<tag>` metadata.
+  3) Search Retrieval Layer: `knowledge.py` and `retrieval.py` accept `--workspace <tag>` and apply `search.ismatch('<tag>', 'source_path')` additive OData filter.
+- Consequences: 100% data isolation proven: searches scoped to `protein-bar` retrieve authentic Master Plan / Budget chunks, while cross-workspace queries (`titan-ai`) return `no_evidence` (0 chunks).
+- Revisit when: New workspaces (e.g. Client Projects, TITAN AI) are onboarded.
+
