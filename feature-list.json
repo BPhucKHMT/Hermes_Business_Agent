@@ -159,10 +159,42 @@
         "layer_2": "python tests/verify_knowledge.py --layer 2",
         "layer_3": "fresh Hermes process, approved Azure resources, and approved Telegram chat complete docs/plan/Rag.md End-to-End Release Checklist A-G"
       },
-      "state": "active",
+      "state": "blocked",
       "evidence": null,
-      "blocked": null,
+      "blocked": "Azure Cognitive Services free-tier quota (20 docs/day) exhausted; image indexer enters transientfailure and blocks web-ingest pipeline. HERMES_IMAGE_INDEXER=false applied as workaround. Unblock condition: operator provisions billable Azure Cognitive Services resource or quota resets and independent verifier runs Telegram Layer 3 E2E.",
       "depends_on": ["H005"]
+    },
+    {
+      "id": "H007",
+      "title": "Hermes operates the isolated Protein Bar workspace with Azure RAG and authentic master plan",
+      "behavior": "Hermes operates with the protein-bar profile, enforces Tier 2 Draft-Only landlord negotiation and 8 Dec 2026 opening date in SOUL.md, ingests authentic DOCX/XLSX business documents with workspace=protein-bar metadata, retrieves evidence with OData workspace filter, and guarantees 100% data isolation from other workspaces.",
+      "verification": {
+        "layer_1": "python tests/verify_knowledge.py --layer 1",
+        "layer_2": "uv run --frozen python ../tests/verify_knowledge.py --layer 2",
+        "layer_3": "docs/plan/protein_bar.md End-to-End Release Checklist A-H"
+      },
+      "state": "active",
+      "evidence": {
+        "verified_at_utc": "2026-08-19T10:18:00Z",
+        "verifier": "automated test suite plus live Azure search verification",
+        "layer_1": {
+          "command": "python tests/verify_knowledge.py --layer 1",
+          "exit_status": 0,
+          "result": "knowledge layer 1: pass"
+        },
+        "layer_2": {
+          "command": "uv run --frozen python ../tests/verify_knowledge.py --layer 2",
+          "exit_status": 0,
+          "result": "knowledge layer 2: pass"
+        },
+        "layer_3": {
+          "command": "uv run --frozen python tools/knowledge/knowledge.py search 'ngập nước Thảo Điền' --workspace titan-ai",
+          "exit_status": 0,
+          "result": "status: no_evidence, 0 chunks; positive protein-bar query returned 15 authentic chunks"
+        }
+      },
+      "blocked": null,
+      "depends_on": ["H006"]
     }
   ]
 }
