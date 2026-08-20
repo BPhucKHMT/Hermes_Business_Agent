@@ -2,7 +2,7 @@
 
 ## Scope and Context Boundary
 
-Root `C:/Hermes agent` is the coding workspace. Files outside `src/` support planning, implementation, verification, and handoff; they are not production Hermes context.
+Repository root is the coding workspace. Files outside `src/` support planning, implementation, verification, onboarding, and handoff; they are not production Hermes context.
 
 `src/` is the complete production project root, wherever this repository is deployed. Hermes runtime configuration must use operator-supplied deployment paths and may connect only to paths under the deployed `src/` directory.
 
@@ -31,6 +31,8 @@ Do not mark `passing` without independent verifier evidence.
 
 ## Required Artifacts
 
+`README.md` owns customer installation and reproduction workflow.
+`ARCHITECTURE.md` owns system boundaries, components, deployment flow, and runtime data flow.
 `CLAUDE.md` defines behavioral policy.
 `AGENTS.md` defines project workflow and verification gates.
 `feature-list.json` owns machine-readable feature state.
@@ -80,6 +82,9 @@ Confirm a fresh session can follow startup order and continue safely.
 
 ## Reference Map
 
+- `README.md`
+- `ARCHITECTURE.md`
 - `docs/Harness.docx`
 - `docs/Hermes Project.docx`
+- `docs/Project_Hermes_v2_Build_Doc.docx`
 - `docs/Tổng quan các tính năng chính của Hermes Agent.docx`

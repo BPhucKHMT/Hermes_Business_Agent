@@ -35,7 +35,10 @@ def expect_error(call, contains):
 
 def layer_1():
     state = json.loads((ROOT / "feature-list.json").read_text(encoding="utf-8"))
-    assert [item["id"] for item in state["features"] if item["state"] in ("active", "blocked")] == ["H006"]
+    features = state["features"]
+    assert all(item["state"] in {"not_started", "active", "blocked", "passing"} for item in features)
+    assert [item["id"] for item in features if item["state"] == "active"] == ["H007"]
+    assert next(item for item in features if item["id"] == "H006")["state"] == "blocked"
     required = ["clients.py", "contracts.py", "storage.py", "indexing.py", "retrieval.py", "provision.py", "knowledge.py", "policy.py", "web.py", "browser_executor.py", "crawl.py", "command_guard.py"]
     assert all((TOOLS / name).is_file() for name in required)
     assert all(not (TOOLS / name).exists() for name in ("authorization.py", "extract.py", "ingest.py", "manifest.py"))

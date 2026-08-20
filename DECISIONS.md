@@ -174,3 +174,12 @@
 - Consequences: 100% data isolation proven: searches scoped to `protein-bar` retrieve authentic Master Plan / Budget chunks, while cross-workspace queries (`titan-ai`) return `no_evidence` (0 chunks).
 - Revisit when: New workspaces (e.g. Client Projects, TITAN AI) are onboarded.
 
+## D020 — One Telegram Gateway Routes Topics to Isolated Profiles
+
+- Date: 2026-08-20
+- Status: accepted
+- Context: One Telegram bot must serve isolated business workspaces without LLM intent selecting a security boundary. Installed Hermes supports `gateway.profile_routes`, but unmatched sources fall back to default and duplicate platform credentials fail fast.
+- Decision: Run one Telegram bot token through one gateway-owned default adapter. Enable multiplexing and route approved `(platform, chat_id, thread_id)` tuples to installed isolated profiles. Secondary routed profiles must not configure the shared Telegram credential. Use top-level `telegram.require_mention: true` with `observe_unmentioned_group_messages: true`; ordinary group chatter may supply context but cannot execute. Ignore unmapped business topics until their real profiles and policies exist. Keep Azure `--workspace` filtering as defense-in-depth after profile selection.
+- Consequences: Protein Bar topic `(-1003835812097, 11)` deterministically selects `protein-bar`; TITAN AI topic `5` and General topic `1` stay ignored in the pilot. One session namespace, persona, memory, tools, and fixed RAG workspace apply after routing. Direct replies to bot remain official mention-gate triggers. Operator config and credentials remain local and uncommitted.
+- Revisit when: A real Client Projects/TITAN profile is approved, Telegram membership differs enough to require separate groups, or hard legal separation requires separate tokens/gateways.
+

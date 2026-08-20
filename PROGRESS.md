@@ -2,9 +2,9 @@
 
 ## Harness Status
 
-- Phase: H006 Azure-managed RAG active; Azure TXT/PDF ingestion, hybrid retrieval, Telegram album override, and lifecycle routing pass offline. Telegram Layer 3 remains.
-- Workspace: `C:\Hermes-Business-Agent` on `main`; old isolated worktree remains but is not current source of truth.
-- WIP limit: 1; H006 is only active feature.
+- Phase: H007 Protein Bar workspace remains `active`; Telegram topic routing, mention-only execution, restart persistence, and workspace-scoped Azure RAG passed implementer/operator Layer 3 checks. Independent verifier evidence remains required.
+- Workspace: `C:\Hermes-Business-Agent` on `main`; existing unrelated uncommitted changes remain and must not be reset.
+- WIP limit: 1; H007 is the only `active` feature. H006 remains `blocked` by Azure image-enrichment free-tier quota.
 
 ## Completed
 
@@ -159,3 +159,28 @@
 - Created interactive HTML workflow dashboard at `docs/plan/protein_bar_workflow.html`.
 - Verification gates passed: `verify_knowledge.py --layer 1` (exit 0) and `--layer 2` (exit 0). Added D019 to `DECISIONS.md`.
 
+## 2026-08-20 Protein Bar Telegram multi-profile pilot handoff
+
+- Approved architecture: one Telegram bot token, one Hermes gateway, multiplexed isolated profiles, deterministic `(platform, chat_id, thread_id)` routing. LLM intent never selects workspace/security boundary.
+- Installed Hermes authority: `C:\Users\ADMIN\AppData\Local\hermes\hermes-agent`, commit `ab173e26d2aa0300f22f5a5944c0284d732cfa8f`. Installed profiles: `default`, `protein-bar`.
+- Operator config backup before routing: `C:\Users\ADMIN\AppData\Local\hermes\config.yaml.backup-20260820-142042`. Profile env backup before credential cleanup: `C:\Users\ADMIN\AppData\Local\hermes\profiles\protein-bar\.env.backup-20260820-142349`. These are local operator artifacts; never commit them.
+- Telegram trigger config is top-level `telegram`, not `messaging.telegram`: `require_mention: true`, `exclusive_bot_mentions: true`, `mention_patterns: []`, `observe_unmentioned_group_messages: true`. Normal new messages are observed but do not execute; direct replies to bot remain official triggers.
+- Actual route: supergroup `-1003835812097`, Protein Bar topic `11` maps to profile `protein-bar`. TITAN AI topic `5` and General topic `1` are in `telegram.ignored_threads`; no TITAN profile was created or routed.
+- Gateway config enables `gateway.multiplex_profiles: true` and route `telegram-protein-bar`. Shared Telegram token is owned only by default adapter. Duplicate Telegram/WhatsApp platform keys were removed from secondary `protein-bar/.env` after backup; this fixed official `duplicate_credential` fail-fast behavior.
+- Windows lifecycle: coding-agent direct spawn was killed outside Hermes lifecycle during handshake. Reliable agent-operated restart is clean `hermes gateway stop`, then `Start-ScheduledTask -TaskName Hermes_Gateway`. Human terminal `hermes gateway restart` remains usable but should be followed by status verification.
+- Fresh restart evidence: gateway PID `7808`, `gateway_state=running`, Telegram `connected`, served profiles `[default, protein-bar]` at 2026-08-20T07:36:59Z.
+- Positive Telegram route evidence: runtime log session `agent:protein-bar:telegram:group:-1003835812097:11`; bot returned `protein-bar` before and after restart. Operator confirmed restart-persistence response.
+- Negative trigger/topic evidence: operator confirmed no reply for unmentioned Protein Bar message and mentions in ignored TITAN/General topics; no negative marker reached gateway `inbound message` logs.
+- Azure isolation command used `C:\Users\ADMIN\.local\bin\uv.exe run --frozen python tools/knowledge/knowledge.py search 'ngập nước Thảo Điền' --workspace <tag>` from `src`. `protein-bar` returned authentic evidence; `titan-ai` returned `status=no_evidence`, empty evidence, exit 0.
+- Telegram-to-RAG Layer 3 evidence: topic 11 session stayed `agent:protein-bar:...:11`, invoked knowledge tooling, and returned flooding-risk facts with citation `protein_bar_master_plan.docx — 4.1 Target zone and tiers`. Operator supplied and accepted output.
+- Current gateway has unrelated WhatsApp `WinError 5 Access is denied`; Telegram remains connected and functional. Do not mix this with Protein Bar routing verification.
+- Plan/runbook: `docs/plan/multi_workspace/multi_workspace_telegram_execution.md`; reviewer dashboard: `docs/plan/multi_workspace/multi_workspace_telegram_workflow.html`.
+- State remains H007 `active`. Implementer/operator evidence cannot move it to `passing`; independent verifier must record command/event, UTC timestamp, exit status, and result.
+
+### Next session action
+
+1. Read startup files in required order and trust `feature-list.json` over stale historical prose.
+2. Verify gateway status and Telegram connected state without changing config.
+3. Run independent H007 verifier against Protein Bar route, mention gate, ignored topics, restart persistence, and Telegram-RAG citation.
+4. If independent evidence passes, verifier may transition H007 `active → passing` and update `feature-list.json` plus this handoff.
+5. Do not onboard TITAN AI, Client Projects, or HQ under H007.
