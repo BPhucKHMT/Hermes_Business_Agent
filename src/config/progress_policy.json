@@ -1,0 +1,1 @@
+{"workspace":"protein-bar","runtime_root":".runtime/progress","approval_ttl_seconds":900,"actions":{"report.apply":{"tier":2},"external_message.send":{"tier":2,"enabled":false}}}

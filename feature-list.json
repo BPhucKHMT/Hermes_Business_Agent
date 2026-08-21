@@ -173,28 +173,42 @@
         "layer_2": "uv run --frozen python ../tests/verify_knowledge.py --layer 2",
         "layer_3": "docs/plan/protein_bar.md End-to-End Release Checklist A-H"
       },
-      "state": "active",
+      "state": "passing",
       "evidence": {
-        "verified_at_utc": "2026-08-19T10:18:00Z",
-        "verifier": "automated test suite plus live Azure search verification",
+        "verified_at_utc": "2026-08-20T08:39:11Z",
+        "verifier": "independent verification agent; Telegram acceptance confirmed by operator",
         "layer_1": {
           "command": "python tests/verify_knowledge.py --layer 1",
           "exit_status": 0,
           "result": "knowledge layer 1: pass"
         },
         "layer_2": {
-          "command": "uv run --frozen python ../tests/verify_knowledge.py --layer 2",
+          "command": "C:\\Users\\ADMIN\\.local\\bin\\uv.exe run --frozen python ../tests/verify_knowledge.py --layer 2",
           "exit_status": 0,
-          "result": "knowledge layer 2: pass"
+          "result": "knowledge layer 2: pass; only expected Azure SDK deletion-policy subtype warnings"
         },
         "layer_3": {
-          "command": "uv run --frozen python tools/knowledge/knowledge.py search 'ngập nước Thảo Điền' --workspace titan-ai",
+          "command": "Azure scoped queries; hermes profile list; HERMES_HOME=<operator profile>; hermes skills list --source local; hermes gateway status; approved Telegram checklist H",
           "exit_status": 0,
-          "result": "status: no_evidence, 0 chunks; positive protein-bar query returned 15 authentic chunks"
+          "result": "protein-bar returned authentic evidence; titan-ai returned no_evidence; protein-bar profile and local skills listed; gateway PID 7808 running; operator confirmed fresh Telegram Protein Bar answer with protein_bar_budget_plan.xlsx citation"
         }
       },
       "blocked": null,
       "depends_on": ["H006"]
+    },
+    {
+      "id": "H008",
+      "title": "Hermes executes Protein Bar Telegram Flow A safely",
+      "behavior": "From the deterministically routed Protein Bar Telegram topic, Hermes records one source event, creates a workspace-scoped progress update, owner/date task, and unsent Tier-2 supplier follow-up draft, previews a registered report mutation, executes only proposal-specific approval, and independently verifies a versioned output without modifying source evidence.",
+      "verification": {
+        "layer_1": "python tests/verify_progress.py --layer 1",
+        "layer_2": "uv run --frozen python ../tests/verify_progress.py --layer 2",
+        "layer_3": "fresh Hermes process and approved Protein Bar Telegram chat complete implementation_plan.md Task 10 scenarios"
+      },
+      "state": "active",
+      "evidence": null,
+      "blocked": null,
+      "depends_on": ["H007"]
     }
   ]
 }

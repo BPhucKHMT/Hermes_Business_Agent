@@ -2,9 +2,9 @@
 
 ## Harness Status
 
-- Phase: H007 Protein Bar workspace remains `active`; Telegram topic routing, mention-only execution, restart persistence, and workspace-scoped Azure RAG passed implementer/operator Layer 3 checks. Independent verifier evidence remains required.
+- Phase: H007 Protein Bar workspace is `passing`; independent verification re-ran static and artifact gates, verified live Azure workspace isolation, profile/skill discovery and gateway status, and operator confirmed Telegram checklist H.
 - Workspace: `C:\Hermes-Business-Agent` on `main`; existing unrelated uncommitted changes remain and must not be reset.
-- WIP limit: 1; H007 is the only `active` feature. H006 remains `blocked` by Azure image-enrichment free-tier quota.
+- WIP limit: 1; no feature is `active`. H006 remains `blocked` by Azure image-enrichment free-tier quota.
 
 ## Completed
 
@@ -173,14 +173,65 @@
 - Negative trigger/topic evidence: operator confirmed no reply for unmentioned Protein Bar message and mentions in ignored TITAN/General topics; no negative marker reached gateway `inbound message` logs.
 - Azure isolation command used `C:\Users\ADMIN\.local\bin\uv.exe run --frozen python tools/knowledge/knowledge.py search 'ngập nước Thảo Điền' --workspace <tag>` from `src`. `protein-bar` returned authentic evidence; `titan-ai` returned `status=no_evidence`, empty evidence, exit 0.
 - Telegram-to-RAG Layer 3 evidence: topic 11 session stayed `agent:protein-bar:...:11`, invoked knowledge tooling, and returned flooding-risk facts with citation `protein_bar_master_plan.docx — 4.1 Target zone and tiers`. Operator supplied and accepted output.
-- Current gateway has unrelated WhatsApp `WinError 5 Access is denied`; Telegram remains connected and functional. Do not mix this with Protein Bar routing verification.
-- Plan/runbook: `docs/plan/multi_workspace/multi_workspace_telegram_execution.md`; reviewer dashboard: `docs/plan/multi_workspace/multi_workspace_telegram_workflow.html`.
-- State remains H007 `active`. Implementer/operator evidence cannot move it to `passing`; independent verifier must record command/event, UTC timestamp, exit status, and result.
+- State is now H007 `passing`: independent verification ran Layer 1/2, live Azure isolation, profile/skill discovery, and gateway check; operator confirmed Telegram checklist H. H006 remains `blocked`.
 
 ### Next session action
 
-1. Read startup files in required order and trust `feature-list.json` over stale historical prose.
-2. Verify gateway status and Telegram connected state without changing config.
-3. Run independent H007 verifier against Protein Bar route, mention gate, ignored topics, restart persistence, and Telegram-RAG citation.
-4. If independent evidence passes, verifier may transition H007 `active → passing` and update `feature-list.json` plus this handoff.
-5. Do not onboard TITAN AI, Client Projects, or HQ under H007.
+1. H007 requires no further work; preserve its verifier evidence.
+2. Address H006 only after Azure image-enrichment quota resets or operator approves billable Cognitive Services.
+3. Run H006 fresh Telegram E2E and obtain independent verifier evidence before changing its state.
+4. Do not onboard Client Projects, TITAN AI, or HQ until a separate approved feature is active.
+
+## 2026-08-21 Progress Report / Data Update plan review handoff
+
+- User requested research and planning only. No runtime source, dependency, operator config, workbook, Make.com scenario, or feature state was changed.
+- Primary review target: `docs/plan/progress_report_update.md`.
+- Supporting visual research: `docs/research/progress_report_chat_approaches.html`.
+- Detailed customer source re-read: `docs/Project_Hermes_v2_Build_Doc.md`, especially §§2, 3, 5, 7–13, 15, 17 and Appendix B.
+- Current verdict: hybrid typed-event/state architecture is correct for AC-04/AC-07, but implementation must keep progress/report projections separate from financial workbook projections.
+- Generalization boundary is now explicit:
+  - Core concepts: `SourceEvidence`, `TypedObservation`, `ProgressEvent`, `MutationProposal`, `PolicyDecision`, `VerificationResult`.
+  - Domain instances such as Protein Bar, suppliers, workbook labels and cells belong in workspace config, typed schemas, adapters, template registries and fixtures—not prompt/vendor/workspace `if/elif` branches.
+  - Dispatch uses small explicit registries and fail-closed unknown types; no plugin framework or universal workflow engine.
+- Requirement corrections captured in the plan:
+  - Verify Hermes native Email gateway first; use Make.com only for a proven gap, invoice/reminder glue, exports, external webhooks or optional Sheets execution.
+  - Flow A also resolves supplier/thread, creates owner/date task, schedules Hermes chase, surfaces backup evidence, verifies target writes and returns one concise approval message.
+  - Flow D is outcome/milestone-oriented and source-traceable; Notion/Telegram are primary report targets, with TITAN Slack later.
+  - Preserve the customer 9-table state model unless tests prove another table necessary.
+  - Shared-inbox financial routing must follow vendor registry → content signals → history → one-tap clarification; support Personal and Split.
+  - XLSX/Sheets writes require stable-key mapping, exact-cell preview, approval, formula protection, atomic save/update and independent read-back.
+- Current runtime truth remains: Telegram/Protein Bar/Azure read-and-cite path exists; Gmail business ingestion, state DB, progress tool/skill, workbook mutation, Google Sheets writer, Friday report scheduler and approval executor do not exist yet.
+- Session reviewer must not start implementation immediately. First:
+  1. Follow repository startup order.
+  2. Review plan against `requirement_customer.md`, accepted decisions and detailed build doc.
+  3. Inspect current Hermes native Email/scheduler capabilities before accepting Make/custom integrations.
+  4. Confirm plan avoids claims for unsupported runtime capabilities.
+  5. Check requirement-freeze inputs: canonical weekly report template, task target/fields, Flow-A paraphrase corpus, approved workbook copy/editable cells, email envelopes/bindings, autonomy matrix, evidence declarations and Make.com PII/retention approval.
+  6. Record review findings and proposed plan edits; obtain user approval before creating/selecting a feature.
+- If plan is approved for implementation later, add/select one feature in `feature-list.json`, transition it `not_started → active`, preserve WIP=1, use TDD and three-layer verification, and leave `passing` to an independent verifier.
+- Existing unrelated uncommitted work must not be reset or reformatted.
+
+## 2026-08-21 H008 Protein Bar Flow A execution
+
+- H008 is `blocked`; H006 remains `blocked`; no feature is `active`.
+- Scope: workspace-scoped event/state core, task and unsent Tier-2 draft, registered Markdown report preview/versioned mutation, exact approval, restart-safe idempotency, and independent read-back.
+- DOCX mutation remains fail-closed until an operator-approved sanitized report fixture and anchor policy exist. Existing Protein Bar master-plan DOCX is knowledge evidence, not a progress-report template.
+- Gmail, Notion, WhatsApp, XLSX mutation, scheduler execution, and outbound supplier sending remain out of scope and unsupported.
+- Source/report fixtures are never modified in place; runtime output stays under deployed `src/.runtime/progress`.
+- TDD RED: `python tests/verify_progress.py --layer 1` failed on missing `progress_policy.json` before production files existed.
+- Layer 1: `python tests/verify_progress.py --layer 1` — pass, 2026-08-21T13:56Z, exit 0.
+- Layer 2: `uv run --frozen python ../tests/verify_progress.py --layer 2` — pass, 2026-08-21T13:55Z, exit 0; source fixture unchanged, output verified, duplicate approval produced one evidence record.
+- Regression: knowledge Layer 1/2 and research Layer 1/2 — pass, 2026-08-21T13:56Z, exit 0; expected Azure SDK deletion-policy warnings only.
+- Static gates: `uv lock --check`, compileall, feature JSON/WIP assertion, CLI status, and `git diff --check` — pass, exit 0.
+- Runtime boundary: gateway PID 20812 is running; default profile reports running and `protein-bar` profile reports stopped in `hermes profile list`. Layer 3 Telegram scenarios were not executed.
+- H008 blocker owner: operator plus independent verifier. Unblock with an approved real progress-report Markdown fixture/target mapping, approved DOCX fixture if DOCX is required, running Protein Bar routed profile, and Task 10 Telegram evidence. H008 remains `blocked`; after unblock it must transition `blocked → active`, and only an independent verifier may later transition `active → passing`.
+
+## 2026-08-21 H008 verified-progress Knowledge Base auto-sync
+
+- Operator approved the sanitized Markdown pilot target and removed DOCX from H008 acceptance scope.
+- Added verified-output-only Azure projection and SQLite-first current-answer composition. Draft/rejected/unverified content is not synchronized.
+- Live attempt `h008-live-20260821` exposed Azure Search visibility lag after successful indexer completion; exact scoped search later returned the revision and source content.
+- Root fix polls exact `workspace + source_path + revision` for up to 60 seconds after the submitted text-indexer run instead of treating immediate Search absence as failure.
+- `uv run --frozen python ../tests/verify_progress.py --layer 2` — pass, 2026-08-21T14:12:01Z, exit 0.
+- Live Azure sync revision `h008-live-20260821-v2` — verified, 2026-08-21T14:12:01Z, exit 0; source path `workspaces/protein-bar/progress/protein-bar-weekly-v1.md` returned the exact new revision after upload/index/query-back.
+- Remaining release gate: fresh Telegram topic-11 update, exact approval, follow-up current-state answer, negative generic-approval/cross-workspace scenarios, and independent verifier evidence. H008 remains `active`, not `passing`.
