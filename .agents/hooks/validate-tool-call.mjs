@@ -25,7 +25,7 @@ const BLOCK_RULES = [
   },
   {
     id: 'windows-root-delete',
-    pattern: /remove-item\b[^\n]*-(?:recurse|r)\b[^\n]*-(?:force|fo)\b[^\n]*(?:[A-Za-z]:\\(?:\s|$)|[A-Za-z]:\\\*)/i,
+    pattern: /remove-item\b(?=[^\n]*(?:[A-Za-z]:\(?:\*|\s|$)))(?=[^\n]*-(?:recurse|r)\b)(?=[^\n]*-(?:force|fo)\b)[^\n]*/i,
     message: 'recursive deletion of a Windows drive root'
   }
 ];
@@ -53,7 +53,7 @@ function firstString(...values) {
 }
 
 export function extractCommand(payload) {
-  const args = payload?.tool_args ?? payload?.toolArgs ?? payload?.arguments ?? {};
+  const args = payload?.tool_args ?? payload?.toolArgs ?? payload?.tool_input ?? payload?.toolInput ?? payload?.arguments ?? {};
   return firstString(
     args.CommandLine,
     args.commandLine,
@@ -86,7 +86,7 @@ async function main() {
   try {
     payload = JSON.parse(raw || '{}');
   } catch {
-    console.error('AG Kit hook warning: Antigravity sent invalid JSON; allowing the call to avoid a runtime-wide lockout.');
+    console.error('AG Kit hook warning: runtime sent invalid JSON; allowing the call to avoid a runtime-wide lockout.');
     return 0;
   }
 

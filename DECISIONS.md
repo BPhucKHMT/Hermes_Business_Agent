@@ -183,3 +183,11 @@
 - Consequences: Protein Bar topic `(-1003835812097, 11)` deterministically selects `protein-bar`; TITAN AI topic `5` and General topic `1` stay ignored in the pilot. One session namespace, persona, memory, tools, and fixed RAG workspace apply after routing. Direct replies to bot remain official mention-gate triggers. Operator config and credentials remain local and uncommitted.
 - Revisit when: A real Client Projects/TITAN profile is approved, Telegram membership differs enough to require separate groups, or hard legal separation requires separate tokens/gateways.
 
+## D021 — Claude Code Uses Generated AG Kit Adapters
+
+- Date: 2026-08-22
+- Status: accepted
+- Context: Engineering sessions must preserve the full Antigravity Kit workflow when switching to Claude Code without maintaining a second drifting copy of agents, skills, workflows, routing, memory, hooks, or MCP policy.
+- Decision: Keep `.agents/` canonical. Generate thin Claude discovery adapters under `.claude/` for skills, specialist agents, and slash workflows; map the shared safety hook through `.claude/settings.json`; expose only secret-free project MCP entries through `.mcp.json`; and load canonical routing and memory through `CLAUDE.md`. Runtime-specific capabilities use safe semantic equivalents or fail closed.
+- Consequences: Claude Code can discover 47 skills, 20 agents, and 13 workflows while canonical process text remains single-source. Canonical kit changes require adapter sync and verification. Production Hermes `src/` remains isolated from engineering runtime adapters.
+- Revisit when: Claude Code natively discovers `.agents/` with equivalent hooks, agents, workflows, and capability semantics, making adapters unnecessary.

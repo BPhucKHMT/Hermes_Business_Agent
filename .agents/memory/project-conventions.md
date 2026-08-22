@@ -11,6 +11,7 @@ updated: 2026-07-12
 - Branch name format should follow: `feature/[task-slug]` or `fix/[bug-slug]`.
 
 ## Supported AI platforms (AG Kit)
-- AG Kit **only supports Gemini CLI and Google Antigravity**.
-- Do not claim compatibility with Claude Code, Cursor, Copilot, Windsurf, or other assistants unless the user explicitly expands scope.
-- Copy on the website, docs, FAQ, README, and marketing should describe AG Kit as a toolkit for Gemini CLI / Antigravity-style agent setups.
+- `.agents/` is the canonical AG Kit source for Google Antigravity and Gemini-compatible discovery.
+- Claude Code is supported through generated thin adapters under `.claude/` plus `.mcp.json` and `CLAUDE.md` routing references.
+- Adapters must not duplicate canonical workflow bodies. Unsupported runtime primitives map to safe semantic equivalents or fail closed.
+- Do not claim support for other assistants unless the user explicitly expands scope and executable compatibility evidence exists.

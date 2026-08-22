@@ -6,6 +6,24 @@ profile and retrieves workspace-scoped evidence from Azure AI Search.
 
 Read [`ARCHITECTURE.md`](ARCHITECTURE.md) before changing deployment topology.
 
+## Claude Code Engineering Workflow
+
+Claude Code uses the same engineering workflow as Antigravity. `.agents/` is the
+canonical kit; generated `.claude/` files expose its skills, specialist agents,
+and slash workflows through Claude Code discovery.
+
+After cloning, or after changing canonical kit content, run from repository root:
+
+```powershell
+.\.agents\scripts\sync-claude-kit.ps1
+.\.agents\scripts\verify-claude-kit.ps1
+claude
+```
+
+Do not edit generated adapters directly. Update `.agents/`, regenerate, and
+verify. Project MCP config excludes placeholder credentials; configure required
+MCP secrets through operator-owned Claude settings rather than Git.
+
 ## What Gets Deployed
 
 Only [`src/`](src) is Hermes production context. Repository-root files are the

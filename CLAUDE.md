@@ -8,6 +8,30 @@ Behavioral guidelines to reduce common LLM coding mistakes. Merge with project-s
 
 Read `AGENTS.md` before project work. Follow its startup workflow, state artifacts, Definition of Done, verification gates, and end-of-session handoff.
 
+## Claude Code AG Kit Compatibility
+
+`.agents/` is the canonical source. `.claude/` contains generated discovery adapters only; never edit generated adapters directly. Run `.agents/scripts/sync-claude-kit.ps1` after canonical agent, skill, or workflow changes, then run `.agents/scripts/verify-claude-kit.ps1`.
+
+At every Claude Code session start:
+
+1. Read `.agents/memory/MEMORY.md` and relevant linked memory topics.
+2. Read `.agents/rules/core-protocol.md`, `.agents/rules/request-routing.md`, and `.agents/rules/universal-rules.md`.
+3. Classify the request and select the minimum specialist using the canonical routing rules.
+4. Read `.agents/agent/<agent>.md` and every skill named in its frontmatter before code or design work.
+5. For slash workflows, execute the matching `.agents/workflows/<name>.md` through its generated `.claude/commands` adapter.
+
+Use Claude Code native subagents, tasks, plans, permissions, hooks, and MCP as semantic equivalents. Preserve trust boundaries, WIP limits, approval gates, cancellation, and three-layer verification. Never broaden permissions or simulate unavailable isolation/approval. Stop and report a capability gap when no safe equivalent exists.
+
+Generated `.claude/skills`, `.claude/agents`, and `.claude/commands` expose the canonical kit for discovery. `.claude/settings.json` maps the shared command safety hook. `.mcp.json` contains only project MCP entries without placeholder or real secrets.
+
+## Coding Contract
+
+Before any code change, read and apply `.agents/skills/clean-code/SKILL.md`.
+Python code and tests must follow PEP 8. Keep changes minimal, direct, and
+self-documenting; prefer deletion and standard-library or existing-native
+capabilities over new abstractions or dependencies. Preserve input validation,
+security, data-loss prevention, accessibility, and explicitly required behavior.
+
 ## 1. Think Before Coding
 
 **Don't assume. Don't hide confusion. Surface tradeoffs.**

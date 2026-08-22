@@ -159,7 +159,8 @@ def main() -> None:
         if args.command == "load":
             result = load_dossier(args.workspace, args.id)
         elif args.command == "delete":
-            delete_dossier(args.workspace, args.id); result = {"deleted": args.id}
+            delete_dossier(args.workspace, args.id)
+            result = {"deleted": args.id}
         elif args.command == "cleanup":
             result = {"removed": cleanup_temporary(args.workspace, args.ttl)}
         else:

@@ -29,6 +29,21 @@ Record blockers in `PROGRESS.md` with owner and unblock condition.
 Do not refactor or optimize before core behavior verification.
 Do not mark `passing` without independent verifier evidence.
 
+## Coding Standards
+
+Before writing, modifying, refactoring, or reviewing code, read and apply
+`.agents/skills/clean-code/SKILL.md`. Treat that skill as the canonical clean-code
+contract; do not duplicate or weaken it in feature-local instructions.
+
+All Python production and test code must follow PEP 8 unless a checked-in tool
+configuration defines a narrower repository convention. Prefer KISS, YAGNI, SRP,
+and DRY; use clear names, small focused functions, guard clauses, and the minimum
+working diff. Do not add speculative abstractions, incident-specific branches,
+unused helpers, or comments that restate obvious code.
+
+Verification for Python changes must cover syntax, applicable style/static checks,
+and behavior. A style-only pass does not prove product behavior.
+
 ## Required Artifacts
 
 `README.md` owns customer installation and reproduction workflow.

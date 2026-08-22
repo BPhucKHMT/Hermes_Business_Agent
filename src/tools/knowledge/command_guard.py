@@ -1,9 +1,12 @@
 from __future__ import annotations
+
 import json
 import re
 import sys
+
 KNOWLEDGE = "tools/knowledge/knowledge.py"
 REQUIRED_PREFIX = "uv run --frozen python " + KNOWLEDGE
+
 
 def block_reason(command: str) -> str | None:
     normalized = " ".join((command or "").replace("\\", "/").split())
@@ -16,10 +19,16 @@ def block_reason(command: str) -> str | None:
         return "Unsupported knowledge CLI option --json is forbidden"
     return None
 
+
 def main() -> None:
     payload = json.load(sys.stdin)
-    if payload.get("tool_name") != "terminal": return
-    reason = block_reason(str((payload.get("tool_input") or {}).get("command", "")))
-    if reason: print(json.dumps({"decision": "block", "reason": reason}))
+    if payload.get("tool_name") != "terminal":
+        return
+    command = str((payload.get("tool_input") or {}).get("command", ""))
+    reason = block_reason(command)
+    if reason:
+        print(json.dumps({"decision": "block", "reason": reason}))
 
-if __name__ == "__main__": main()
+
+if __name__ == "__main__":
+    main()

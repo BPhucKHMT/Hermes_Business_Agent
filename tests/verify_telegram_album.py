@@ -62,7 +62,8 @@ async def check_album(count):
     release = asyncio.Event()
     updates = [SimpleNamespace(message=message(i, count, release, "retain these documents" if i == 0 else None), update_id=i) for i in range(count)]
 
-    with patch("plugins.platforms.telegram.adapter.cache_document_from_bytes", side_effect=lambda data, name: "/cache/" + name):
+    with patch("plugins.platforms.telegram.adapter.cache_document_from_bytes", side_effect=lambda data, name: "/cache/" + name, create=True), \
+         patch("gateway.platforms.base.cache_media_bytes", side_effect=lambda data, filename, mime_type: SimpleNamespace(path="/cache/" + filename, media_type="application/pdf", kind="document"), create=True):
         tasks = [asyncio.create_task(adapter._handle_media_message(update, MagicMock())) for update in updates]
         await asyncio.sleep(adapter.MEDIA_GROUP_WAIT_SECONDS * 3)
         assert adapter.handle_message.await_count == 0, "album dispatched while a sibling download remained in flight"

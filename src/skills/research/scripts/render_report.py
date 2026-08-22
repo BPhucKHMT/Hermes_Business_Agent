@@ -48,7 +48,8 @@ def write_report(dossier_path: Path, output_path: Path) -> Path:
     try:
         with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as handle:
             handle.write(html)
-            handle.flush(); os.fsync(handle.fileno())
+            handle.flush()
+            os.fsync(handle.fileno())
         os.replace(name, output_path)
     finally:
         if os.path.exists(name):

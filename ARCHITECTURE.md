@@ -60,6 +60,30 @@ in [`src/tools`](src/tools), and runtime policy lives in [`src/config`](src/conf
 This prevents planning notes and machine-local handoffs from leaking into the
 business assistant prompt.
 
+## Engineering Runtime Compatibility
+
+Antigravity and Claude Code share one engineering workflow source:
+
+```text
+.agents/                         canonical rules, memory, agents, skills, workflows
+  -> sync-claude-kit.ps1
+.claude/                         generated Claude discovery adapters
+  skills/                        thin canonical skill references
+  agents/                        thin specialist references
+  commands/                      thin workflow references
+  settings.json                  shared command-safety hook mapping
+.mcp.json                        secret-free Claude project MCP mapping
+CLAUDE.md                        startup, routing, memory, and capability contract
+```
+
+Generated adapters contain no workflow implementation. They point back to
+`.agents/`, preventing policy drift. Claude-native agents, tasks, permissions,
+hooks, and MCP provide semantic equivalents. Runtime-specific UI or isolation
+without a safe equivalent must fail closed and request a user checkpoint.
+
+This compatibility layer belongs to repository engineering harness only. It is
+never deployed into `src/` and never enters Hermes production context.
+
 ## Telegram Request Flow
 
 ```mermaid

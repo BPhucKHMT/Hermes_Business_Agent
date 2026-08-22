@@ -235,3 +235,17 @@
 - `uv run --frozen python ../tests/verify_progress.py --layer 2` — pass, 2026-08-21T14:12:01Z, exit 0.
 - Live Azure sync revision `h008-live-20260821-v2` — verified, 2026-08-21T14:12:01Z, exit 0; source path `workspaces/protein-bar/progress/protein-bar-weekly-v1.md` returned the exact new revision after upload/index/query-back.
 - Remaining release gate: fresh Telegram topic-11 update, exact approval, follow-up current-state answer, negative generic-approval/cross-workspace scenarios, and independent verifier evidence. H008 remains `active`, not `passing`.
+
+## 2026-08-22 Clean Code refactoring across codebase
+
+- Applied canonical Clean Code standards (`@[skills/clean-code]`) across `src/tools/progress/`, `src/tools/knowledge/`, `src/skills/research/scripts/`, and `tests/`.
+- Replaced all dense single-line statements and semicolons with clean PEP 8 compliant code, guard clauses, explicit constants, typed dataclasses, and structured SQL queries.
+- Updated `tests/verify_telegram_album.py` mock patch to support both `cache_media_bytes` and legacy `cache_document_from_bytes`.
+- Full verification gates re-run and confirmed passing at 2026-08-22T17:36:00Z:
+  - `uv run --frozen python -m compileall -q tools skills` — pass, exit 0
+  - `uv run --frozen python ../tests/verify_knowledge.py --layer 1` & `--layer 2` — pass, exit 0
+  - `uv run --frozen python ../tests/verify_research.py --layer 1` & `--layer 2` — pass, exit 0
+  - `uv run --frozen python ../tests/verify_progress.py --layer 1` & `--layer 2` — pass, exit 0
+  - `python tests/verify_telegram_album.py` — pass, exit 0
+  - `python .agents/skills/vulnerability-scanner/scripts/security_scan.py .` — pass (0 findings)
+  - `git diff --check` — pass, exit 0
