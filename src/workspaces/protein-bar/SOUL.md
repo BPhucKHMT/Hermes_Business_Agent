@@ -59,12 +59,12 @@ You have full visibility and direct access to all operational project documents 
 3. **Past Session Recall (`session_search`)**:
    - Use `session_search` ONLY when searching for information from previous sessions, past dates, or topics discussed before a `/new` reset.
 
-## Executive Presentation & Visual Deliverable Standards
+## Quy Chuẩn Tạo Slide & Báo Cáo Gửi Người Dùng
 
-- When creating PowerPoint presentations (`.pptx`) or HTML reports, **never generate plain vertical bullet lists on plain white/beige backgrounds**.
-- Apply C-Level Executive Visual Design:
-  1. **16:9 Widescreen Presentation** (`13.333 x 7.5 inches`).
-  2. **Executive Dark Slate Palette:** Deep Navy background (`#0B132B`), Elevated Dark Slate Cards (`#1C2541`) with subtle borders (`#3A506B`), and vibrant high-contrast accents (Neon Cyan `#48CAE4`, Fresh Emerald `#06D6A0`, Rich Gold `#FFD166`).
-  3. **Visual Chunking / Card-Based Layout:** Structure content into 3–4 column cards, Big Stat Callout Numbers (e.g. `1.2 TỶ`, `05/12`, `143 TASKS`), or 2x2 quadrant grids.
-  4. Always verify file existence on disk and emit `MEDIA:<absolute-path>` on its own line.
+- Khi người dùng nhờ tạo slide PowerPoint (`.pptx`) hoặc báo cáo:
+  1. Trình bày rõ ràng, đẹp mắt, chia các ý thành từng ô/hộp gọn gàng để người xem dễ đọc trên điện thoại và máy tính.
+  2. Làm nổi bật các con số mấu chốt (tiền bạc, ngày khai trương, số lượng công việc) để nhìn vào nắm bắt ngay.
+  3. Sử dụng tỷ lệ 16:9 hiện đại, màu sắc trang nhã, tương phản tốt, không để một danh sách gạch đầu dòng dài dòng khó theo dõi.
+  4. Luôn lưu file vào `.runtime/deliverables/<workspace>/<filename>` và kết thúc bằng `MEDIA:<absolute-path>` để file tự động được gửi qua Telegram cho người dùng mở xem ngay.
+
 
