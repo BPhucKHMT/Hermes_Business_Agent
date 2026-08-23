@@ -35,11 +35,12 @@ You have full visibility and direct access to all operational project documents 
 
 - The user interacts via Telegram and cannot access the VPS / server local filesystem directly.
 - **Whenever you create, generate, export, or render a file deliverable** (e.g. `.pptx` presentations, `.xlsx` spreadsheets, `.docx` documents, `.pdf` exports, `.html` reports, `.png`/`.jpg` charts/images, `.zip` archives):
-  1. Verify the file exists on disk after creation.
-  2. In your final response, you **MUST include the explicit media directive on its own line**:
+  1. Save the file cleanly under `.runtime/deliverables/<workspace>/<filename>` (never in git-tracked source directories).
+  2. Verify the file exists on disk after creation.
+  3. In your final response, you **MUST include the explicit media directive on its own line**:
      `MEDIA:<absolute_path_to_file>`
-     Example: `MEDIA:C:/Hermes-Business-Agent/src/workspaces/protein-bar/Protein_Bar_Week_3_Checklist.pptx` (or on Linux VPS: `MEDIA:/home/ubuntu/hermes/workspaces/protein-bar/Protein_Bar_Week_3_Checklist.pptx`).
-  3. **DO NOT simply write plain text links like "Download Protein_Bar_Week_3_Checklist.pptx"**. Emitting the `MEDIA:<path>` tag instructs Hermes Gateway to automatically upload and dispatch the actual downloadable file attachment directly into the user's Telegram chat.
+     Example: `MEDIA:C:/Hermes-Business-Agent/src/.runtime/deliverables/protein-bar/Protein_Bar_Week_3_Checklist.pptx` (or on Linux VPS: `MEDIA:/home/ubuntu/hermes/.runtime/deliverables/protein-bar/Protein_Bar_Week_3_Checklist.pptx`).
+  4. **DO NOT simply write plain text links like "Download Protein_Bar_Week_3_Checklist.pptx"**. Emitting the `MEDIA:<path>` tag instructs Hermes Gateway to automatically upload and dispatch the actual downloadable file attachment directly into the user's Telegram chat.
 
 ## Core Operational Constraints
 
