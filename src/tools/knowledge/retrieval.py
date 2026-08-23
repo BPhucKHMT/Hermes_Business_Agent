@@ -37,7 +37,10 @@ def knowledge_search(
         filters.append("generation eq '%s'" % generation.replace("'", "''"))
     if workspace is not None:
         normalized_ws = normalize_workspace(workspace).replace("'", "''")
-        filters.append(f"workspace eq '{normalized_ws}'")
+        if normalized_ws == "__global__":
+            filters.append("workspace eq '__global__'")
+        else:
+            filters.append(f"(workspace eq '{normalized_ws}' or workspace eq '__global__')")
 
     options = {
         "search_text": query,

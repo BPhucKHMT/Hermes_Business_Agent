@@ -113,6 +113,7 @@ def main() -> None:
 
     ingest = commands.add_parser("web-ingest")
     ingest.add_argument("validated_capture")
+    ingest.add_argument("--workspace", default=None)
 
     verify = commands.add_parser("web-verify")
     verify.add_argument("validated_capture")
@@ -244,12 +245,14 @@ def main() -> None:
             if not captured.get("session_id") or not captured.get("completion") or not captured.get("captures"):
                 raise ValueError("web-ingest requires a finalized validated capture")
 
+            ws = getattr(args, "workspace", None) or captured.get("workspace")
             uploads = [
                 upload_website_capture(
                     clients.text_container,
                     clients.image_container if image_indexer_enabled else None,
                     page,
                     [INTERNAL_GROUP],
+                    workspace=ws,
                 )
                 for page in captured["captures"]
             ]
