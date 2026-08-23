@@ -135,7 +135,7 @@ def layer_1():
     assert set(definitions) == {"index", "layout-datasource", "text-datasource", "image-datasource", "layout-skillset", "text-skillset", "image-skillset", "layout-indexer", "text-indexer", "image-indexer"}
     fields = {field["name"]: field for field in definitions["index"]["fields"]}
     assert fields["chunk_id"]["key"] and fields["content_vector"]["dimensions"] == "${AZURE_OPENAI_EMBEDDING_DIMENSIONS}"
-    assert all(fields[name]["filterable"] for name in ("source_url", "website_id", "page_id", "asset_id", "generation", "content_hash", "evidence_type"))
+    assert all(fields[name]["filterable"] for name in ("source_url", "website_id", "page_id", "asset_id", "generation", "content_hash", "evidence_type", "workspace"))
     assert definitions["layout-skillset"]["skills"][0]["@odata.type"].endswith("DocumentIntelligenceLayoutSkill")
     assert definitions["text-skillset"]["skills"][0]["@odata.type"].endswith("SplitSkill")
     assert definitions["image-skillset"]["skills"][0]["@odata.type"].endswith("OcrSkill")
@@ -143,16 +143,18 @@ def layer_1():
     assert definitions["layout-indexer"]["parameters"]["configuration"]["allowSkillsetToReadFileData"] is True
     for name in ("layout-datasource", "text-datasource", "image-datasource"):
         assert definitions[name]["dataDeletionDetectionPolicy"]["@odata.type"].endswith("NativeBlobSoftDeleteDeletionDetectionPolicy")
-    for name in ("layout-skillset", "text-skillset"):
+    for name in ("layout-skillset", "text-skillset", "image-skillset"):
         mappings = {item["name"]: item["source"] for item in definitions[name]["indexProjections"]["selectors"][0]["mappings"]}
         assert mappings["source_path"] == "/document/source_path"
         assert mappings["access_groups"] == "/document/access_groups"
-    for name in ("layout-indexer", "text-indexer"):
+        assert mappings["workspace"] == "/document/workspace"
+    for name in ("layout-indexer", "text-indexer", "image-indexer"):
         mappings = {item["targetFieldName"]: item["sourceFieldName"] for item in definitions[name]["fieldMappings"]}
         assert mappings["source_path"] == "source_path"
         assert mappings["access_groups"] == "access_groups"
+        assert mappings["workspace"] == "workspace"
     text_mappings = {item["name"]: item["source"] for item in definitions["text-skillset"]["indexProjections"]["selectors"][0]["mappings"]}
-    for name in ("source_url", "website_id", "page_id", "generation", "content_hash", "evidence_type"):
+    for name in ("source_url", "website_id", "page_id", "generation", "content_hash", "evidence_type", "workspace"):
         assert text_mappings[name] == "/document/" + name
         assert any(item["targetFieldName"] == name for item in definitions["text-indexer"]["fieldMappings"])
 
@@ -210,6 +212,27 @@ def layer_2():
     assert result["pipeline"] == "layout" and layout.calls[0][1]["metadata"]["access_groups"] == '["internal"]'
     result = storage.upload_source(layout, text, "notes/rule.md", b"text", ["internal"])
     assert result["pipeline"] == "text" and text.calls
+    scoped = storage.upload_source(
+        layout,
+        text,
+        "workspaces/protein-bar/policy/rule.pdf",
+        b"pdf",
+        ["internal"],
+        workspace=" Protein-Bar ",
+    )
+    assert scoped["workspace"] == "protein-bar"
+    assert layout.calls[-1][1]["metadata"]["workspace"] == "protein-bar"
+    expect_error(
+        lambda: storage.upload_source(
+            layout,
+            text,
+            "workspaces/protein-bar/policy/blank.pdf",
+            b"pdf",
+            ["internal"],
+            workspace="   ",
+        ),
+        "workspace",
+    )
     expect_error(lambda: storage.upload_source(layout, text, "x.pdf", b"x", []), "access group")
 
     public = lambda host, port, type=0: [(2, 1, 6, "", ("93.184.216.34", port))]
@@ -459,6 +482,18 @@ def layer_2():
     assert "team''o" in search.options["filter"] and "sales" in search.options["filter"]
     scoped = Search(); retrieval.knowledge_search(scoped, "projects", ["internal"], source_path="titanai_services.md")
     assert "source_path eq 'titanai_services.md'" in scoped.options["filter"]
+    ws_scoped = Search(); ws_result = retrieval.knowledge_search(ws_scoped, "protein", ["internal"], workspace="Protein-Bar")
+    assert "workspace eq 'protein-bar'" in ws_scoped.options["filter"]
+    assert "search.ismatch" not in ws_scoped.options["filter"]
+    assert "workspace" in ws_scoped.options["select"]
+    quoted_ws = Search(); retrieval.knowledge_search(quoted_ws, "protein", ["internal"], workspace="Owner's")
+    assert "workspace eq 'owner''s'" in quoted_ws.options["filter"]
+    expect_error(
+        lambda: retrieval.knowledge_search(
+            Search(), "protein", ["internal"], workspace="   "
+        ),
+        "workspace",
+    )
     site_scoped = Search(); retrieval.knowledge_search(site_scoped, "projects", ["internal"], website_id="site-1", generation="gen-current")
     assert "website_id eq 'site-1'" in site_scoped.options["filter"] and "generation eq 'gen-current'" in site_scoped.options["filter"]
     expect_error(lambda: retrieval.knowledge_search(Search(), "projects", ["internal"], generation="orphan"), "valid source scope")

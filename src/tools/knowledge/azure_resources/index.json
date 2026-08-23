@@ -21,7 +21,8 @@
     {"name":"section_heading","type":"Edm.String","searchable":true},
     {"name":"slide_number","type":"Edm.Int32","filterable":true},
     {"name":"sheet_name","type":"Edm.String","filterable":true},
-    {"name":"cell_range","type":"Edm.String","filterable":true}
+    {"name":"cell_range","type":"Edm.String","filterable":true},
+    {"name":"workspace","type":"Edm.String","filterable":true}
   ],
   "vectorSearch":{"algorithms":[{"name":"knowledge-hnsw","kind":"hnsw"}],"profiles":[{"name":"knowledge-vector-profile","algorithm":"knowledge-hnsw","vectorizer":"knowledge-vectorizer"}],"vectorizers":[{"name":"knowledge-vectorizer","kind":"azureOpenAI","azureOpenAIParameters":{"resourceUri":"${AZURE_OPENAI_ENDPOINT}","deploymentId":"${AZURE_OPENAI_EMBEDDING_DEPLOYMENT}","modelName":"${AZURE_OPENAI_EMBEDDING_MODEL}"}}]},
   "semantic":{"configurations":[{"name":"knowledge-semantic","prioritizedFields":{"titleField":{"fieldName":"title"},"prioritizedContentFields":[{"fieldName":"content"}],"prioritizedKeywordsFields":[]}}]}

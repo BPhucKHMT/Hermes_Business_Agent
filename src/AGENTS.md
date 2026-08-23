@@ -22,10 +22,13 @@ and other runtime-owned files belong in this workspace.
 
 ## Current Capability
 
-- `/hermes-project` coordinates requests within capabilities present in `skills/`.
+- `/hermes-project` coordinates requests within capabilities present in `skills/` and dynamically available native/system skills.
 - `/research` defines evidence-grounded manual research over public web sources and user-supplied documents.
 - `/hermes-azure-rag` defines authorized Azure-managed company knowledge search and document lifecycle. Future-Q&A persistence must not use generic memory or OCR. Telegram release verification may still be pending; report limitations truthfully.
-- `/progress-report` records Protein Bar Flow A current state, exact approvals, verified Markdown outputs, and verified-output Knowledge Base sync. Layer 3 release verification remains required.
+- `/progress-report` composes registered business documents, native Hermes Kanban and Cron, and verified document projection through `/hermes-azure-rag`. Layer 3 release verification remains required.
+- Dynamic Skills & Parallel Execution: Agent is authorized to invoke any installed native skills or Hermes platform capabilities (terminal, file operations, web tools, python execution, kanban) concurrently/in the same turn and synthesize results into a comprehensive answer.
+- Workspace & Document Access: Agent runs with root at `src` and is authorized to inspect, read, and update business documents directly inside `docs/` (or `workspaces/`), including spreadsheets (`.xlsx`) and project plans (`.docx`). Agent must search `docs/` automatically for domain documents without requiring user filesystem paths.
+- Cross-platform uploaded files: Any file received or delivered through Telegram, WhatsApp, or other connected platforms must be saved into the project workspace (`docs/`, `workspaces/`, or Hermes cache) and, where applicable, ingested into the Azure knowledge base so that skills such as `hermes-azure-rag`, `progress-report`, and document search can access them.
 - No project-owned MCP, deep-research provider, web UI, Slack, sales, deck, invoice, cron-research, or Gmail integration exists yet.
 - Do not claim an unverified integration works.
 
@@ -42,12 +45,14 @@ and other runtime-owned files belong in this workspace.
 9. Do not expose sensitive data in logs, traces, or approval messages.
 10. When an entity, scope, date, owner, source, or requested action needed for a safe operation is unclear, ask exactly one short question for the most important missing field. Do not guess, retrieve unrelated facts to fill the gap, broaden into other workstreams, or create any side effect before clarification.
 11. User-provided current updates are evidence for the stated facts only. Never invent counts, sent outreach, quotes, statuses, owners, dates, or adjacent workstream progress.
+12. **Conversation Context & Memory Hierarchy**: Active in-context history in the current session is the primary conversational truth. If the user asks about what was just discussed or stated in the current chat, answer directly from in-context turns. Never call `session_search` for messages already in the active context, and never claim ignorance if the fact is present in active conversation history. Use `memory` tool for durable user preferences and facts to persist across `/new` resets; use `session_search` only for recall across prior archived sessions.
+13. **File Deliverable Dispatch (MEDIA Protocol)**: When operating in chat/Telegram where users cannot access the server filesystem directly, whenever a file deliverable is generated, rendered, or created (`.pptx`, `.xlsx`, `.docx`, `.pdf`, `.html`, `.png`, `.zip`), agent must emit `MEDIA:<absolute_file_path>` on its own line in the final response so Hermes Gateway automatically uploads and delivers the native file attachment to the user.
 
 ## Source Routing
 
 Evaluate in order; the first matching route wins. A fresh session does not lower retained-knowledge priority.
 
-0. **Current Protein Bar progress** — Questions about current supplier/thread/task/blocker/owner/due-date state use `/progress-report` first. SQLite verified state is current truth; exact scoped Azure evidence supplies citation/history. Disclose pending sync when revisions differ. If required progress fields are unclear, ask one question and perform zero mutation, task creation, proposal creation, outbound action, or KB sync.
+0. **Current Protein Bar progress, spreadsheets & operational tasks** — Questions about current supplier/thread/task/blocker/owner/due-date state use `/progress-report` and native Hermes Kanban. Hermes Kanban owns operational task state; registered business documents own business narratives; conversation history and session logs supply multi-turn conversational context; exact scoped Azure evidence (`--workspace protein-bar`) supplies searchable document knowledge and history. Agent has direct Python & file access to read `docs/protein-bar/` (`protein_bar_budget_plan.xlsx`, `Protein Cafe.xlsx`, `protein_bar_master_plan.docx`) and parse rows, cells, calculate VAT/totals, and track operational progress seamlessly like ChatGPT Code Interpreter without claiming files are missing. In a cold session without explicit Kanban/files, agent may utilize past session history and chat history to maintain continuity. If a required owner or progress field is unclear, ask one question and perform zero mutation, task creation, Cron creation, draft, outbound action, or KB sync.
 1. **Explicit source request** — Honor knowledge base, live web, or current-response-only as stated.
 2. **Retained follow-up** — Keep in exact verified KB scope (`website_id` / `generation` / `source_path`).
 3. **Durable lifecycle** — Save, update, refresh, or delete intent routes to `hermes-azure-rag`; a public URL plus `save`, `retain`, `ingest`, or `knowledge base` must use the `hermes-azure-rag` Website Lifecycle; never convert to a generic Markdown upload.

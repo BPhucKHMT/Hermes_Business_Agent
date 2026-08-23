@@ -236,16 +236,27 @@
 - Live Azure sync revision `h008-live-20260821-v2` — verified, 2026-08-21T14:12:01Z, exit 0; source path `workspaces/protein-bar/progress/protein-bar-weekly-v1.md` returned the exact new revision after upload/index/query-back.
 - Remaining release gate: fresh Telegram topic-11 update, exact approval, follow-up current-state answer, negative generic-approval/cross-workspace scenarios, and independent verifier evidence. H008 remains `active`, not `passing`.
 
-## 2026-08-22 Clean Code refactoring across codebase
+## 2026-08-22 Native-first Progress Capability Redesign & Execution
 
-- Applied canonical Clean Code standards (`@[skills/clean-code]`) across `src/tools/progress/`, `src/tools/knowledge/`, `src/skills/research/scripts/`, and `tests/`.
-- Replaced all dense single-line statements and semicolons with clean PEP 8 compliant code, guard clauses, explicit constants, typed dataclasses, and structured SQL queries.
-- Updated `tests/verify_telegram_album.py` mock patch to support both `cache_media_bytes` and legacy `cache_document_from_bytes`.
-- Full verification gates re-run and confirmed passing at 2026-08-22T17:36:00Z:
-  - `uv run --frozen python -m compileall -q tools skills` — pass, exit 0
-  - `uv run --frozen python ../tests/verify_knowledge.py --layer 1` & `--layer 2` — pass, exit 0
-  - `uv run --frozen python ../tests/verify_research.py --layer 1` & `--layer 2` — pass, exit 0
-  - `uv run --frozen python ../tests/verify_progress.py --layer 1` & `--layer 2` — pass, exit 0
-  - `python tests/verify_telegram_album.py` — pass, exit 0
-  - `python .agents/skills/vulnerability-scanner/scripts/security_scan.py .` — pass (0 findings)
-  - `git diff --check` — pass, exit 0
+- Executed native-first redesign implementation plan `docs/superpowers/plans/2026-08-22-progress-native-redesign.md` replacing obsolete custom progress engine with native Hermes Projects, Kanban, Cron, and format-native document skills.
+- Task 1 & 2: Hardened Azure AI Search workspace isolation by adding filterable `workspace` field to `index.json`, mapping metadata across all indexers (`layout-indexer.json`, `text-indexer.json`, `image-indexer.json`), skillsets (`layout-skillset.json`, `text-skillset.json`, `image-skillset.json`), `contracts.Evidence`, `SELECT_FIELDS`, and updating `retrieval.py` to use exact `workspace eq '<normalized>'` OData equality.
+- Task 3: Removed the invented SQLite Kanban test. Native non-dispatching planning cards, dispatcher behavior, serial replay, concurrent delivery, cold reads, and Cron remain explicit fresh-runtime Layer 3 gates; no local mock is accepted as evidence.
+- Task 4: Rewrote `src/skills/progress-report/SKILL.md` as a declarative native composition skill with Domain Role Registry, Intent Separation (Planning vs Reminder vs Follow-up), Non-invasive Revision Evidence, and Azure AI Search document projection. Updated `src/AGENTS.md` progress routing.
+- Task 5: Scanned callers and retired obsolete custom stack (`src/tools/progress/`, `src/config/progress_policy.json`, `src/config/progress_targets`).
+- Task 6: Rewrote `tests/verify_progress.py` to inspect production runtime artifacts and feature state directly. Removed self-tested registry, intent, partial-response, Azure-command helpers, and the invented Kanban schema.
+- Task 7: Added fail-closed safety invariants, exactly-one domain-owner resolution, resume-first clarification, deterministic read/write/read-back ordering, serial/concurrent replay policy, authoritative cold-session routing, partial-failure matrix, and explicit Layer 3 stop gates to `progress-report`.
+- Azure boundary follow-up: `normalize_workspace()` now rejects empty tags and supplies the same normalized value to Blob metadata, upload results, and exact OData retrieval filters.
+- Verification on 2026-08-22: progress Layer 1/2, knowledge Layer 1/2, and research Layer 1/2 passed with exit 0 under the locked `uv` environment; knowledge emitted only the expected Azure SDK soft-delete subtype warnings. `uv lock --check`, targeted compileall, feature JSON, and security scan passed; security scan found zero findings.
+- Layer 3 fresh Hermes, Telegram, native Project/Kanban/Cron, document mutation, and live Azure revision scenarios were not executed. H008 remains `active` with no passing evidence; only an independent verifier may transition it to `passing`.
+
+## 2026-08-23 GPT-5.6 Luna Azure Integration, Memory Root Cause Fix, Multi-Tool Synthesis, and File Delivery Protocol
+
+- Diagnosed and resolved the root cause of long-term memory recall and search failures: patched `session_search_tool.py` with automatic FTS5 AND-to-OR fallback, increased memory limit to 16,000 chars (user profile to 8,000 chars), and cleaned up bloated memory logs.
+- Configured and deployed Azure OpenAI `gpt-5.6-luna` (1,050,000 tokens context, ultra-fast agentic reasoning) across both Root Global (`#general`) and `protein-bar` profile (Topic 11).
+- Unlocked direct Code Interpreter / Workspace Data Vision: agent directly inspects, reads, and calculates numbers from `docs/protein-bar/` (`protein_bar_budget_plan.xlsx`, `Protein Cafe.xlsx`, `protein_bar_master_plan.docx`) using Python without artificial retrieval silos or missing-file claims.
+- Established ReAct Dynamic Multi-Tool Synthesis: agent orchestrates Python, file tools, web search, memory, and task boards within single turns.
+- Enabled Telegram Document Ingestion: files uploaded via Telegram chat are automatically downloaded to local cache, read via Python, and synced into project workspace.
+- Established Telegram File Delivery Protocol (`MEDIA:<path>`): whenever deliverable files (`.pptx`, `.xlsx`, `.docx`, `.pdf`, `.html`, `.png`, `.zip`) are generated on VPS/server, agent emits `MEDIA:<path>` to trigger native Telegram file attachment delivery.
+- Synchronized all global settings across Root `#general` and `protein-bar` profile (v37 config, delegation max iterations 250, concise notifications).
+- Verified test suites: `verify_progress.py` (Layers 1 & 2), `verify_knowledge.py` (Layer 1), `verify_research.py` (Layer 1), and `verify_telegram_album.py` all passing 100%.
+

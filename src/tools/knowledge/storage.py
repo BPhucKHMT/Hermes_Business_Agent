@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Iterable, Mapping, Optional
 from urllib.parse import quote
 
-from contracts import validate_source_path
+from contracts import normalize_workspace, validate_source_path
 
 LAYOUT_SUFFIXES = {".pdf", ".docx", ".pptx", ".xlsx", ".html"}
 WEB_ASSET_SUFFIXES = {".png", ".jpg", ".jpeg", ".svg", ".webp"}
@@ -39,15 +39,16 @@ def upload_source(
         "display_name": path.rsplit("/", 1)[-1],
         "access_groups": json.dumps(groups, separators=(",", ":")),
     }
-    if workspace:
-        meta["workspace"] = workspace.strip().lower()
+    normalized_workspace = normalize_workspace(workspace) if workspace is not None else None
+    if normalized_workspace:
+        meta["workspace"] = normalized_workspace
     container.upload_blob(path, content, overwrite=True, metadata=meta)
     return {
         "status": "uploaded",
         "pipeline": pipeline,
         "source_path": path,
         "access_groups": groups,
-        "workspace": workspace,
+        "workspace": normalized_workspace,
     }
 
 
@@ -64,6 +65,7 @@ def upload_website_capture(
     image_container,
     capture: dict,
     access_groups: Iterable[str],
+    workspace: Optional[str] = None,
 ) -> dict:
     required = ("website_id", "page_id", "generation", "canonical_url", "content_hash")
     if any(not str(capture.get(name, "")).strip() for name in required):
@@ -88,6 +90,7 @@ def upload_website_capture(
         "content_hash": str(capture["content_hash"]),
         "evidence_type": "page_text",
         "access_groups": json.dumps(groups, separators=(",", ":")),
+        "workspace": workspace.strip().lower() if workspace else "__global__",
     })
     body = (f"# {title}\n\n{capture.get('rendered_text', '')}\n").encode("utf-8")
     text_container.upload_blob(source_path, body, overwrite=True, metadata=metadata)

@@ -2,13 +2,13 @@ from typing import Iterable, Optional
 
 from azure.search.documents.models import VectorizableTextQuery
 
-from contracts import Evidence, EvidenceResult
+from contracts import Evidence, EvidenceResult, normalize_workspace
 
 SELECT_FIELDS = [
     "chunk_id", "content", "title", "source_path", "source_url", "website_id",
     "page_id", "asset_id", "generation", "evidence_type", "document_version",
     "effective_date", "page_number", "section_heading", "slide_number",
-    "sheet_name", "cell_range",
+    "sheet_name", "cell_range", "workspace",
 ]
 
 
@@ -35,8 +35,9 @@ def knowledge_search(
         filters.append("website_id eq '%s'" % website_id.replace("'", "''"))
     if generation:
         filters.append("generation eq '%s'" % generation.replace("'", "''"))
-    if workspace:
-        filters.append("search.ismatch('%s', 'source_path')" % workspace.strip().lower().replace("'", "''"))
+    if workspace is not None:
+        normalized_ws = normalize_workspace(workspace).replace("'", "''")
+        filters.append(f"workspace eq '{normalized_ws}'")
 
     options = {
         "search_text": query,
@@ -118,6 +119,7 @@ def _evidence(item) -> Evidence:
         slide_number=item.get("slide_number"),
         sheet_name=item.get("sheet_name"),
         cell_range=item.get("cell_range"),
+        workspace=item.get("workspace"),
         retrieval={
             "rrf_score": item.get("@search.score"),
             "reranker_score": item.get("@search.reranker_score"),

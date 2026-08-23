@@ -124,7 +124,7 @@ Keep Azure resource names and secrets in operator environment, topology in `azur
 
 When operating within a named workspace (Protein Bar, Client Projects, or TITAN AI), all
 `upload` and `search` commands must include the matching `--workspace <tag>` flag to enforce
-document isolation in Azure AI Search.
+exact document isolation in Azure AI Search via `workspace eq '<tag>'` OData equality.
 
 | Workspace | Tag |
 |---|---|
@@ -142,6 +142,7 @@ Search with workspace filter:
 uv run --frozen python tools/knowledge/knowledge.py search "<question>" --workspace protein-bar
 ```
 
-Omit `--workspace` only when the operator explicitly requests a cross-workspace search
-(requires explicit approval) or when working outside named workspaces.
+Omit `--workspace` only when the operator explicitly requests a global search across retained
+public resources or when querying non-workspace documents. Named workspace queries apply
+exact normalized equality and reject cross-workspace or substring matches.
 

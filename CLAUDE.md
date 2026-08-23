@@ -8,21 +8,29 @@ Behavioral guidelines to reduce common LLM coding mistakes. Merge with project-s
 
 Read `AGENTS.md` before project work. Follow its startup workflow, state artifacts, Definition of Done, verification gates, and end-of-session handoff.
 
-## Claude Code AG Kit Compatibility
+## Unified Workflow: Claude Plugins (Superpowers) + Antigravity Kit
 
-`.agents/` is the canonical source. `.claude/` contains generated discovery adapters only; never edit generated adapters directly. Run `.agents/scripts/sync-claude-kit.ps1` after canonical agent, skill, or workflow changes, then run `.agents/scripts/verify-claude-kit.ps1`.
+This project merges Claude Code's installed plugin ecosystem with the Antigravity Kit (`.agents/`):
 
-At every Claude Code session start:
+1. **Meta-Workflow & Execution (Claude Plugins / Superpowers)**:
+   - Use `using-superpowers` as the skill selection and orchestration protocol.
+   - Follow `test-driven-development` for feature implementation and bugfixes (RED-GREEN-REFACTOR).
+   - Use `writing-plans`, `executing-plans`, and `subagent-driven-development` for multi-step task execution.
+   - Use `using-git-worktrees` for isolated development when appropriate.
+   - Use `verification-before-completion` before declaring any task done.
+   - Use `document-skills` (`docx`, `pptx`, `pdf`, `slides`) for document creation and analysis.
+   - Retain and update Claude project memory alongside `.agents/memory/`.
 
-1. Read `.agents/memory/MEMORY.md` and relevant linked memory topics.
-2. Read `.agents/rules/core-protocol.md`, `.agents/rules/request-routing.md`, and `.agents/rules/universal-rules.md`.
-3. Classify the request and select the minimum specialist using the canonical routing rules.
-4. Read `.agents/agent/<agent>.md` and every skill named in its frontmatter before code or design work.
-5. For slash workflows, execute the matching `.agents/workflows/<name>.md` through its generated `.claude/commands` adapter.
+2. **Domain Architecture & Standards (Antigravity Kit)**:
+   - `.agents/` is the canonical domain kit containing domain skills, rules, and memory.
+   - Always apply `.agents/skills/clean-code/SKILL.md` (PEP 8, KISS, YAGNI, SRP, DRY, surgical diffs).
+   - Load domain specialist skills (`python-patterns`, `api-patterns`, `database-design`, `mcp-builder`, `security-audit`, `architecture`) based on the task domain.
+   - Read `.agents/memory/MEMORY.md` for project-specific persistent conventions.
 
-Use Claude Code native subagents, tasks, plans, permissions, hooks, and MCP as semantic equivalents. Preserve trust boundaries, WIP limits, approval gates, cancellation, and three-layer verification. Never broaden permissions or simulate unavailable isolation/approval. Stop and report a capability gap when no safe equivalent exists.
-
-Generated `.claude/skills`, `.claude/agents`, and `.claude/commands` expose the canonical kit for discovery. `.claude/settings.json` maps the shared command safety hook. `.mcp.json` contains only project MCP entries without placeholder or real secrets.
+3. **Coexistence Rules**:
+   - Superpowers drives the *how* of task orchestration, TDD, planning, subagents, and verification.
+   - Antigravity Kit drives the *what* of code quality, architecture patterns, domain rules, and project memory.
+   - Neither ecosystem overrides or disables the other; they operate in synergy.
 
 ## Coding Contract
 

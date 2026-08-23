@@ -199,11 +199,11 @@
     {
       "id": "H008",
       "title": "Hermes executes Protein Bar Telegram Flow A safely",
-      "behavior": "From the deterministically routed Protein Bar Telegram topic, Hermes records one source event, creates a workspace-scoped progress update, owner/date task, and unsent Tier-2 supplier follow-up draft, previews a registered report mutation, executes only proposal-specific approval, and independently verifies a versioned output without modifying source evidence.",
+      "behavior": "From the deterministically routed Protein Bar Telegram topic, Hermes resolves exactly one registered business document owner per requested domain, updates and reads back that artifact through its native format skill, manages operational state through native Hermes Kanban, uses Cron only for explicit reminder or follow-up intent, keeps outbound work draft-only, and projects only verified changed documents through exact workspace-scoped Azure retrieval.",
       "verification": {
         "layer_1": "python tests/verify_progress.py --layer 1",
         "layer_2": "uv run --frozen python ../tests/verify_progress.py --layer 2",
-        "layer_3": "fresh Hermes process and approved Protein Bar Telegram chat complete implementation_plan.md Task 10 scenarios"
+        "layer_3": "fresh Hermes process and approved Protein Bar Telegram chat complete docs/superpowers/specs/2026-08-22-progress-native-redesign.md Section I Layer 3 scenarios"
       },
       "state": "active",
       "evidence": null,

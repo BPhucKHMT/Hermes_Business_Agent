@@ -6,6 +6,13 @@ SUPPORTED_SUFFIXES = {".pdf", ".docx", ".pptx", ".xlsx", ".txt", ".md", ".html",
 VALID_STATES = {"pending", "indexed", "failed", "delete_pending", "deleted"}
 
 
+def normalize_workspace(value: str) -> str:
+    workspace = value.strip().lower()
+    if not workspace:
+        raise ValueError("workspace must not be empty")
+    return workspace
+
+
 def validate_source_path(value: str) -> str:
     if not value or "\\" in value or Path(value).is_absolute():
         raise ValueError("source path must be relative")
@@ -37,6 +44,7 @@ class Evidence:
     sheet_name: Optional[str] = None
     cell_range: Optional[str] = None
     line_range: Optional[str] = None
+    workspace: Optional[str] = None
     retrieval: Dict[str, Optional[float]] = field(default_factory=dict)
 
     def __post_init__(self) -> None:

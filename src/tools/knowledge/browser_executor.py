@@ -8,6 +8,7 @@ from html.parser import HTMLParser
 import json
 from pathlib import Path
 import re
+import socket
 from time import time
 from urllib.parse import urljoin, urlsplit
 from urllib.request import Request, urlopen
