@@ -261,7 +261,7 @@
 - Resolved Azure RAG workspace filtering mismatch: added `--workspace` support to `web-ingest`, updated `retrieval.py` OData filter to `(workspace eq '<ws>' or workspace eq '__global__')`, updated live Blobs and re-indexed `titanai.space` (8/8 chunks returned with status=ok).
 - Documented D022 in `DECISIONS.md`.
 - Upgraded Research deliverables: redesigned `render_report.py` into an executive SaaS visual HTML dashboard (modern Inter typography, dark/light auto-theme, KPI metric cards, claim facet badges, print-to-PDF ready) and implemented `render_deck.py` using `python-pptx` (16:9 widescreen, dark modern corporate palette, card-based layouts for C-level presentation delivery).
+- Standardized Deliverables Lifecycle & Architecture: all generated deliverables (.pptx, .html, .docx, .xlsx, .pdf) are cleanly stored under gitignored `.runtime/deliverables/<workspace>/` before `MEDIA:<path>` dispatch, keeping workspace and repository trees 100% clutter-free.
+- Enhanced PowerPoint Presentation Skill: fixed python-pptx auto-sizing font defaults (13.5–15pt for bullets, 22–24pt for titles), word wrapping, and smart URL formatting in `pptx_create.py`, and enriched `powerpoint` SKILL.md with dynamic visual design principles, allowing the Agent to dynamically generate unbounded presentation layouts via Code Interpreter.
+- Completed Full Repository Cleanup: removed all obsolete pilot scripts (`create_deck.py`, `generate_pro_deck.py`, `protein-bar-brief.py`, `daily-brief-vi.md`), backup `.pre_*` files, and redundant hardcoded scripts (`render_deck.py`). Single source of truth for business docs established in `src/docs/`.
 - Verified all 6 test suites (`verify_knowledge.py` L1/L2, `verify_progress.py` L1/L2, `verify_research.py` L1/L2) passing 100%.
-
-
-
