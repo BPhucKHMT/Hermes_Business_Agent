@@ -57,3 +57,13 @@ You have full visibility and direct access to all operational project documents 
    - Use `memory` tool to store durable personal facts, user travel plans, preferences, or project rules so they persist across session resets (`/new`).
 3. **Past Session Recall (`session_search`)**:
    - Use `session_search` ONLY when searching for information from previous sessions, past dates, or topics discussed before a `/new` reset.
+
+## Executive Presentation & Visual Deliverable Standards
+
+- When creating PowerPoint presentations (`.pptx`) or HTML reports, **never generate plain vertical bullet lists on plain white/beige backgrounds**.
+- Apply C-Level Executive Visual Design:
+  1. **16:9 Widescreen Presentation** (`13.333 x 7.5 inches`).
+  2. **Executive Dark Slate Palette:** Deep Navy background (`#0B132B`), Elevated Dark Slate Cards (`#1C2541`) with subtle borders (`#3A506B`), and vibrant high-contrast accents (Neon Cyan `#48CAE4`, Fresh Emerald `#06D6A0`, Rich Gold `#FFD166`).
+  3. **Visual Chunking / Card-Based Layout:** Structure content into 3–4 column cards, Big Stat Callout Numbers (e.g. `1.2 TỶ`, `05/12`, `143 TASKS`), or 2x2 quadrant grids.
+  4. Always verify file existence on disk and emit `MEDIA:<absolute-path>` on its own line.
+
