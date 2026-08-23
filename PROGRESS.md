@@ -260,6 +260,8 @@
 - Synchronized all global settings across Root `#general` and `protein-bar` profile (v37 config, delegation max iterations 250, concise notifications).
 - Resolved Azure RAG workspace filtering mismatch: added `--workspace` support to `web-ingest`, updated `retrieval.py` OData filter to `(workspace eq '<ws>' or workspace eq '__global__')`, updated live Blobs and re-indexed `titanai.space` (8/8 chunks returned with status=ok).
 - Documented D022 in `DECISIONS.md`.
+- Upgraded Research deliverables: redesigned `render_report.py` into an executive SaaS visual HTML dashboard (modern Inter typography, dark/light auto-theme, KPI metric cards, claim facet badges, print-to-PDF ready) and implemented `render_deck.py` using `python-pptx` (16:9 widescreen, dark modern corporate palette, card-based layouts for C-level presentation delivery).
 - Verified all 6 test suites (`verify_knowledge.py` L1/L2, `verify_progress.py` L1/L2, `verify_research.py` L1/L2) passing 100%.
+
 
 
