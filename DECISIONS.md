@@ -191,3 +191,15 @@
 - Decision: Keep `.agents/` canonical. Generate thin Claude discovery adapters under `.claude/` for skills, specialist agents, and slash workflows; map the shared safety hook through `.claude/settings.json`; expose only secret-free project MCP entries through `.mcp.json`; and load canonical routing and memory through `CLAUDE.md`. Runtime-specific capabilities use safe semantic equivalents or fail closed.
 - Consequences: Claude Code can discover 47 skills, 20 agents, and 13 workflows while canonical process text remains single-source. Canonical kit changes require adapter sync and verification. Production Hermes `src/` remains isolated from engineering runtime adapters.
 - Revisit when: Claude Code natively discovers `.agents/` with equivalent hooks, agents, workflows, and capability semantics, making adapters unnecessary.
+
+## D022 — Global Shared Knowledge vs Workspace-Scoped RAG Retrieval
+
+- Date: 2026-08-23
+- Status: accepted
+- Context: Public websites (e.g. `https://titanai.space/`, competitor sites, research documentation) and shared company SOPs ingested into Azure AI Search may carry `workspace: __global__` or a specific workspace tag. Strict workspace equality (`workspace eq '<ws>'`) caused false-negative `no_evidence` black holes when searching for ingested website knowledge from within a scoped workspace query.
+- Decision:
+  1) `web-ingest` accepts `--workspace <ws>` and propagates the target workspace to Azure Blob metadata (`workspace: <ws>`), defaulting to `__global__` for shared public sites.
+  2) `retrieval.py` updates the workspace OData filter to `(workspace eq '<ws>' or workspace eq '__global__')`.
+- Consequences: Retains 100% strict data isolation between private business workspaces (Protein Bar financial spreadsheets never leak to Titan AI or Client Projects), while allowing public/shared company websites to be retrieved seamlessly across all workspace sessions.
+- Revisit when: Multi-tenant ACL models require strict per-user RBAC on shared websites.
+

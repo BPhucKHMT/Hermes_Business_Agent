@@ -258,5 +258,8 @@
 - Enabled Telegram Document Ingestion: files uploaded via Telegram chat are automatically downloaded to local cache, read via Python, and synced into project workspace.
 - Established Telegram File Delivery Protocol (`MEDIA:<path>`): whenever deliverable files (`.pptx`, `.xlsx`, `.docx`, `.pdf`, `.html`, `.png`, `.zip`) are generated on VPS/server, agent emits `MEDIA:<path>` to trigger native Telegram file attachment delivery.
 - Synchronized all global settings across Root `#general` and `protein-bar` profile (v37 config, delegation max iterations 250, concise notifications).
-- Verified test suites: `verify_progress.py` (Layers 1 & 2), `verify_knowledge.py` (Layer 1), `verify_research.py` (Layer 1), and `verify_telegram_album.py` all passing 100%.
+- Resolved Azure RAG workspace filtering mismatch: added `--workspace` support to `web-ingest`, updated `retrieval.py` OData filter to `(workspace eq '<ws>' or workspace eq '__global__')`, updated live Blobs and re-indexed `titanai.space` (8/8 chunks returned with status=ok).
+- Documented D022 in `DECISIONS.md`.
+- Verified all 6 test suites (`verify_knowledge.py` L1/L2, `verify_progress.py` L1/L2, `verify_research.py` L1/L2) passing 100%.
+
 
