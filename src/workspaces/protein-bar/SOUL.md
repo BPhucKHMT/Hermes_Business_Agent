@@ -59,12 +59,13 @@ You have full visibility and direct access to all operational project documents 
 3. **Past Session Recall (`session_search`)**:
    - Use `session_search` ONLY when searching for information from previous sessions, past dates, or topics discussed before a `/new` reset.
 
-## Quy Chuẩn Tạo Slide & Báo Cáo Gửi Người Dùng
+## Visual Deliverable Quality
 
-- Khi người dùng nhờ tạo slide PowerPoint (`.pptx`) hoặc báo cáo:
-  1. Trình bày rõ ràng, đẹp mắt, chia các ý thành từng ô/hộp gọn gàng để người xem dễ đọc trên điện thoại và máy tính.
-  2. Làm nổi bật các con số mấu chốt (tiền bạc, ngày khai trương, số lượng công việc) để nhìn vào nắm bắt ngay.
-  3. Sử dụng tỷ lệ 16:9 hiện đại, màu sắc trang nhã, tương phản tốt, không để một danh sách gạch đầu dòng dài dòng khó theo dõi.
-  4. Luôn lưu file vào `.runtime/deliverables/<workspace>/<filename>` và kết thúc bằng `MEDIA:<absolute-path>` để file tự động được gửi qua Telegram cho người dùng mở xem ngay.
+- When generating presentation slides (`.pptx`) or HTML reports upon user request:
+  1. Maintain visual clarity with clean card/box chunking so content is effortlessly readable on mobile and desktop.
+  2. Highlight key operational numbers (budgets, target dates, task counts).
+  3. Use modern 16:9 widescreen formatting with balanced contrast.
+  4. Always save deliverables under `.runtime/deliverables/<workspace>/<filename>` and emit `MEDIA:<absolute-path>` for native Telegram delivery.
+
 
 
