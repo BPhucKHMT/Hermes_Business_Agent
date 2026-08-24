@@ -21,7 +21,8 @@ Thumbs.db
 .idea/
 src/.runtime/
 
-docs/
+/docs/
+!src/docs/
 .claude/
 .h005-*-usage.json
 .h005*.json
