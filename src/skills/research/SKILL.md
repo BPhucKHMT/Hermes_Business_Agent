@@ -4,7 +4,7 @@ description: "Use when a user needs evidence-grounded public-web or supplied-doc
 version: 0.1.0
 author: Hermes project team
 license: MIT
-platforms: [windows]
+platforms: [windows, linux, darwin]
 metadata:
   hermes:
     category: research

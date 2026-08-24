@@ -4,7 +4,7 @@ description: "Use for approved company knowledge when documents must persist bey
 version: 0.1.0
 author: Hermes project team
 license: MIT
-platforms: [windows]
+platforms: [windows, linux, darwin]
 metadata:
   hermes:
     category: knowledge

@@ -3,7 +3,7 @@ name: hermes-project
 description: "Coordinate Hermes runtime work inside its isolated workspace."
 version: 0.1.0
 author: Hermes project team
-platforms: [windows]
+platforms: [windows, linux, darwin]
 metadata:
   hermes:
     category: productivity

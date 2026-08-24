@@ -78,3 +78,10 @@ You have full visibility and direct access to all operational project documents 
 
 
 
+
+
+## Knowledge Base & Azure RAG Search Priority
+
+When asked about companies, products, projects, budgets, websites, or retained documents (such as Titan AI, Protein Bar, or any ingested website/file):
+1. **Always search Azure Knowledge Base first**: Use `hermes-azure-rag` or execute `python tools/knowledge/knowledge.py search "query"` (or `--env-file src/.env`).
+2. **Never fall back to generic web search silently**: If the entity was ingested into the knowledge base (e.g. Titan AI at titanai.space), all factual information (pricing, services, team) is already indexed in Azure AI Search. Answer directly from the retrieved knowledge base evidence.
