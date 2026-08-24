@@ -1,6 +1,6 @@
 ---
 name: research
-description: "Use when a user needs evidence-grounded public-web or supplied-document research, competitor analysis, market analysis, due diligence, or a cited research report."
+description: "Use for external public-web research, competitor or market analysis, and public intelligence. Do NOT use for company projects, pricing, retained websites, or ingested materials (yield to hermes-azure-rag first)."
 version: 0.1.0
 author: Hermes project team
 license: MIT
@@ -32,7 +32,7 @@ Small, bounded factual tasks may begin after stating inferred scope. For competi
 
 ## When Not to Use
 
-Do not use for casual questions that need no research, authenticated or paywalled sources, unsupported file formats, or requests that would send customer PII to a third-party tool. Do not claim cron, Gmail, DOCX, or PDF delivery is available.
+Do not use for questions about company entities, projects, documents, pricing, websites, or data that may reside in the internal knowledge base / workspaces (e.g. Titan AI, Protein Bar) — ALWAYS search `hermes-azure-rag` first. Do not use for casual questions that need no research, authenticated or paywalled sources, unsupported file formats, or requests that would send customer PII to a third-party tool. Do not claim cron, Gmail, DOCX, or PDF delivery is available.
 
 ## Research Workflow
 

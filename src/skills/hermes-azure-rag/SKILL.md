@@ -1,6 +1,6 @@
 ---
 name: hermes-azure-rag
-description: "Use for approved company knowledge when documents must persist beyond the current response, and for questions or lifecycle operations on that retained knowledge. Do not use for current-response-only reading or public research."
+description: "Primary knowledge retrieval skill for ALL company documents, projects, pricing, retained websites, and business entities (e.g. Titan AI, Protein Bar, or any ingested website/file). Trigger for any questions about retained entities, projects, or documents BEFORE attempting web research."
 version: 0.1.0
 author: Hermes project team
 license: MIT

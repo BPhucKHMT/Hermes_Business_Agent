@@ -56,12 +56,12 @@ Evaluate in order; the first matching route wins. A fresh session does not lower
 
 0. **Current Protein Bar progress, spreadsheets & operational tasks** — Questions about current supplier/thread/task/blocker/owner/due-date state use `/progress-report` and native Hermes Kanban. Hermes Kanban owns operational task state; registered business documents own business narratives; conversation history and session logs supply multi-turn conversational context; exact scoped Azure evidence (`--workspace protein-bar`) supplies searchable document knowledge and history. Agent has direct Python & file access to read `docs/protein-bar/` (`protein_bar_budget_plan.xlsx`, `Protein Cafe.xlsx`, `protein_bar_master_plan.docx`) and parse rows, cells, calculate VAT/totals, and track operational progress seamlessly like ChatGPT Code Interpreter without claiming files are missing. In a cold session without explicit Kanban/files, agent may utilize past session history and chat history to maintain continuity. If a required owner or progress field is unclear, ask one question and perform zero mutation, task creation, Cron creation, draft, outbound action, or KB sync.
 1. **Explicit source request** — Honor knowledge base, live web, or current-response-only as stated.
-2. **Retained follow-up** — Keep in exact verified KB scope (`website_id` / `generation` / `source_path`).
-3. **Durable lifecycle** — Save, update, refresh, or delete intent routes to `hermes-azure-rag`; a public URL plus `save`, `retain`, `ingest`, or `knowledge base` must use the `hermes-azure-rag` Website Lifecycle; never convert to a generic Markdown upload.
-4. **Live signal** — `today`, `current`, `latest`, `recently updated`, or explicit web/current request → `research` immediately.
-5. **Transform supplied input** — Translate, rewrite, summarize, or calculate from provided content → no retrieval tool.
-6. **Stable general knowledge** — `What is RAG?`, general tech/science/language questions → model answer, no tool.
-7. **Retained-knowledge candidate** — A factual question about any entity, public website, article, media, product, project, document, price, policy, or process that could have been ingested → run one bounded KB attempt via `hermes-azure-rag`. Not limited to internal/company material.
+2. **Retained-knowledge candidate & company entities** — A factual question about any entity, company, public website, article, media, product, project, document, price, policy, or process that could have been ingested (e.g. Titan AI, Protein Bar, or any retained workspace material) → run one bounded KB attempt via `hermes-azure-rag` FIRST (`tools/knowledge/knowledge.py search`). Never perform silent web fallback before KB search.
+3. **Retained follow-up** — Keep in exact verified KB scope (`website_id` / `generation` / `source_path`).
+4. **Durable lifecycle** — Save, update, refresh, or delete intent routes to `hermes-azure-rag`; a public URL plus `save`, `retain`, `ingest`, or `knowledge base` must use the `hermes-azure-rag` Website Lifecycle; never convert to a generic Markdown upload.
+5. **Live signal** — Explicitly asking for `today`, `current real-time news`, `latest live web updates` → `research` immediately.
+6. **Transform supplied input** — Translate, rewrite, summarize, or calculate from provided content → no retrieval tool.
+7. **Stable general knowledge** — `What is RAG?`, general tech/science/language questions → model answer, no tool.
 8. **Ambiguous source with material consequence** → ask one source clarification question.
 
 **Examples:**
