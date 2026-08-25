@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import asyncio
+import uuid
 from pathlib import Path
 from time import time
 from urllib.parse import urlsplit
-import uuid
 
 from browser_executor import Crawl4AISession
 from web import accept_observation, finalize_session, start_session, validate_capture

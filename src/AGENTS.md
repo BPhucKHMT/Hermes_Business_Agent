@@ -60,7 +60,7 @@ Evaluate in order; the first matching route wins. A fresh session does not lower
 2. **Retained-knowledge candidate & company entities** — A factual question about any entity, company, public website, article, media, product, project, document, price, policy, or process that could have been ingested (e.g. Titan AI, Protein Bar, or any retained workspace material) → run one bounded KB attempt via `hermes-azure-rag` FIRST (`tools/knowledge/knowledge.py search`). Never perform silent web fallback before KB search.
 3. **Retained follow-up** — Keep in exact verified KB scope (`website_id` / `generation` / `source_path`).
 4. **Durable lifecycle** — Save, update, refresh, or delete intent routes to `hermes-azure-rag`; a public URL plus `save`, `retain`, `ingest`, or `knowledge base` must use the `hermes-azure-rag` Website Lifecycle; never convert to a generic Markdown upload.
-5. **Live signal** — Explicitly asking for `today`, `current real-time news`, `latest live web updates` → `research` immediately.
+5. **Live signal** — Explicitly asking for `today`, `current`, `latest`, or `recently updated` live web signals → `research` immediately.
 6. **Transform supplied input** — Translate, rewrite, summarize, or calculate from provided content → no retrieval tool.
 7. **Stable general knowledge** — `What is RAG?`, general tech/science/language questions → model answer, no tool.
 8. **Ambiguous source with material consequence** → ask one source clarification question.

@@ -1,10 +1,12 @@
-from argparse import ArgumentParser
 import json
 import os
 from pathlib import Path
 import sys
 
+from cli import build_parser
 from clients import create_clients, load_config
+
+WORKSPACE_FLAG = "--workspace"
 from indexing import (
     indexer_status,
     run_indexers,
@@ -60,78 +62,7 @@ def runtime_path(value: str) -> Path:
     return path
 
 
-def main() -> None:
-    if hasattr(sys.stdout, "reconfigure"):
-        sys.stdout.reconfigure(encoding="utf-8")
-
-    parser = ArgumentParser(description="Azure-managed Hermes Knowledge Base")
-    parser.add_argument("--env-file", default=".env")
-    commands = parser.add_subparsers(dest="command", required=True)
-
-    commands.add_parser("provision")
-
-    upload = commands.add_parser("upload")
-    upload.add_argument("file")
-    upload.add_argument("--source-path")
-    upload.add_argument("--workspace", default=None)
-
-    delete = commands.add_parser("delete")
-    delete.add_argument("source_path")
-
-    commands.add_parser("index")
-    commands.add_parser("status")
-
-    search = commands.add_parser("search")
-    search.add_argument("query")
-    search.add_argument("--query-variant", action="append", default=[])
-    search.add_argument("--top-k", type=int, default=8)
-    search.add_argument("--workspace", default=None)
-    scope = search.add_mutually_exclusive_group()
-    scope.add_argument("--source-path")
-    scope.add_argument("--website-id")
-    search.add_argument("--generation")
-
-    start = commands.add_parser("web-start")
-    start.add_argument("url")
-    start.add_argument("--scope", choices=("page", "site"), required=True)
-    start.add_argument("--policy", default="config/website_policy.json")
-
-    crawl = commands.add_parser("web-crawl")
-    crawl.add_argument("url")
-    crawl.add_argument("--scope", choices=("page", "site"), required=True)
-    crawl.add_argument("--policy", default="config/website_policy.json")
-
-    observe = commands.add_parser("web-observe")
-    observe.add_argument("session")
-    observe.add_argument("event")
-
-    finish = commands.add_parser("web-finalize")
-    finish.add_argument("session")
-    finish.add_argument("capture")
-    finish.add_argument("--stop-reason", required=True)
-    finish.add_argument("--unresolved-frontier")
-
-    ingest = commands.add_parser("web-ingest")
-    ingest.add_argument("validated_capture")
-    ingest.add_argument("--workspace", default=None)
-
-    verify = commands.add_parser("web-verify")
-    verify.add_argument("validated_capture")
-
-    refresh = commands.add_parser("web-refresh")
-    refresh.add_argument("previous_capture")
-    refresh.add_argument("current_capture")
-    refresh.add_argument("--confirm-remove")
-
-    delete_url = commands.add_parser("web-delete")
-    delete_url.add_argument("website_id")
-    delete_url.add_argument("--confirm", required=True)
-
-    absent = commands.add_parser("web-verify-absent")
-    absent.add_argument("website_id")
-
-    args = parser.parse_args()
-
+def run_offline_command(args):
     if args.command == "web-start":
         result = start_session(args.url, load_website_policy(Path(args.policy)), args.scope)
         path = RUNTIME / f"{result['session_id']}.json"
@@ -172,195 +103,220 @@ def main() -> None:
         atomic_json(output, result)
         result = {"status": "validated", "validated_capture": str(output), "capture": result}
 
-    else:
-        load_env(Path(args.env_file))
-        config = load_config()
-        clients = create_clients(config)
+    return result
 
-        # Image indexer can be disabled via HERMES_IMAGE_INDEXER=false to avoid Azure quota throttling.
-        image_indexer_enabled = os.environ.get("HERMES_IMAGE_INDEXER", "true").strip().lower() not in {
-            "false", "0", "no", "off",
+
+def run_basic_command(args, clients, config, image_indexer_enabled):
+    if args.command == "provision":
+        result = provision(clients, config)
+
+    elif args.command == "upload":
+        path = Path(args.file)
+        result = upload_source(
+            clients.layout_container,
+            clients.text_container,
+            args.source_path or path.name,
+            path.read_bytes(),
+            [INTERNAL_GROUP],
+            workspace=getattr(args, "workspace", None),
+        )
+
+    elif args.command == "delete":
+        result = delete_source(clients.layout_container, clients.text_container, args.source_path)
+
+    elif args.command == "index":
+        result = run_indexers(
+            clients.indexers,
+            [config["AZURE_SEARCH_LAYOUT_INDEXER"], config["AZURE_SEARCH_TEXT_INDEXER"]],
+        )
+
+    elif args.command == "status":
+        status_indexers = ["AZURE_SEARCH_LAYOUT_INDEXER", "AZURE_SEARCH_TEXT_INDEXER"]
+        if image_indexer_enabled:
+            status_indexers.append("AZURE_SEARCH_IMAGE_INDEXER")
+        result = {name: indexer_status(clients.indexers, config[name]) for name in status_indexers}
+
+    elif args.command == "search":
+        if args.generation and not args.website_id:
+            raise ValueError("--generation requires --website-id")
+        queries = [args.query] + args.query_variant
+        workspace = getattr(args, "workspace", None)
+        if args.query_variant:
+            search_res = knowledge_search_many(
+                clients.search,
+                queries,
+                [INTERNAL_GROUP],
+                args.top_k,
+                source_path=args.source_path,
+                website_id=args.website_id,
+                generation=args.generation,
+                workspace=workspace,
+            )
+        else:
+            search_res = knowledge_search(
+                clients.search,
+                args.query,
+                [INTERNAL_GROUP],
+                args.top_k,
+                source_path=args.source_path,
+                website_id=args.website_id,
+                generation=args.generation,
+                workspace=workspace,
+            )
+        result = search_res.to_dict()
+
+    return result
+
+
+def run_refresh_command(args, clients, config, image_indexer_enabled):
+    previous = load_manifest(runtime_path(args.previous_capture))
+    current = load_manifest(runtime_path(args.current_capture))
+    diff = capture_diff(previous, current)
+
+    if diff["missing"] and args.confirm_remove != previous["website_id"]:
+        result = {
+            "status": "confirmation_required",
+            "website_id": previous["website_id"],
+            "diff": diff,
+        }
+    else:
+        selected = set(diff["changed"] + diff["added"])
+        uploads = [
+            upload_website_capture(
+                clients.text_container,
+                clients.image_container if image_indexer_enabled else None,
+                page,
+                [INTERNAL_GROUP],
+            )
+            for page in current["captures"]
+            if page["page_id"] in selected
+        ]
+        used = [config["AZURE_SEARCH_TEXT_INDEXER"]]
+        if image_indexer_enabled and any(page.get("assets") for page in current["captures"] if page["page_id"] in selected):
+            used.append(config["AZURE_SEARCH_IMAGE_INDEXER"])
+
+        submitted = run_indexers(clients.indexers, used)
+        waited = wait_for_indexers(clients.indexers, used, submitted_at=submitted["submitted_at"])
+        readiness = (
+            website_readiness(clients.search, current["website_id"], current["generation"], current["captures"])
+            if waited["status"] == "success"
+            else {"status": "not_checked"}
+        )
+        cleanup = None
+        if readiness["status"] == "ready" and previous["generation"] != current["generation"]:
+            cleanup = delete_website_capture(
+                clients.text_container,
+                clients.image_container,
+                previous["website_id"],
+                previous["generation"],
+            )
+        result = {
+            "status": "ready" if readiness["status"] == "ready" else "partial",
+            "diff": diff,
+            "uploads": uploads,
+            "submitted": submitted,
+            "indexers": waited,
+            "readiness": readiness,
+            "old_generation_cleanup": cleanup,
+        }
+    return result
+
+
+def run_website_command(args, clients, config, image_indexer_enabled):
+    if args.command == "web-ingest":
+        captured = load_manifest(runtime_path(args.validated_capture))
+        if not captured.get("session_id") or not captured.get("completion") or not captured.get("captures"):
+            raise ValueError("web-ingest requires a finalized validated capture")
+
+        ws = getattr(args, "workspace", None) or captured.get("workspace")
+        uploads = [
+            upload_website_capture(
+                clients.text_container,
+                clients.image_container if image_indexer_enabled else None,
+                page,
+                [INTERNAL_GROUP],
+                workspace=ws,
+            )
+            for page in captured["captures"]
+        ]
+        used = [config["AZURE_SEARCH_TEXT_INDEXER"]]
+        if image_indexer_enabled and any(page.get("assets") for page in captured["captures"]):
+            used.append(config["AZURE_SEARCH_IMAGE_INDEXER"])
+
+        submitted = run_indexers(clients.indexers, used)
+        waited = wait_for_indexers(clients.indexers, used, submitted_at=submitted["submitted_at"])
+        readiness = (
+            website_readiness(clients.search, captured["website_id"], captured["generation"], captured["captures"])
+            if waited["status"] == "success"
+            else {"status": "not_checked"}
+        )
+        result = {
+            "status": "ready" if readiness["status"] == "ready" else "partial",
+            "coverage": captured["completion"],
+            "uploads": uploads,
+            "submitted": submitted,
+            "indexers": waited,
+            "readiness": readiness,
         }
 
-        if args.command == "provision":
-            result = provision(clients, config)
+    elif args.command == "web-verify":
+        captured = load_manifest(runtime_path(args.validated_capture))
+        result = website_readiness(
+            clients.search,
+            captured["website_id"],
+            captured["generation"],
+            captured["captures"],
+        )
 
-        elif args.command == "upload":
-            path = Path(args.file)
-            result = upload_source(
-                clients.layout_container,
-                clients.text_container,
-                args.source_path or path.name,
-                path.read_bytes(),
-                [INTERNAL_GROUP],
-                workspace=getattr(args, "workspace", None),
-            )
+    elif args.command == "web-refresh":
+        result = run_refresh_command(args, clients, config, image_indexer_enabled)
 
-        elif args.command == "delete":
-            result = delete_source(clients.layout_container, clients.text_container, args.source_path)
+    elif args.command == "web-verify-absent":
+        absent_result = website_absent(clients.search, args.website_id)
+        result = {
+            "status": "absent" if absent_result else "stale_evidence",
+            "website_id": args.website_id,
+        }
 
-        elif args.command == "index":
-            result = run_indexers(
-                clients.indexers,
-                [config["AZURE_SEARCH_LAYOUT_INDEXER"], config["AZURE_SEARCH_TEXT_INDEXER"]],
-            )
+    else:
+        if args.confirm != args.website_id:
+            raise ValueError("web-delete confirmation must exactly match website id")
 
-        elif args.command == "status":
-            status_indexers = ["AZURE_SEARCH_LAYOUT_INDEXER", "AZURE_SEARCH_TEXT_INDEXER"]
-            if image_indexer_enabled:
-                status_indexers.append("AZURE_SEARCH_IMAGE_INDEXER")
-            result = {name: indexer_status(clients.indexers, config[name]) for name in status_indexers}
+        deletion = delete_website_capture(clients.text_container, clients.image_container, args.website_id)
+        used = [config["AZURE_SEARCH_TEXT_INDEXER"]]
+        if image_indexer_enabled:
+            used.append(config["AZURE_SEARCH_IMAGE_INDEXER"])
+        submitted = run_indexers(clients.indexers, used)
+        absent_result = wait_for_website_absent(clients.search, args.website_id)
+        result = dict(
+            deletion,
+            status="deleted" if absent_result and deletion["status"] == "deleted" else "partial",
+            submitted=submitted,
+            search_absent=absent_result,
+        )
 
-        elif args.command == "search":
-            if args.generation and not args.website_id:
-                raise ValueError("--generation requires --website-id")
-            queries = [args.query] + args.query_variant
-            workspace = getattr(args, "workspace", None)
-            if args.query_variant:
-                search_res = knowledge_search_many(
-                    clients.search,
-                    queries,
-                    [INTERNAL_GROUP],
-                    args.top_k,
-                    source_path=args.source_path,
-                    website_id=args.website_id,
-                    generation=args.generation,
-                    workspace=workspace,
-                )
-            else:
-                search_res = knowledge_search(
-                    clients.search,
-                    args.query,
-                    [INTERNAL_GROUP],
-                    args.top_k,
-                    source_path=args.source_path,
-                    website_id=args.website_id,
-                    generation=args.generation,
-                    workspace=workspace,
-                )
-            result = search_res.to_dict()
+    return result
 
-        elif args.command == "web-ingest":
-            captured = load_manifest(runtime_path(args.validated_capture))
-            if not captured.get("session_id") or not captured.get("completion") or not captured.get("captures"):
-                raise ValueError("web-ingest requires a finalized validated capture")
 
-            ws = getattr(args, "workspace", None) or captured.get("workspace")
-            uploads = [
-                upload_website_capture(
-                    clients.text_container,
-                    clients.image_container if image_indexer_enabled else None,
-                    page,
-                    [INTERNAL_GROUP],
-                    workspace=ws,
-                )
-                for page in captured["captures"]
-            ]
-            used = [config["AZURE_SEARCH_TEXT_INDEXER"]]
-            if image_indexer_enabled and any(page.get("assets") for page in captured["captures"]):
-                used.append(config["AZURE_SEARCH_IMAGE_INDEXER"])
+def run_azure_command(args):
+    load_env(Path(args.env_file))
+    config = load_config()
+    clients = create_clients(config)
+    image_indexer_enabled = os.environ.get("HERMES_IMAGE_INDEXER", "true").strip().lower() not in {
+        "false", "0", "no", "off",
+    }
+    basic = {"provision", "upload", "delete", "index", "status", "search"}
+    runner = run_basic_command if args.command in basic else run_website_command
+    return runner(args, clients, config, image_indexer_enabled)
 
-            submitted = run_indexers(clients.indexers, used)
-            waited = wait_for_indexers(clients.indexers, used, submitted_at=submitted["submitted_at"])
-            readiness = (
-                website_readiness(clients.search, captured["website_id"], captured["generation"], captured["captures"])
-                if waited["status"] == "success"
-                else {"status": "not_checked"}
-            )
-            result = {
-                "status": "ready" if readiness["status"] == "ready" else "partial",
-                "coverage": captured["completion"],
-                "uploads": uploads,
-                "submitted": submitted,
-                "indexers": waited,
-                "readiness": readiness,
-            }
 
-        elif args.command == "web-verify":
-            captured = load_manifest(runtime_path(args.validated_capture))
-            result = website_readiness(
-                clients.search,
-                captured["website_id"],
-                captured["generation"],
-                captured["captures"],
-            )
+def main() -> None:
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
 
-        elif args.command == "web-refresh":
-            previous = load_manifest(runtime_path(args.previous_capture))
-            current = load_manifest(runtime_path(args.current_capture))
-            diff = capture_diff(previous, current)
-
-            if diff["missing"] and args.confirm_remove != previous["website_id"]:
-                result = {
-                    "status": "confirmation_required",
-                    "website_id": previous["website_id"],
-                    "diff": diff,
-                }
-            else:
-                selected = set(diff["changed"] + diff["added"])
-                uploads = [
-                    upload_website_capture(
-                        clients.text_container,
-                        clients.image_container if image_indexer_enabled else None,
-                        page,
-                        [INTERNAL_GROUP],
-                    )
-                    for page in current["captures"]
-                    if page["page_id"] in selected
-                ]
-                used = [config["AZURE_SEARCH_TEXT_INDEXER"]]
-                if image_indexer_enabled and any(page.get("assets") for page in current["captures"] if page["page_id"] in selected):
-                    used.append(config["AZURE_SEARCH_IMAGE_INDEXER"])
-
-                submitted = run_indexers(clients.indexers, used)
-                waited = wait_for_indexers(clients.indexers, used, submitted_at=submitted["submitted_at"])
-                readiness = (
-                    website_readiness(clients.search, current["website_id"], current["generation"], current["captures"])
-                    if waited["status"] == "success"
-                    else {"status": "not_checked"}
-                )
-                cleanup = None
-                if readiness["status"] == "ready" and previous["generation"] != current["generation"]:
-                    cleanup = delete_website_capture(
-                        clients.text_container,
-                        clients.image_container,
-                        previous["website_id"],
-                        previous["generation"],
-                    )
-                result = {
-                    "status": "ready" if readiness["status"] == "ready" else "partial",
-                    "diff": diff,
-                    "uploads": uploads,
-                    "submitted": submitted,
-                    "indexers": waited,
-                    "readiness": readiness,
-                    "old_generation_cleanup": cleanup,
-                }
-
-        elif args.command == "web-verify-absent":
-            absent_result = website_absent(clients.search, args.website_id)
-            result = {
-                "status": "absent" if absent_result else "stale_evidence",
-                "website_id": args.website_id,
-            }
-
-        else:
-            if args.confirm != args.website_id:
-                raise ValueError("web-delete confirmation must exactly match website id")
-
-            deletion = delete_website_capture(clients.text_container, clients.image_container, args.website_id)
-            used = [config["AZURE_SEARCH_TEXT_INDEXER"]]
-            if image_indexer_enabled:
-                used.append(config["AZURE_SEARCH_IMAGE_INDEXER"])
-            submitted = run_indexers(clients.indexers, used)
-            absent_result = wait_for_website_absent(clients.search, args.website_id)
-            result = dict(
-                deletion,
-                status="deleted" if absent_result and deletion["status"] == "deleted" else "partial",
-                submitted=submitted,
-                search_absent=absent_result,
-            )
-
+    args = build_parser().parse_args()
+    offline = {"web-start", "web-crawl", "web-observe", "web-finalize"}
+    result = run_offline_command(args) if args.command in offline else run_azure_command(args)
     print(json.dumps(result, ensure_ascii=False, indent=2))
 
 

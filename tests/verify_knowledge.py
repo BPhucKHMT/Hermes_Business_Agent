@@ -325,6 +325,16 @@ def layer_2():
         "source_url": "https://cdn.example/coding.png", "alt": "", "caption": "High-level flow of a coding agent",
         "width": 2400, "height": 1666,
     }]
+    media_images = [{
+        "src": "https://cdn.example/chart.webp", "alt": "Revenue chart",
+        "desc": "Quarterly revenue", "width": 1200, "height": 800,
+    }]
+    assert browser_executor.select_relevant_images(
+        "", "https://example.com/article", media_images
+    ) == [{
+        "source_url": "https://cdn.example/chart.webp", "alt": "Revenue chart",
+        "caption": "Quarterly revenue", "width": 1200, "height": 800,
+    }]
     class ImageResponse:
         headers = {"Content-Type": "image/png", "Content-Length": "3"}
         def read(self, size=-1):

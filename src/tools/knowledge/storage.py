@@ -22,6 +22,13 @@ def _metadata(values: Mapping[str, object]) -> dict[str, str]:
     return {str(key): quote(str(value), safe="-._~:/[]\"") for key, value in values.items()}
 
 
+def _source_target(layout_container, text_container, path: str):
+    suffix = "." + path.rsplit(".", 1)[-1].lower()
+    pipeline = "layout" if suffix in LAYOUT_SUFFIXES else "text"
+    container = layout_container if pipeline == "layout" else text_container
+    return pipeline, container
+
+
 def upload_source(
     layout_container,
     text_container,
@@ -32,8 +39,7 @@ def upload_source(
 ) -> Mapping[str, object]:
     path = validate_source_path(source_path)
     groups = _groups(access_groups)
-    pipeline = "layout" if "." + path.rsplit(".", 1)[-1].lower() in LAYOUT_SUFFIXES else "text"
-    container = layout_container if pipeline == "layout" else text_container
+    pipeline, container = _source_target(layout_container, text_container, path)
     meta = {
         "source_path": path,
         "display_name": path.rsplit("/", 1)[-1],
@@ -54,8 +60,7 @@ def upload_source(
 
 def delete_source(layout_container, text_container, source_path: str) -> Mapping[str, str]:
     path = validate_source_path(source_path)
-    pipeline = "layout" if "." + path.rsplit(".", 1)[-1].lower() in LAYOUT_SUFFIXES else "text"
-    container = layout_container if pipeline == "layout" else text_container
+    pipeline, container = _source_target(layout_container, text_container, path)
     container.delete_blob(path, delete_snapshots="include")
     return {"status": "deleted", "pipeline": pipeline, "source_path": path}
 
