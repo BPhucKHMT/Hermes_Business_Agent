@@ -1,6 +1,5 @@
 import asyncio
 from dataclasses import replace
-import json
 import os
 import sys
 from concurrent.futures import ThreadPoolExecutor
@@ -44,13 +43,6 @@ class ProbeSessionStore:
         return self._by_id.get(session_id)
 
 
-class ProbeGmailClient:
-    def __init__(self):
-        self.calls = []
-
-    def search_threads(self, query):
-        self.calls.append(query)
-        return [{"id": "t1"}]
 
 
 class ProbeTelegramAdapter:
@@ -65,8 +57,7 @@ class ProbeTelegramAdapter:
 class RuntimeProbe:
     def __init__(self):
         self.session_store = ProbeSessionStore()
-        self.gmail = ProbeGmailClient()
-        self.tools = PersonalGmailTools(self.session_store, self.gmail)
+        self.tools = PersonalGmailTools(self.session_store)
         self.registry = self.tools.registry
 
     @staticmethod
@@ -215,38 +206,34 @@ def test_concurrent_dm_callers_never_swap_identity(runtime_probe):
     assert b.principal_id == "telegram:hermes-business:222"
 
 
-def test_group_personal_request_redirects_without_gmail_call(runtime_probe):
+def test_group_personal_request_is_blocked_before_any_handler(runtime_probe):
     session_id = runtime_probe.capture(runtime_probe.group_event(user_id="111"))
 
-    result_raw = runtime_probe.tools.email_search(
+    decision = runtime_probe.tools.pre_tool_call(
+        tool_name="email_search",
         task_id=session_id,
         session_id=session_id,
-        model_args={"query": "marker"},
     )
-    result = json.loads(result_raw) if isinstance(result_raw, str) else result_raw
 
-    assert result["status"] == "redirect_to_dm"
-    assert runtime_probe.gmail.calls == []
+    assert decision == {"action": "block", "message": DM_REDIRECT_TEXT}
 
 
-def test_model_cannot_override_dm_principal(runtime_probe):
+def test_model_fields_cannot_override_resolved_dm_principal(runtime_probe):
     session_id = runtime_probe.capture(
         runtime_probe.dm_event(user_id="111", chat_id="111")
     )
+    untrusted_model_args = {
+        "principal_id": "telegram:hermes-business:222",
+        "chat_id": "222",
+    }
 
-    result_raw = runtime_probe.tools.email_search(
+    caller = runtime_probe.registry.resolve_dm_tool(
         task_id=session_id,
         session_id=session_id,
-        model_args={
-            "query": "marker",
-            "principal_id": "telegram:hermes-business:222",
-            "chat_id": "222",
-        },
     )
-    result = json.loads(result_raw) if isinstance(result_raw, str) else result_raw
 
-    assert result["status"] == "ok"
-    assert runtime_probe.gmail.calls == ["marker"]
+    assert untrusted_model_args["principal_id"] != caller.principal_id
+    assert caller.principal_id == "telegram:hermes-business:111"
 
 
 

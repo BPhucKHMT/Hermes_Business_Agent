@@ -1,11 +1,11 @@
-import hashlib
-import hmac
 import json
 import os
 import sys
-import time
 from pathlib import Path
+from threading import Thread
 from types import SimpleNamespace
+from urllib.request import urlopen
+
 import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -21,7 +21,11 @@ import tools
 if str(SRC / "tools") not in tools.__path__:
     tools.__path__.insert(0, str(SRC / "tools"))
 
-from tools.email.service import EmailConnectorService, make_signed_headers
+from tools.email.service import (
+    EmailConnectorService,
+    create_http_server,
+    make_signed_headers,
+)
 from tools.email.store import MailStore
 from tools.email.policy import MailPolicy
 from tools.email.contracts import (
@@ -30,6 +34,7 @@ from tools.email.contracts import (
     MailConnection,
     SearchHit,
     ThreadResult,
+    Destination,
 )
 
 
@@ -83,6 +88,19 @@ class FakeOAuthManager:
             request_id="link-real",
         )
 
+    def complete_callback(self, state, code):
+        self.calls.append(("callback", state, code))
+        return MailConnection(
+            connection_id="conn-callback",
+            owner_principal_id="telegram:bot:alice",
+            mailbox_type=MailboxType.PERSONAL,
+            masked_address="a***@gmail.com",
+            provider_subject_hash="sub-callback",
+            secret_ref="keyvault://conn-callback",
+            granted_scopes=(GMAIL_READONLY_SCOPE,),
+            status="connected",
+        )
+
 @pytest.fixture
 def service_env(tmp_path):
     db_path = tmp_path / "mail_state.db"
@@ -102,7 +120,7 @@ def service_env(tmp_path):
     )
     store.add_connection(conn)
 
-    policy = MailPolicy(store=store, operator_allowlist=("telegram:bot:999",))
+    policy = MailPolicy(store=store, operator_allowlist=("999",))
     oauth = FakeOAuthManager()
     gmail = FakeGmailReader()
     service = EmailConnectorService(
@@ -145,6 +163,12 @@ def test_signed_dm_search_succeeds(service_env):
     assert service_env.gmail.calls == [
         ("search", {"token": "fake-token"}, "newer_than:7d", 10)
     ]
+    audit = service_env.store.list_audit_events()
+    assert [(event.event_type, event.outcome) for event in audit] == [
+        ("search", "ok")
+    ]
+    assert audit[0].query_hash != "newer_than:7d"
+    assert b"newer_than:7d" not in service_env.store.db_path.read_bytes()
 
 
 def test_signed_group_search_redirects_to_dm(service_env):
@@ -167,6 +191,8 @@ def test_signed_group_search_redirects_to_dm(service_env):
     assert data["ok"] is True
     assert data["result"]["delivery"] == "redirect_to_dm"
     assert "Mở chat riêng" in data["result"]["public_text"]
+    assert service_env.gmail.calls == []
+    assert service_env.store.list_audit_events()[-1].outcome == "redirect_to_dm"
 
 
 def test_oauth_start_and_disconnect_use_real_composed_dependencies(service_env):
@@ -202,6 +228,8 @@ def test_oauth_start_and_disconnect_use_real_composed_dependencies(service_env):
     assert disconnect_data["result"]["status"] == "revoked"
     assert service_env.store.list_connections("telegram:bot:alice") == ()
     assert "keyvault://conn-alice" not in service_env.secrets.data
+    assert service_env.store.list_audit_events()[-1].event_type == "revoke"
+    assert service_env.store.list_audit_events()[-1].outcome == "revoked"
 
 
 def test_oauth_start_fails_closed_without_oauth_manager(service_env):
@@ -216,7 +244,162 @@ def test_oauth_start_fails_closed_without_oauth_manager(service_env):
         make_signed_headers("POST", "/v1/oauth/start", body, "test-hmac-secret-123"),
     )
     data = json.loads(response.body)
-
     assert response.status == 503
     assert data["ok"] is False
     assert data["error"]["code"] == "oauth_not_configured"
+
+
+def test_thread_and_status_calls_are_audited(service_env):
+    caller = {
+        "principal_id": "telegram:bot:alice",
+        "platform": "telegram",
+        "user_id": "alice",
+        "chat_id": "alice",
+        "chat_type": "dm",
+    }
+    thread = _signed_request(
+        service_env.service,
+        "POST",
+        "/v1/thread",
+        {"caller": caller, "thread_id": "t-123"},
+    )
+    status = _signed_request(
+        service_env.service,
+        "GET",
+        "/v1/connections",
+        {"caller": caller},
+    )
+
+    assert json.loads(thread.body)["result"]["thread"]["thread_id"] == "t-123"
+    assert json.loads(status.body)["result"]["connections"][0]["status"] == "connected"
+    assert [event.event_type for event in service_env.store.list_audit_events()] == [
+        "thread",
+        "status",
+    ]
+
+
+
+def _signed_request(service, method, path, payload):
+    body = json.dumps(payload).encode("utf-8")
+    return service.handle_internal_request(
+        method,
+        path,
+        body,
+        make_signed_headers(method, path, body, "test-hmac-secret-123"),
+    )
+
+
+def test_public_http_callback_completes_oauth_without_exposing_account(service_env):
+    server = create_http_server(service_env.service, "127.0.0.1", 0)
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        port = server.server_address[1]
+        with urlopen(
+            f"http://127.0.0.1:{port}/gmail/oauth/callback?state=opaque&code=code",
+            timeout=5,
+        ) as response:
+            body = response.read().decode("utf-8")
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
+
+    assert "Gmail connected" in body
+    assert "a***@gmail.com" not in body
+    assert service_env.oauth.calls == [("callback", "opaque", "code")]
+    assert service_env.store.list_audit_events()[-1].event_type == "connect"
+
+
+def test_owner_proposes_and_numeric_operator_approves_shared_grant(service_env):
+    owner = {
+        "principal_id": "telegram:bot:alice",
+        "platform": "telegram",
+        "user_id": "alice",
+        "chat_id": "alice",
+        "chat_type": "dm",
+    }
+    proposed = _signed_request(
+        service_env.service,
+        "POST",
+        "/v1/grants/propose",
+        {
+            "caller": owner,
+            "connection_id": "conn-alice",
+            "destination": {
+                "platform": "telegram",
+                "chat_id": "-1001",
+                "thread_id": "11",
+            },
+        },
+    )
+    request_id = json.loads(proposed.body)["result"]["request_id"]
+
+    operator = {
+        "principal_id": "telegram:bot:999",
+        "platform": "telegram",
+        "user_id": "999",
+        "chat_id": "999",
+        "chat_type": "dm",
+    }
+    decided = _signed_request(
+        service_env.service,
+        "POST",
+        "/v1/grants/decide",
+        {"caller": operator, "request_id": request_id, "decision": "approve"},
+    )
+
+    assert proposed.status == 200
+    assert json.loads(decided.body)["result"]["status"] == "approved"
+    assert service_env.store.destination_grant(
+        "conn-alice",
+        Destination("telegram", "-1001", "11"),
+    ) is not None
+    assert [event.event_type for event in service_env.store.list_audit_events()] == [
+        "grant",
+        "grant",
+    ]
+
+
+def test_operator_denial_is_audited_without_creating_grant(service_env):
+    owner = {
+        "principal_id": "telegram:bot:alice",
+        "platform": "telegram",
+        "user_id": "alice",
+        "chat_id": "alice",
+        "chat_type": "dm",
+    }
+    proposed = _signed_request(
+        service_env.service,
+        "POST",
+        "/v1/grants/propose",
+        {
+            "caller": owner,
+            "connection_id": "conn-alice",
+            "destination": {"platform": "telegram", "chat_id": "-1001"},
+        },
+    )
+    request_id = json.loads(proposed.body)["result"]["request_id"]
+    denied = _signed_request(
+        service_env.service,
+        "POST",
+        "/v1/grants/decide",
+        {
+            "caller": {
+                "principal_id": "telegram:bot:999",
+                "platform": "telegram",
+                "user_id": "999",
+                "chat_id": "999",
+                "chat_type": "dm",
+            },
+            "request_id": request_id,
+            "decision": "deny",
+        },
+    )
+
+    assert json.loads(denied.body)["result"]["status"] == "denied"
+    assert service_env.store.destination_grant(
+        "conn-alice",
+        Destination("telegram", "-1001"),
+    ) is None
+    assert service_env.store.list_audit_events()[-1].outcome == "denied"

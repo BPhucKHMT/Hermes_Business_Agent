@@ -1,17 +1,14 @@
 from __future__ import annotations
 
 import json
-import os
-from pathlib import Path
 from threading import Lock
 from typing import Any
 
-from tools.email.gmail import GmailReader
-from tools.email.oauth import GmailOAuthManager
-from tools.email.policy import MailPolicy
-from tools.email.secrets import AzureKeyVaultSecretStore
-from tools.email.service import EmailConnectorService, make_signed_headers
-from tools.email.store import MailStore
+from tools.email.service import (
+    EmailConnectorService,
+    build_service_from_env,
+    make_signed_headers,
+)
 
 
 def _caller_payload(caller: Any) -> dict[str, Any]:
@@ -66,7 +63,7 @@ class EmailConnectorClient:
         return self._request(
             "GET",
             "/v1/connections",
-            {"principal_id": caller.principal_id},
+            {"caller": _caller_payload(caller)},
         )
 
     def start_oauth(self, caller: Any) -> dict[str, Any]:
@@ -81,6 +78,43 @@ class EmailConnectorClient:
             "POST",
             "/v1/disconnect",
             {"caller": _caller_payload(caller), "connection_id": connection_id},
+        )
+
+    def propose_grant(
+        self,
+        caller: Any,
+        connection_id: str,
+        chat_id: str,
+        thread_id: str | None = None,
+    ) -> dict[str, Any]:
+        return self._request(
+            "POST",
+            "/v1/grants/propose",
+            {
+                "caller": _caller_payload(caller),
+                "connection_id": connection_id,
+                "destination": {
+                    "platform": "telegram",
+                    "chat_id": chat_id,
+                    "thread_id": thread_id,
+                },
+            },
+        )
+
+    def decide_grant(
+        self,
+        caller: Any,
+        request_id: str,
+        decision: str,
+    ) -> dict[str, Any]:
+        return self._request(
+            "POST",
+            "/v1/grants/decide",
+            {
+                "caller": _caller_payload(caller),
+                "request_id": request_id,
+                "decision": decision,
+            },
         )
 
 class UnavailableConnectorClient:
@@ -102,6 +136,23 @@ class UnavailableConnectorClient:
     def disconnect(self, caller: Any, connection_id: str) -> dict[str, Any]:
         return self._response
 
+    def propose_grant(
+        self,
+        caller: Any,
+        connection_id: str,
+        chat_id: str,
+        thread_id: str | None = None,
+    ) -> dict[str, Any]:
+        return self._response
+
+    def decide_grant(
+        self,
+        caller: Any,
+        request_id: str,
+        decision: str,
+    ) -> dict[str, Any]:
+        return self._response
+
 
 _default_client: EmailConnectorClient | UnavailableConnectorClient | None = None
 _default_lock = Lock()
@@ -116,46 +167,16 @@ def get_default_client() -> EmailConnectorClient | UnavailableConnectorClient:
 
 
 def _build_default_client() -> EmailConnectorClient | UnavailableConnectorClient:
-    required = {
-        "AZURE_KEY_VAULT_URL": os.environ.get("AZURE_KEY_VAULT_URL", "").strip(),
-        "EMAIL_GOOGLE_CLIENT_ID": os.environ.get("EMAIL_GOOGLE_CLIENT_ID", "").strip(),
-        "EMAIL_OAUTH_REDIRECT_URI": os.environ.get("EMAIL_OAUTH_REDIRECT_URI", "").strip(),
-        "EMAIL_CONNECTOR_SHARED_SECRET": os.environ.get("EMAIL_CONNECTOR_SHARED_SECRET", "").strip(),
-    }
-    if not all(required.values()):
-        return UnavailableConnectorClient()
-
     try:
-        secret_store = AzureKeyVaultSecretStore(required["AZURE_KEY_VAULT_URL"])
-        secret_ref = os.environ.get(
-            "EMAIL_GOOGLE_CLIENT_SECRET_REF",
-            "keyvault://email-google-client-secret",
-        )
-        client_secret = secret_store.get_json(secret_ref).get("client_secret", "")
-        if not client_secret:
-            return UnavailableConnectorClient("oauth_client_secret_not_configured")
-
-        state_path = os.environ.get("EMAIL_STATE_DB_PATH", "").strip()
-        if not state_path:
-            hermes_home = Path(os.environ.get("HERMES_HOME", Path.home() / ".hermes"))
-            state_path = str(hermes_home / "email" / "mail_state.db")
-        store = MailStore(state_path)
-        policy = MailPolicy(store)
-        oauth = GmailOAuthManager(
-            client_id=required["EMAIL_GOOGLE_CLIENT_ID"],
-            client_secret=client_secret,
-            redirect_uri=required["EMAIL_OAUTH_REDIRECT_URI"],
-            store=store,
-            secret_store=secret_store,
-        )
-        service = EmailConnectorService(
-            store=store,
-            secret_store=secret_store,
-            policy=policy,
-            gmail_reader=GmailReader(),
-            oauth_manager=oauth,
-            shared_secret=required["EMAIL_CONNECTOR_SHARED_SECRET"],
-        )
-        return EmailConnectorClient(service, required["EMAIL_CONNECTOR_SHARED_SECRET"])
+        service = build_service_from_env()
+        return EmailConnectorClient(service, service.shared_secret)
+    except RuntimeError as error:
+        code = str(error)
+        if code in (
+            "connector_unavailable",
+            "oauth_client_secret_not_configured",
+        ):
+            return UnavailableConnectorClient(code)
+        return UnavailableConnectorClient("connector_initialization_failed")
     except Exception:
         return UnavailableConnectorClient("connector_initialization_failed")

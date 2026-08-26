@@ -74,6 +74,25 @@ class FakeConnectorClient:
         self.calls.append(("oauth", caller.principal_id))
         return {"ok": True, "result": {"authorization_url": "https://accounts.google.com/real"}}
 
+    def propose_grant(self, caller, connection_id, chat_id, thread_id=None):
+        self.calls.append(
+            ("propose_grant", caller.principal_id, connection_id, chat_id, thread_id)
+        )
+        return {
+            "ok": True,
+            "result": {"request_id": "grant-1", "status": "pending"},
+        }
+
+    def decide_grant(self, caller, request_id, decision):
+        self.calls.append(
+            ("decide_grant", caller.principal_id, request_id, decision)
+        )
+        status = "approved" if decision == "approve" else "denied"
+        return {
+            "ok": True,
+            "result": {"request_id": request_id, "status": status},
+        }
+
     def disconnect(self, caller, connection_id):
         self.calls.append(("disconnect", caller.principal_id, connection_id))
         return {"ok": True, "result": {"connection_id": connection_id, "status": "revoked"}}
@@ -123,15 +142,12 @@ def test_plugin_registers_read_tools_and_commands(monkeypatch):
         "email_get_thread",
         "email_connection_status",
     }
-    assert not any(
-        word in name
-        for name in ctx.tools
-        for word in ("send", "draft", "label", "delete")
-    )
     assert set(ctx.commands) == {
         "connect_gmail",
         "mail_status",
         "disconnect_gmail",
+        "share_mailbox",
+        "email_grant",
     }
 
 
@@ -188,6 +204,30 @@ def test_registered_commands_invoke_connector_and_never_fake_success(monkeypatch
         ("oauth", CALLER.principal_id),
         ("connections", CALLER.principal_id),
         ("disconnect", CALLER.principal_id, "conn-1"),
+    ]
+
+
+def test_registered_grant_commands_call_connector(monkeypatch):
+    client = FakeConnectorClient()
+    ctx = FakeContext()
+    monkeypatch.setattr(plugin_module, "get_default_client", lambda: client)
+    guard = plugin_module.register(ctx)
+    monkeypatch.setattr(guard.registry, "resolve_command", lambda: CALLER)
+
+    proposed = ctx.commands["share_mailbox"]("conn-1 -1001 11")
+    approved = ctx.commands["email_grant"]("grant-1 approve")
+
+    assert "grant-1" in proposed
+    assert "approved" in approved
+    assert client.calls == [
+        (
+            "propose_grant",
+            CALLER.principal_id,
+            "conn-1",
+            "-1001",
+            "11",
+        ),
+        ("decide_grant", CALLER.principal_id, "grant-1", "approve"),
     ]
 
 

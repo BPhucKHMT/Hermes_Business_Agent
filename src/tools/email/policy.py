@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import logging
+import secrets
 from dataclasses import dataclass
-from typing import Optional, Tuple
+from typing import Any, Optional, Tuple
 
 from tools.email.contracts import (
     DeliveryDecision,
@@ -84,7 +85,7 @@ class MailPolicy:
         if conn.owner_principal_id != caller.principal_id:
             raise PermissionError("only_mailbox_owner_can_propose_shared_grant")
 
-        req_id = f"grant-req-{caller.user_id}-{connection_id}"
+        req_id = f"grant-{secrets.token_hex(16)}"
         req = SharedGrantRequest(
             request_id=req_id,
             connection_id=connection_id,
@@ -102,9 +103,13 @@ class MailPolicy:
         request_id: str,
         approve: bool,
     ) -> SharedGrantRequest:
+        is_operator = (
+            operator.principal_id in self.operator_allowlist
+            or operator.user_id in self.operator_allowlist
+        )
         return self.store.decide_grant_request(
             request_id=request_id,
             operator_principal_id=operator.principal_id,
-            operator_allowlist=self.operator_allowlist,
+            operator_allowlist=(operator.principal_id,) if is_operator else (),
             approve=approve,
         )

@@ -76,6 +76,18 @@ class SharedGrant:
     revoked_at: Optional[str] = None
 
 
+
+@dataclass(frozen=True)
+class AuditEvent:
+    event_id: str
+    event_type: str
+    principal_id: str
+    connection_id: Optional[str]
+    destination_hash: Optional[str]
+    query_hash: Optional[str]
+    occurred_at: str
+    outcome: str
+
 @dataclass(frozen=True)
 class SearchHit:
     thread_id: str

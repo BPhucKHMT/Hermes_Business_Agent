@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Optional
 
 from tools.email.contracts import (
+    AuditEvent,
     MAX_CONNECTIONS_PER_PRINCIPAL,
     ConnectionStatus,
     Destination,
@@ -21,6 +22,13 @@ from tools.email.contracts import (
 
 def _utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def _is_expired(expires_at: str) -> bool:
+    parsed = datetime.fromisoformat(expires_at.replace("Z", "+00:00"))
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed <= datetime.now(timezone.utc)
 
 
 class MailStore:
@@ -192,6 +200,23 @@ class MailStore:
                 (req.request_id, req.principal_id, req.nonce_hash, req.pkce_secret_ref, req.expires_at),
             )
 
+
+    def get_link_request(self, request_id: str) -> OAuthLinkRequest:
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT * FROM oauth_link_requests WHERE request_id = ?;",
+                (request_id,),
+            ).fetchone()
+        if row is None:
+            raise FileNotFoundError("oauth_request_not_found")
+        return OAuthLinkRequest(
+            request_id=row["request_id"],
+            principal_id=row["principal_id"],
+            nonce_hash=row["nonce_hash"],
+            pkce_secret_ref=row["pkce_secret_ref"],
+            expires_at=row["expires_at"],
+            used_at=row["used_at"],
+        )
     def consume_link_request(self, request_id: str, nonce_hash: str, principal_id: str) -> OAuthLinkRequest:
         with self._connect() as conn:
             conn.execute("BEGIN IMMEDIATE;")
@@ -205,6 +230,8 @@ class MailStore:
                 raise PermissionError("oauth_nonce_mismatch")
             if r["principal_id"] != principal_id:
                 raise PermissionError("oauth_principal_mismatch")
+            if _is_expired(r["expires_at"]):
+                raise PermissionError("oauth_request_expired")
 
             now = _utc_now_iso()
             conn.execute("UPDATE oauth_link_requests SET used_at = ? WHERE request_id = ?;", (now, request_id))
@@ -257,6 +284,13 @@ class MailStore:
                 raise PermissionError("operator_required: principal is not a configured operator")
             if operator_principal_id == r["requested_by"]:
                 raise PermissionError("operator_required: mailbox owner cannot self-approve shared grant")
+            if _is_expired(r["expires_at"]):
+                conn.execute(
+                    "UPDATE shared_grant_requests SET status = 'expired' WHERE request_id = ?;",
+                    (request_id,),
+                )
+                conn.commit()
+                raise ValueError("grant_request_expired")
 
             now = _utc_now_iso()
             new_status = GrantRequestStatus.APPROVED if approve else GrantRequestStatus.DENIED
@@ -337,3 +371,43 @@ class MailStore:
                 granted_scopes=tuple(json.loads(r["granted_scopes_json"])),
                 status=ConnectionStatus.REVOKED,
             )
+
+    def append_audit(self, event: AuditEvent) -> None:
+        with self._connect() as conn:
+            conn.execute(
+                """
+                INSERT INTO email_audit (
+                    event_id, event_type, principal_id, connection_id,
+                    destination_hash, query_hash, occurred_at, outcome
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+                """,
+                (
+                    event.event_id,
+                    event.event_type,
+                    event.principal_id,
+                    event.connection_id,
+                    event.destination_hash,
+                    event.query_hash,
+                    event.occurred_at,
+                    event.outcome,
+                ),
+            )
+
+    def list_audit_events(self) -> tuple[AuditEvent, ...]:
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT * FROM email_audit ORDER BY occurred_at, event_id;"
+            ).fetchall()
+        return tuple(
+            AuditEvent(
+                event_id=row["event_id"],
+                event_type=row["event_type"],
+                principal_id=row["principal_id"],
+                connection_id=row["connection_id"],
+                destination_hash=row["destination_hash"],
+                query_hash=row["query_hash"],
+                occurred_at=row["occurred_at"],
+                outcome=row["outcome"],
+            )
+            for row in rows
+        )

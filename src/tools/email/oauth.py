@@ -136,19 +136,27 @@ class GmailOAuthManager:
         sub_id = hashlib.sha256(email_address.encode("utf-8")).hexdigest()
         return token_data, email_address, sub_id
 
+    @staticmethod
+    def _parse_state(state: str) -> tuple[str, str]:
+        try:
+            raw_state = base64.urlsafe_b64decode(state.encode("utf-8")).decode("utf-8")
+            parsed_state = json.loads(raw_state)
+            return parsed_state["req"], parsed_state["nonce"]
+        except Exception:
+            raise ValueError("invalid_oauth_state") from None
+
+    def complete_callback(self, state: str, code: str) -> MailConnection:
+        request_id, _ = self._parse_state(state)
+        request = self.store.get_link_request(request_id)
+        return self.complete_authorization(state, code, request.principal_id)
+
     def complete_authorization(
         self,
         state: str,
         code: str,
         principal_id: str,
     ) -> MailConnection:
-        try:
-            raw_state = base64.urlsafe_b64decode(state.encode("utf-8")).decode("utf-8")
-            parsed_state = json.loads(raw_state)
-            request_id = parsed_state["req"]
-            state_nonce = parsed_state["nonce"]
-        except Exception:
-            raise ValueError("invalid_oauth_state")
+        request_id, state_nonce = self._parse_state(state)
 
         nonce_hash = hashlib.sha256(state_nonce.encode("utf-8")).hexdigest()
         link_req = self.store.consume_link_request(request_id, nonce_hash, principal_id)

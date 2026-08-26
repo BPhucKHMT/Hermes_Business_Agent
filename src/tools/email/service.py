@@ -1,19 +1,18 @@
 from __future__ import annotations
 
-import base64
 import hashlib
 import hmac
 import json
 import logging
+import secrets
 import time
+import urllib.parse
 from dataclasses import asdict, dataclass
-from typing import Any, Dict, Optional, Tuple
+from datetime import datetime, timedelta, timezone
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from typing import Any, Dict, Optional
 
-from tools.email.contracts import (
-    Destination,
-    MailConnection,
-    MailboxType,
-)
+from tools.email.contracts import AuditEvent, Destination
 from tools.email.gmail import GmailReader
 from tools.email.policy import MailPolicy, PolicyCaller
 from tools.email.secrets import SecretStore
@@ -117,10 +116,14 @@ class EmailConnectorService:
                 return self._handle_list_connections(data)
             if path == "/v1/disconnect" and method == "POST":
                 return self._handle_disconnect(data)
+            if path == "/v1/grants/propose" and method == "POST":
+                return self._handle_grant_propose(data)
+            if path == "/v1/grants/decide" and method == "POST":
+                return self._handle_grant_decide(data)
         except (FileNotFoundError, PermissionError, ValueError) as error:
             return self._error_response(403, str(error).split(":", 1)[0])
         except Exception:
-            logger.exception("Email connector request failed for %s", path)
+            logger.error("Email connector request failed for %s", path)
             return self._error_response(503, "connector_unavailable")
 
         return self._error_response(404, "not_found")
@@ -132,15 +135,173 @@ class EmailConnectorService:
             body=json.dumps({"ok": False, "error": {"code": code}}).encode("utf-8"),
         )
 
+    @staticmethod
+    def _caller(data: Dict[str, Any]) -> PolicyCaller:
+        return PolicyCaller(
+            principal_id=data.get("principal_id", ""),
+            platform=data.get("platform", "telegram"),
+            user_id=data.get("user_id", ""),
+            chat_id=data.get("chat_id", ""),
+            thread_id=data.get("thread_id"),
+            chat_type=data.get("chat_type", "dm"),
+            profile=data.get("profile", "default"),
+            session_key=data.get("session_key", ""),
+        )
+
+    def _audit(
+        self,
+        event_type: str,
+        caller: PolicyCaller,
+        outcome: str,
+        connection_id: Optional[str] = None,
+        destination: Optional[Destination] = None,
+        query: Optional[str] = None,
+    ) -> None:
+        destination_hash = None
+        if destination is not None:
+            destination_hash = hashlib.sha256(
+                f"{destination.platform}:{destination.chat_id}:{destination.thread_id or ''}".encode("utf-8")
+            ).hexdigest()
+        query_hash = (
+            hashlib.sha256(query.encode("utf-8")).hexdigest()
+            if query is not None
+            else None
+        )
+        self.store.append_audit(
+            AuditEvent(
+                event_id=f"audit-{secrets.token_hex(16)}",
+                event_type=event_type,
+                principal_id=caller.principal_id,
+                connection_id=connection_id,
+                destination_hash=destination_hash,
+                query_hash=query_hash,
+                occurred_at=datetime.now(timezone.utc).isoformat(),
+                outcome=outcome,
+            )
+        )
+
+    def handle_oauth_callback(self, state: str, code: str) -> ServiceResponse:
+        if self.oauth_manager is None:
+            return ServiceResponse(
+                status=503,
+                body=b"Gmail connector unavailable.",
+                content_type="text/plain; charset=utf-8",
+            )
+        if not state or not code:
+            return ServiceResponse(
+                status=400,
+                body=b"Invalid OAuth callback.",
+                content_type="text/plain; charset=utf-8",
+            )
+        try:
+            connection = self.oauth_manager.complete_callback(state, code)
+            caller = PolicyCaller(
+                principal_id=connection.owner_principal_id,
+                platform="telegram",
+                user_id="",
+                chat_id="",
+                chat_type="dm",
+            )
+            self._audit(
+                "connect",
+                caller,
+                "connected",
+                connection_id=connection.connection_id,
+            )
+        except Exception:
+            logger.error("Gmail OAuth callback failed")
+            return ServiceResponse(
+                status=400,
+                body=b"Gmail connection failed.",
+                content_type="text/plain; charset=utf-8",
+            )
+        return ServiceResponse(
+            status=200,
+            body=b"Gmail connected. Return to Hermes.",
+            content_type="text/plain; charset=utf-8",
+        )
+
+    def _handle_grant_propose(self, data: Dict[str, Any]) -> ServiceResponse:
+        caller = self._caller(data.get("caller", {}))
+        destination_data = data.get("destination", {})
+        if caller.chat_type != "dm":
+            return self._error_response(403, "dm_required")
+        destination = Destination(
+            platform=destination_data.get("platform", ""),
+            chat_id=destination_data.get("chat_id", ""),
+            thread_id=destination_data.get("thread_id"),
+        )
+        if destination.platform != "telegram" or not destination.chat_id:
+            return self._error_response(400, "invalid_destination")
+        expires_at = (datetime.now(timezone.utc) + timedelta(minutes=10)).isoformat()
+        request = self.policy.propose_shared_grant(
+            caller,
+            data.get("connection_id", ""),
+            destination,
+            expires_at,
+        )
+        self._audit(
+            "grant",
+            caller,
+            "pending",
+            connection_id=request.connection_id,
+            destination=destination,
+        )
+        return ServiceResponse(
+            status=200,
+            body=json.dumps(
+                {
+                    "ok": True,
+                    "result": {
+                        "request_id": request.request_id,
+                        "status": "pending",
+                        "expires_at": request.expires_at,
+                    },
+                }
+            ).encode("utf-8"),
+        )
+
+    def _handle_grant_decide(self, data: Dict[str, Any]) -> ServiceResponse:
+        caller = self._caller(data.get("caller", {}))
+        decision = data.get("decision", "")
+        if caller.chat_type != "dm":
+            return self._error_response(403, "dm_required")
+        if decision not in ("approve", "deny"):
+            return self._error_response(400, "invalid_grant_decision")
+        request = self.policy.decide_shared_grant(
+            caller,
+            data.get("request_id", ""),
+            approve=decision == "approve",
+        )
+        outcome = "approved" if decision == "approve" else "denied"
+        self._audit(
+            "grant",
+            caller,
+            outcome,
+            connection_id=request.connection_id,
+            destination=request.destination,
+        )
+        return ServiceResponse(
+            status=200,
+            body=json.dumps(
+                {
+                    "ok": True,
+                    "result": {
+                        "request_id": request.request_id,
+                        "status": outcome,
+                    },
+                }
+            ).encode("utf-8"),
+        )
+
     def _handle_oauth_start(self, data: Dict[str, Any]) -> ServiceResponse:
-        caller = data.get("caller", {})
-        principal_id = caller.get("principal_id", "")
-        if caller.get("chat_type") != "dm" or not principal_id:
+        caller = self._caller(data.get("caller", {}))
+        if caller.chat_type != "dm" or not caller.principal_id:
             return self._error_response(403, "dm_required")
         if self.oauth_manager is None:
             return self._error_response(503, "oauth_not_configured")
 
-        start = self.oauth_manager.create_authorization_start(principal_id)
+        start = self.oauth_manager.create_authorization_start(caller.principal_id)
         return ServiceResponse(
             status=200,
             body=json.dumps(
@@ -155,16 +316,24 @@ class EmailConnectorService:
         )
 
     def _handle_disconnect(self, data: Dict[str, Any]) -> ServiceResponse:
-        caller = data.get("caller", {})
-        principal_id = caller.get("principal_id", "")
+        caller = self._caller(data.get("caller", {}))
         connection_id = data.get("connection_id", "")
-        if caller.get("chat_type") != "dm" or not principal_id:
+        if caller.chat_type != "dm" or not caller.principal_id:
             return self._error_response(403, "dm_required")
         if not connection_id:
             return self._error_response(400, "connection_id_required")
 
-        connection = self.store.revoke_connection(principal_id, connection_id)
+        connection = self.store.revoke_connection(
+            caller.principal_id,
+            connection_id,
+        )
         self.secret_store.delete(connection.secret_ref)
+        self._audit(
+            "revoke",
+            caller,
+            "revoked",
+            connection_id=connection.connection_id,
+        )
         return ServiceResponse(
             status=200,
             body=json.dumps(
@@ -179,29 +348,39 @@ class EmailConnectorService:
         )
 
     def _handle_search(self, data: Dict[str, Any]) -> ServiceResponse:
-        caller_data = data.get("caller", {})
-        caller = PolicyCaller(
-            principal_id=caller_data.get("principal_id", ""),
-            platform=caller_data.get("platform", "telegram"),
-            user_id=caller_data.get("user_id", ""),
-            chat_id=caller_data.get("chat_id", ""),
-            thread_id=caller_data.get("thread_id"),
-            chat_type=caller_data.get("chat_type", "dm"),
-        )
+        caller = self._caller(data.get("caller", {}))
         query = data.get("query", "")
         limit = data.get("limit", 10)
-
+        destination = Destination(
+            caller.platform,
+            caller.chat_id,
+            caller.thread_id,
+        )
         connections = self.policy.readable_connections(caller)
         if not connections:
+            self._audit(
+                "search",
+                caller,
+                "empty",
+                destination=destination,
+                query=query,
+            )
             return ServiceResponse(
                 status=200,
                 body=json.dumps({"ok": True, "result": {"hits": []}}).encode("utf-8"),
             )
 
-        # Use primary readable connection
-        conn = connections[0]
-        delivery = self.policy.decide_delivery(caller, conn)
+        connection = connections[0]
+        delivery = self.policy.decide_delivery(caller, connection)
         if delivery.mode == "redirect_to_dm":
+            self._audit(
+                "search",
+                caller,
+                "redirect_to_dm",
+                connection_id=connection.connection_id,
+                destination=destination,
+                query=query,
+            )
             return ServiceResponse(
                 status=200,
                 body=json.dumps(
@@ -215,9 +394,16 @@ class EmailConnectorService:
                 ).encode("utf-8"),
             )
 
-        token_data = self.secret_store.get_json(conn.secret_ref)
+        token_data = self.secret_store.get_json(connection.secret_ref)
         hits = self.gmail_reader.search_threads(token_data, query, limit=limit)
-
+        self._audit(
+            "search",
+            caller,
+            "ok",
+            connection_id=connection.connection_id,
+            destination=destination,
+            query=query,
+        )
         return ServiceResponse(
             status=200,
             body=json.dumps(
@@ -225,35 +411,41 @@ class EmailConnectorService:
                     "ok": True,
                     "result": {
                         "delivery": delivery.mode,
-                        "hits": [asdict(h) for h in hits],
+                        "hits": [asdict(hit) for hit in hits],
                     },
                 }
             ).encode("utf-8"),
         )
 
     def _handle_thread(self, data: Dict[str, Any]) -> ServiceResponse:
-        caller_data = data.get("caller", {})
-        caller = PolicyCaller(
-            principal_id=caller_data.get("principal_id", ""),
-            platform=caller_data.get("platform", "telegram"),
-            user_id=caller_data.get("user_id", ""),
-            chat_id=caller_data.get("chat_id", ""),
-            thread_id=caller_data.get("thread_id"),
-            chat_type=caller_data.get("chat_type", "dm"),
-        )
+        caller = self._caller(data.get("caller", {}))
         thread_id = data.get("thread_id", "")
         text_bytes_max = data.get("text_bytes_max", 65536)
-
+        destination = Destination(
+            caller.platform,
+            caller.chat_id,
+            caller.thread_id,
+        )
         connections = self.policy.readable_connections(caller)
         if not connections:
-            return ServiceResponse(
-                status=404,
-                body=json.dumps({"ok": False, "error": {"code": "not_authorized"}}).encode("utf-8"),
+            self._audit(
+                "thread",
+                caller,
+                "not_authorized",
+                destination=destination,
             )
+            return self._error_response(404, "not_authorized")
 
-        conn = connections[0]
-        delivery = self.policy.decide_delivery(caller, conn)
+        connection = connections[0]
+        delivery = self.policy.decide_delivery(caller, connection)
         if delivery.mode == "redirect_to_dm":
+            self._audit(
+                "thread",
+                caller,
+                "redirect_to_dm",
+                connection_id=connection.connection_id,
+                destination=destination,
+            )
             return ServiceResponse(
                 status=200,
                 body=json.dumps(
@@ -267,8 +459,19 @@ class EmailConnectorService:
                 ).encode("utf-8"),
             )
 
-        token_data = self.secret_store.get_json(conn.secret_ref)
-        res = self.gmail_reader.get_thread(token_data, thread_id, text_bytes_max=text_bytes_max)
+        token_data = self.secret_store.get_json(connection.secret_ref)
+        result = self.gmail_reader.get_thread(
+            token_data,
+            thread_id,
+            text_bytes_max=text_bytes_max,
+        )
+        self._audit(
+            "thread",
+            caller,
+            "ok",
+            connection_id=connection.connection_id,
+            destination=destination,
+        )
         return ServiceResponse(
             status=200,
             body=json.dumps(
@@ -276,16 +479,20 @@ class EmailConnectorService:
                     "ok": True,
                     "result": {
                         "delivery": delivery.mode,
-                        "thread": asdict(res),
+                        "thread": asdict(result),
                     },
                 }
             ).encode("utf-8"),
         )
 
     def _handle_list_connections(self, data: Dict[str, Any]) -> ServiceResponse:
-        principal_id = data.get("principal_id", "")
-        caller = PolicyCaller(principal_id=principal_id, platform="telegram", user_id="", chat_id="", chat_type="dm")
-        conns = self.policy.readable_connections(caller)
+        caller_data = data.get("caller") or {
+            "principal_id": data.get("principal_id", ""),
+            "chat_type": "dm",
+        }
+        caller = self._caller(caller_data)
+        connections = self.policy.readable_connections(caller)
+        self._audit("status", caller, "ok")
         return ServiceResponse(
             status=200,
             body=json.dumps(
@@ -294,14 +501,129 @@ class EmailConnectorService:
                     "result": {
                         "connections": [
                             {
-                                "connection_id": c.connection_id,
-                                "masked_address": c.masked_address,
-                                "mailbox_type": str(c.mailbox_type),
-                                "status": str(c.status),
+                                "connection_id": connection.connection_id,
+                                "masked_address": connection.masked_address,
+                                "mailbox_type": str(connection.mailbox_type),
+                                "status": str(connection.status),
                             }
-                            for c in conns
+                            for connection in connections
                         ]
                     },
                 }
             ).encode("utf-8"),
         )
+
+
+def create_http_server(
+    service: EmailConnectorService,
+    host: str = "127.0.0.1",
+    port: int = 8766,
+) -> ThreadingHTTPServer:
+    if host not in ("127.0.0.1", "localhost", "::1"):
+        raise ValueError("email_connector_must_bind_loopback")
+
+    class Handler(BaseHTTPRequestHandler):
+        def _write(self, response: ServiceResponse) -> None:
+            self.send_response(response.status)
+            self.send_header("Content-Type", response.content_type)
+            self.send_header("Content-Length", str(len(response.body)))
+            self.end_headers()
+            self.wfile.write(response.body)
+
+        def _internal(self, method: str) -> None:
+            length = int(self.headers.get("Content-Length", "0"))
+            if length > 1_048_576:
+                self._write(EmailConnectorService._error_response(413, "request_too_large"))
+                return
+            body = self.rfile.read(length) if length else b""
+            headers = {key: value for key, value in self.headers.items()}
+            self._write(
+                service.handle_internal_request(
+                    method,
+                    urllib.parse.urlsplit(self.path).path,
+                    body,
+                    headers,
+                )
+            )
+
+        def do_GET(self) -> None:
+            parsed = urllib.parse.urlsplit(self.path)
+            if parsed.path == "/health":
+                self._write(
+                    ServiceResponse(
+                        status=200,
+                        body=b'{"ok":true}',
+                    )
+                )
+                return
+            if parsed.path == "/gmail/oauth/callback":
+                query = urllib.parse.parse_qs(parsed.query)
+                self._write(
+                    service.handle_oauth_callback(
+                        query.get("state", [""])[0],
+                        query.get("code", [""])[0],
+                    )
+                )
+                return
+            self._internal("GET")
+
+        def do_POST(self) -> None:
+            self._internal("POST")
+
+        def log_message(self, format: str, *args: Any) -> None:
+            return
+
+    return ThreadingHTTPServer((host, port), Handler)
+
+
+def build_service_from_env() -> EmailConnectorService:
+    import os
+    from pathlib import Path
+
+    from tools.email.oauth import GmailOAuthManager
+    from tools.email.secrets import AzureKeyVaultSecretStore
+
+    required = {
+        "AZURE_KEY_VAULT_URL": os.environ.get("AZURE_KEY_VAULT_URL", "").strip(),
+        "EMAIL_GOOGLE_CLIENT_ID": os.environ.get("EMAIL_GOOGLE_CLIENT_ID", "").strip(),
+        "EMAIL_OAUTH_REDIRECT_URI": os.environ.get("EMAIL_OAUTH_REDIRECT_URI", "").strip(),
+        "EMAIL_CONNECTOR_SHARED_SECRET": os.environ.get("EMAIL_CONNECTOR_SHARED_SECRET", "").strip(),
+    }
+    if not all(required.values()):
+        raise RuntimeError("connector_unavailable")
+
+    secret_store = AzureKeyVaultSecretStore(required["AZURE_KEY_VAULT_URL"])
+    client_secret_ref = os.environ.get(
+        "EMAIL_GOOGLE_CLIENT_SECRET_REF",
+        "keyvault://email-google-client-secret",
+    )
+    client_secret = secret_store.get_json(client_secret_ref).get("client_secret", "")
+    if not client_secret:
+        raise RuntimeError("oauth_client_secret_not_configured")
+
+    state_path = os.environ.get("EMAIL_STATE_DB_PATH", "").strip()
+    if not state_path:
+        hermes_home = Path(os.environ.get("HERMES_HOME", Path.home() / ".hermes"))
+        state_path = str(hermes_home / "email" / "mail_state.db")
+    store = MailStore(state_path)
+    operator_ids = tuple(
+        user_id.strip()
+        for user_id in os.environ.get("EMAIL_OPERATOR_USER_IDS", "").split(",")
+        if user_id.strip()
+    )
+    policy = MailPolicy(store, operator_allowlist=operator_ids)
+    oauth = GmailOAuthManager(
+        client_id=required["EMAIL_GOOGLE_CLIENT_ID"],
+        client_secret=client_secret,
+        redirect_uri=required["EMAIL_OAUTH_REDIRECT_URI"],
+        store=store,
+        secret_store=secret_store,
+    )
+    return EmailConnectorService(
+        store=store,
+        secret_store=secret_store,
+        policy=policy,
+        gmail_reader=GmailReader(),
+        oauth_manager=oauth,
+        shared_secret=required["EMAIL_CONNECTOR_SHARED_SECRET"],
+    )

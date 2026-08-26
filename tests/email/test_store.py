@@ -8,6 +8,10 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
+import tools
+if str(SRC / "tools") not in tools.__path__:
+    tools.__path__.insert(0, str(SRC / "tools"))
+
 from tools.email.contracts import (
     GMAIL_READONLY_SCOPE,
     MailboxType,
@@ -16,6 +20,7 @@ from tools.email.contracts import (
     OAuthLinkRequest,
     SharedGrantRequest,
     GrantRequestStatus,
+    AuditEvent,
 )
 from tools.email.store import MailStore
 
@@ -113,3 +118,71 @@ def test_shared_grant_request_lifecycle_and_operator_approval(store):
     # Changed destination has no grant
     wrong_dest = Destination(platform="telegram", chat_id="-1003835812097", thread_id="12")
     assert store.destination_grant("conn-shared", wrong_dest) is None
+
+def test_expired_oauth_request_is_rejected(store):
+    req = OAuthLinkRequest(
+        request_id="expired-oauth",
+        principal_id="telegram:bot:111",
+        nonce_hash="nonce-expired",
+        pkce_secret_ref="keyvault://pkce-expired",
+        expires_at="2000-01-01T00:00:00+00:00",
+    )
+    store.create_link_request(req)
+
+    with pytest.raises(PermissionError, match="oauth_request_expired"):
+        store.consume_link_request(
+            "expired-oauth",
+            "nonce-expired",
+            "telegram:bot:111",
+        )
+
+
+def test_expired_grant_request_cannot_be_approved(store):
+    store.add_connection(connection_factory("conn-expired", "telegram:bot:111"))
+    store.create_grant_request(
+        SharedGrantRequest(
+            request_id="grant-expired",
+            connection_id="conn-expired",
+            requested_by="telegram:bot:111",
+            destination=Destination("telegram", "-1001", None),
+            status=GrantRequestStatus.PENDING,
+            expires_at="2000-01-01T00:00:00+00:00",
+        )
+    )
+
+    with pytest.raises(ValueError, match="grant_request_expired"):
+        store.decide_grant_request(
+            "grant-expired",
+            "telegram:bot:999",
+            ("telegram:bot:999",),
+            approve=True,
+        )
+
+    assert store.destination_grant(
+        "conn-expired",
+        Destination("telegram", "-1001", None),
+    ) is None
+
+
+def test_audit_store_contains_only_opaque_metadata(store):
+    event = AuditEvent(
+        event_id="audit-1",
+        event_type="search",
+        principal_id="telegram:bot:111",
+        connection_id="conn-1",
+        destination_hash="dest-sha256",
+        query_hash="query-sha256",
+        occurred_at="2026-08-26T00:00:00+00:00",
+        outcome="ok",
+    )
+
+    store.append_audit(event)
+
+    assert store.list_audit_events() == (event,)
+    schema = store.db_path.read_bytes()
+    for forbidden in (
+        b"raw@example.com",
+        b"refresh_token",
+        b"message body",
+    ):
+        assert forbidden not in schema

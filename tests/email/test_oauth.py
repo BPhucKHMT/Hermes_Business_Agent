@@ -9,6 +9,10 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
+import tools
+if str(SRC / "tools") not in tools.__path__:
+    tools.__path__.insert(0, str(SRC / "tools"))
+
 from tools.email.contracts import (
     GMAIL_READONLY_SCOPE,
     MailboxType,
@@ -89,3 +93,24 @@ def test_callback_token_exchange_and_atomic_storage(oauth_manager):
             code="auth-code-123",
             principal_id="telegram:bot:111",
         )
+
+
+def test_public_callback_resolves_principal_from_oauth_state(oauth_manager):
+    auth_start = oauth_manager.create_authorization_start("telegram:bot:111")
+    oauth_manager._exchange_code = lambda code, verifier: (
+        {
+            "token": "fake-access-token",
+            "refresh_token": "fake-refresh-token",
+            "scopes": [GMAIL_READONLY_SCOPE],
+        },
+        "user@example.com",
+        "google-sub-12345",
+    )
+
+    connection = oauth_manager.complete_callback(
+        state=auth_start.state,
+        code="auth-code-123",
+    )
+
+    assert connection.owner_principal_id == "telegram:bot:111"
+    assert oauth_manager.store.list_connections("telegram:bot:111") == (connection,)

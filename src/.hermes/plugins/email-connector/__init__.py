@@ -22,7 +22,13 @@ for _project_tools in (
         break
 
 from client import get_default_client
-from commands import handle_connect_gmail, handle_disconnect_gmail, handle_mail_status
+from commands import (
+    handle_connect_gmail,
+    handle_disconnect_gmail,
+    handle_email_grant,
+    handle_mail_status,
+    handle_share_mailbox,
+)
 from gmail_tools import PersonalGmailTools
 from schemas import (
     EMAIL_CONNECTION_STATUS_SCHEMA,
@@ -79,6 +85,16 @@ def register(ctx: Any) -> PersonalGmailTools:
         "disconnect_gmail",
         partial(handle_disconnect_gmail, client=client, registry=registry),
         description="Disconnect a connected Gmail account",
+    )
+    ctx.register_command(
+        "share_mailbox",
+        partial(handle_share_mailbox, client=client, registry=registry),
+        description="Propose sharing a mailbox with a Telegram destination",
+    )
+    ctx.register_command(
+        "email_grant",
+        partial(handle_email_grant, client=client, registry=registry),
+        description="Approve or deny a mailbox grant as an operator",
     )
 
     # One guard/registry is owned by this plugin registration; caller state is
