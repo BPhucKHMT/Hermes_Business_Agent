@@ -42,36 +42,41 @@ class CallerContextRegistry:
         if source is None:
             raise ValueError("Event has no source")
 
+        profile = getattr(source, "profile", None)
+        # Default Hermes session key derives without profile unless multiplexing is enabled
+        derived_key = build_session_key(source)
+        profile_key = build_session_key(source, profile=profile)
+        effective_key = session_key or derived_key
+
         platform = getattr(source.platform, "value", source.platform)
         if platform != "telegram" or getattr(source, "chat_type", "") != "dm":
-            if session_key:
-                with self._lock:
-                    self._redirect_only_session_keys.add(session_key)
+            with self._lock:
+                self._redirect_only_session_keys.add(effective_key)
+                if profile_key:
+                    self._redirect_only_session_keys.add(profile_key)
             raise DmOnlyError(DM_REDIRECT_TEXT)
 
         if not getattr(source, "user_id", None) or not getattr(source, "chat_id", None):
             raise ValueError("Telegram DM caller requires user_id and chat_id")
 
-        profile = getattr(source, "profile", None) or "default"
-        derived_key = build_session_key(source, profile=getattr(source, "profile", None))
-        effective_key = session_key or derived_key
-        if session_key and session_key != derived_key:
-            raise ValueError("session_key does not match the trusted gateway source")
-
         caller = CallerContext(
-            principal_id=f"telegram:{profile}:{source.user_id}",
+            principal_id=f"telegram:{profile or 'default'}:{source.user_id}",
             platform=platform,
             user_id=str(source.user_id),
             chat_id=str(source.chat_id),
             thread_id=str(source.thread_id) if getattr(source, "thread_id", None) else None,
             chat_type="dm",
-            profile=profile,
+            profile=profile or "default",
             session_key=effective_key,
         )
         with self._lock:
             self._by_session_key[effective_key] = caller
             self._issued_by_session_key[effective_key] = caller
             self._redirect_only_session_keys.discard(effective_key)
+            if profile_key:
+                self._by_session_key[profile_key] = caller
+                self._issued_by_session_key[profile_key] = caller
+                self._redirect_only_session_keys.discard(profile_key)
         return caller
 
     def resolve_dm_tool(self, *, task_id: str = "", session_id: str = "") -> CallerContext:

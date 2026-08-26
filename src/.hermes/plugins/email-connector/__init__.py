@@ -12,7 +12,7 @@ if str(_PLUGIN_DIR) not in sys.path:
 
 from caller import CallerContextRegistry, DM_REDIRECT_TEXT
 from commands import handle_connect_gmail, handle_disconnect_gmail, handle_mail_status
-from gmail_tools import PersonalGmailGuard
+from gmail_tools import PersonalGmailTools
 from schemas import (
     EMAIL_CONNECTION_STATUS_SCHEMA,
     EMAIL_GET_THREAD_SCHEMA,
@@ -26,8 +26,11 @@ from plugin_tools import (
 
 logger = logging.getLogger(__name__)
 
+# Module-level default tools guard instance shared across hook lifecycle for this plugin instance
+default_guard = PersonalGmailTools()
 
-def register(ctx: Any) -> None:
+
+def register(ctx: Any) -> PersonalGmailTools:
     # 1. Register tools
     ctx.register_tool(
         name="email_search",
@@ -56,8 +59,8 @@ def register(ctx: Any) -> None:
     ctx.register_command("mail_status", handle_mail_status, description="Check email connection status")
     ctx.register_command("disconnect_gmail", handle_disconnect_gmail, description="Disconnect a connected Gmail account")
 
-    # 3. Register safety hooks
-    guard = PersonalGmailGuard(registry=CallerContextRegistry())
-    ctx.register_hook("pre_gateway_dispatch", guard.pre_gateway_dispatch)
-    ctx.register_hook("pre_tool_call", guard.pre_tool_call)
-    ctx.register_hook("on_session_finalize", guard.on_session_finalize)
+    # 3. Register safety hooks using shared default_guard
+    ctx.register_hook("pre_gateway_dispatch", default_guard.pre_gateway_dispatch)
+    ctx.register_hook("pre_tool_call", default_guard.pre_tool_call)
+    ctx.register_hook("on_session_finalize", default_guard.on_session_finalize)
+    return default_guard
