@@ -3,7 +3,6 @@ from __future__ import annotations
 import argparse
 import json
 
-from dotenv import load_dotenv
 from tools.email.service import build_service_from_env, create_http_server
 
 
@@ -18,7 +17,6 @@ def _parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
-    load_dotenv()
     args = _parser().parse_args(argv)
     try:
         service = build_service_from_env()

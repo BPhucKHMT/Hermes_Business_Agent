@@ -13,6 +13,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any, Dict, Optional
 
 from tools.email.contracts import AuditEvent, Destination
+from tools.email.env import load_project_email_env
 from tools.email.gmail import GmailReader
 from tools.email.policy import MailPolicy, PolicyCaller
 from tools.email.secrets import SecretStore
@@ -582,6 +583,7 @@ def build_service_from_env() -> EmailConnectorService:
 
     from tools.email.oauth import GmailOAuthManager
     from tools.email.secrets import AzureKeyVaultSecretStore
+    load_project_email_env()
 
     required = {
         "AZURE_KEY_VAULT_URL": os.environ.get("AZURE_KEY_VAULT_URL", "").strip(),

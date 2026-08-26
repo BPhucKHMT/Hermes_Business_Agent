@@ -23,6 +23,7 @@ sys.path.insert(0, str(UPSTREAM))
 import tools
 if str(SRC / "tools") not in tools.__path__:
     tools.__path__.insert(0, str(SRC / "tools"))
+from tools.email import env as email_env
 
 plugin_tools = _load("email_tools_mod", PLUGIN / "plugin_tools.py")
 plugin_schemas = _load("email_schemas_mod", PLUGIN / "schemas.py")
@@ -251,7 +252,7 @@ def test_missing_connector_or_caller_fails_closed():
     assert "connected" not in no_client.lower()
 
 
-def test_missing_runtime_config_returns_connector_unavailable(monkeypatch):
+def test_missing_runtime_config_returns_connector_unavailable(monkeypatch, tmp_path):
     for name in (
         "AZURE_KEY_VAULT_URL",
         "EMAIL_GOOGLE_CLIENT_ID",
@@ -259,6 +260,7 @@ def test_missing_runtime_config_returns_connector_unavailable(monkeypatch):
         "EMAIL_CONNECTOR_SHARED_SECRET",
     ):
         monkeypatch.delenv(name, raising=False)
+    monkeypatch.setattr(email_env, "_PROJECT_ENV", tmp_path / "missing.env")
 
     ctx = FakeContext()
     unavailable = plugin_client._build_default_client()
