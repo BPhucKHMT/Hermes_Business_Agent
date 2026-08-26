@@ -27,7 +27,22 @@ class CallerContextRegistry:
     def __init__(self, session_store):
         self._session_store = session_store
         self._by_session_key: dict[str, CallerContext] = {}
+        self._redirect_only: set[str] = set()
         self._lock = Lock()
+
+    def capture_gateway(self, event: object) -> CallerContext | None:
+        source = event.source
+        platform = getattr(source.platform, "value", source.platform)
+        if platform != "telegram":
+            return None
+
+        session_key = build_session_key(source, profile=source.profile)
+        if source.chat_type != "dm":
+            with self._lock:
+                self._by_session_key.pop(session_key, None)
+                self._redirect_only.add(session_key)
+            return None
+        return self.capture_dm(event, session_key)
 
     def capture_dm(self, event: object, session_key: str) -> CallerContext:
         source = event.source
@@ -53,20 +68,35 @@ class CallerContextRegistry:
             session_key=session_key,
         )
         with self._lock:
+            self._redirect_only.discard(session_key)
             self._by_session_key[session_key] = caller
         return caller
 
     def resolve_dm_tool(self, *, task_id: str, session_id: str) -> CallerContext:
+        if task_id and session_id and task_id != session_id:
+            raise LookupError("conflicting Hermes runtime session identifiers")
         runtime_id = session_id or task_id
+        if not runtime_id:
+            raise LookupError("Hermes runtime session identifier is required")
+
         entry = self._session_store.lookup_by_session_id(runtime_id)
         if entry is None:
             raise LookupError("Hermes session is not bound to a gateway caller")
         with self._lock:
+            if entry.session_key in self._redirect_only:
+                raise DmOnlyError(DM_REDIRECT_TEXT)
             caller = self._by_session_key.get(entry.session_key)
         if caller is None:
             raise LookupError("Hermes session has no captured Telegram DM caller")
         return caller
 
+    def require_issued(self, caller: CallerContext) -> None:
+        with self._lock:
+            issued = self._by_session_key.get(caller.session_key)
+        if issued is not caller:
+            raise LookupError("caller is not a registry-issued captured context")
+
     def forget(self, session_key: str) -> None:
         with self._lock:
             self._by_session_key.pop(session_key, None)
+            self._redirect_only.discard(session_key)
