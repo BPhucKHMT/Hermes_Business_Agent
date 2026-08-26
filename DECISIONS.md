@@ -203,3 +203,16 @@
 - Consequences: Retains 100% strict data isolation between private business workspaces (Protein Bar financial spreadsheets never leak to Titan AI or Client Projects), while allowing public/shared company websites to be retrieved seamlessly across all workspace sessions.
 - Revisit when: Multi-tenant ACL models require strict per-user RBAC on shared websites.
 
+## D023 — Single-Profile Multi-User Gmail Isolation with Host-Owned Caller Context
+
+- Date: 2026-08-26
+- Status: accepted
+- Context: Ingesting diverse Gmail accounts for multiple team members across workspaces requires strict privacy boundaries without the operational overhead of managing separate Hermes profiles per human user.
+- Decision:
+  1) Use a single Hermes gateway profile with host-owned Telegram caller context resolution (`CallerContext`).
+  2) Any DM user can connect up to three personal Gmail mailboxes; personal mail search is strictly DM-only (group queries return a fixed redirect with zero Gmail API calls).
+  3) Shared mailboxes require mailbox owner proposal and explicit operator approval via Telegram numeric user ID before group topic disclosure is permitted.
+  4) Raw emails are retrieved on demand via official Google REST APIs (`gmail.readonly`) and are never mirrored into SQLite or shared Azure Search indexes.
+- Consequences: 100% data privacy between users, minimal operational burden, and clean separation between read-only intake (H009) and future outbound sending (H011).
+- Revisit when: Multi-workspace delegation requires granular per-message forwarding policies.
+

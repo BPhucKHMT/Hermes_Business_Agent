@@ -29,7 +29,8 @@ and other runtime-owned files belong in this workspace.
 - Dynamic Skills & Parallel Execution: Agent is authorized to invoke any installed native skills or Hermes platform capabilities (terminal, file operations, web tools, python execution, kanban) concurrently/in the same turn and synthesize results into a comprehensive answer.
 - Workspace & Document Access: Agent runs with root at `src` and is authorized to inspect, read, and update business documents directly inside `docs/` (or `workspaces/`), including spreadsheets (`.xlsx`) and project plans (`.docx`). Agent must search `docs/` automatically for domain documents without requiring user filesystem paths.
 - Cross-platform uploaded files: Any file received or delivered through Telegram, WhatsApp, or other connected platforms must be saved into the project workspace (`docs/`, `workspaces/`, or Hermes cache) and, where applicable, ingested into the Azure knowledge base so that skills such as `hermes-azure-rag`, `progress-report`, and document search can access them.
-- No project-owned MCP, deep-research provider, web UI, Slack, sales, deck, invoice, cron-research, or Gmail integration exists yet.
+- `/email` defines multi-user read-only Gmail thread search and inspection in DM with host-owned caller authorization.
+- No project-owned MCP, deep-research provider, web UI, Slack, sales, deck, invoice, cron-research, or outbound Gmail sending integration exists yet.
 - Do not claim an unverified integration works.
 
 ## Operating Rules

@@ -59,7 +59,7 @@ When routing retained-knowledge queries to `hermes-azure-rag`, map user intent t
 
 **Ask-Don't-Guess Rule:** If a query is ambiguous across workspaces (e.g. "Check monthly budget" without specifying which business), ask one clarifying question before executing retrieval.
 
-Decks, lead qualification, invoices, Slack, payments, scheduled research, and Gmail delivery are not supported yet.
+Decks, lead qualification, invoices, Slack, payments, scheduled research, and outbound Gmail sending are not supported yet. Read-only Gmail search is available via the `/email` capability in DM.
 
 ## Procedure
 
