@@ -230,16 +230,16 @@
     },
     {
       "id": "H009",
-      "title": "Hermes ingests and classifies Gmail with strict per-user authorization",
-      "behavior": "Hermes connects multiple Gmail mailboxes (personal and shared) via official Google REST APIs, enforces strict per-user authorization checks so that personal emails remain accessible only to their owners, classifies messages into business categories (suppliers, landlords, billing, general), and provides read-only search, triage, and draft preparation with zero outbound email capabilities.",
+      "title": "Hermes provides read-only Gmail OAuth intake with strict per-user authorization",
+      "behavior": "Hermes provides read-only Gmail client and OAuth plumbing for personal mailbox authorization, OAuth callback/service handling, audit writes, expiring OAuth and shared-grant lifecycle handling, and DM-only caller-bound delivery; outbound email is disabled. Shared-mailbox runtime access and classifier, triage, and draft-preparation behavior are not implemented.",
       "verification": {
         "layer_1": "python tests/verify_email_intake.py --layer 1",
         "layer_2": "uv run --frozen python ../tests/verify_email_intake.py --layer 2",
-        "layer_3": "fresh Hermes process, approved Telegram chat, and test Gmail mailboxes complete multi-user isolation, shared inbox, and supplier triage release checklist"
+        "layer_3": "independent verifier must exercise a fresh Hermes process and approved personal Gmail DM with a real test mailbox, proving caller-bound read-only access, audit output, and expiry behavior; shared-mailbox runtime access remains outstanding"
       },
       "state": "active",
       "evidence": null,
-      "blocked": null,
+      "blocked": "Layer 3 is blocked: configured status smoke fails closed with ClientAuthenticationError because DefaultAzureCredential cannot read Key Vault; no live Gmail OAuth/provider/mailbox evidence exists, and shared-mailbox runtime access remains incomplete.",
       "depends_on": ["H008"]
     }
   ]

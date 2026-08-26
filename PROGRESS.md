@@ -292,3 +292,19 @@
 - Plan documented at `docs/superpowers/plans/2026-08-25-h009-gmail-intake.md`.
 - Architecture enforces strict per-user authorization for personal mailboxes while supporting shared mailboxes and intelligent categorization (suppliers, landlords, billing, general).
 - Outbound email capabilities remain 100% disabled in H009.
+
+## 2026-08-26 H009 Gmail intake implementation handoff
+
+- Latest H009 implementation history is `a1ce017` (OAuth and shared-grant lifecycle), `674afde` (deployed `src/.env` loading), `9c7623e` (local encrypted-secret fallback and direct client-secret resolution), `1b278a5` (email skill contract), and `76e89fc` (hyphenated and underscored command aliases).
+- Implemented scope is limited to real plugin-to-client wiring, read-only Gmail client access, OAuth callback/service handling, audit writes, OAuth/grant expiry handling, deployed `src/.env` loading, and DM-only caller-bound delivery plumbing. Outbound email remains disabled.
+- Local focused evidence: 45 tests passed before the dotenv bridge; 19 environment/plugin/service tests passed after the dotenv bridge. These are local Layer 2 results, not independent Layer 3 evidence.
+- Configured status smoke fails closed with `ClientAuthenticationError` because `DefaultAzureCredential` cannot read Key Vault. No live Gmail OAuth flow, provider, or mailbox was accessed.
+- Shared-mailbox runtime access remains incomplete. Classifier, triage, and draft-preparation behavior are not implemented and must not be claimed.
+- H009 remains `active` with `evidence: null`; no independent verifier may move it to `passing` without fresh Layer 3 proof.
+
+### H009 next actions
+
+1. Resolve the operator identity/Key Vault access blocker and rerun the configured status smoke.
+2. Independently exercise a fresh Hermes process and approved personal Gmail DM with a real test mailbox, recording caller binding, read-only access, audit output, and expiry behavior.
+3. Separately implement and verify shared-mailbox runtime access before claiming shared intake.
+4. Add classifier, triage, and draft-preparation behavior only under an approved follow-on scope; keep outbound sending disabled.
