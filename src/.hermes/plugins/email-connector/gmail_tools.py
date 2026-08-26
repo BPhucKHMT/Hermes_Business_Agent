@@ -1,13 +1,60 @@
-from caller import CallerContextRegistry, DM_REDIRECT_TEXT, DmOnlyError
+from .caller import CallerContextRegistry, DM_REDIRECT_TEXT, DmOnlyError
+
+
+PERSONAL_GMAIL_TOOL_NAMES = frozenset(
+    {"email_connection_status", "email_search", "email_get_thread"}
+)
+
+
+class PersonalGmailGuard:
+    """Fail-closed Hermes hooks guarding every personal Gmail tool."""
+
+    def __init__(self):
+        self.registry = None
+        self._session_store = None
+
+    def pre_gateway_dispatch(self, event, gateway, session_store, **_kwargs):
+        if self.registry is None:
+            self._session_store = session_store
+            self.registry = CallerContextRegistry(session_store, gateway.config)
+        elif session_store is not self._session_store:
+            raise RuntimeError("Gmail caller guard received a different session store")
+        self.registry.capture_gateway(event)
+        return None
+
+    def pre_tool_call(
+        self,
+        tool_name,
+        args,
+        task_id,
+        session_id="",
+        **_kwargs,
+    ):
+        del args
+        if tool_name not in PERSONAL_GMAIL_TOOL_NAMES:
+            return None
+        if self.registry is None:
+            return {"action": "block", "message": DM_REDIRECT_TEXT}
+        try:
+            self.registry.resolve_dm_tool(
+                task_id=task_id,
+                session_id=session_id,
+            )
+        except (DmOnlyError, LookupError):
+            return {"action": "block", "message": DM_REDIRECT_TEXT}
+        return None
+
+    def on_session_finalize(self, session_id, **_kwargs):
+        if self.registry is not None:
+            self.registry.forget_runtime(session_id)
 
 
 class PersonalGmailTools:
     """Host-bound entrypoint for personal Gmail tool calls."""
 
-    def __init__(self, session_store, gmail_client):
-        self._session_store = session_store
+    def __init__(self, session_store, gmail_client, gateway_config=None):
         self._gmail_client = gmail_client
-        self.registry = CallerContextRegistry(session_store)
+        self.registry = CallerContextRegistry(session_store, gateway_config)
 
     def pre_gateway_dispatch(self, event, **_kwargs):
         self.registry.capture_gateway(event)
@@ -31,6 +78,4 @@ class PersonalGmailTools:
         )
 
     def on_session_finalize(self, session_id: str, **_kwargs) -> None:
-        entry = self._session_store.lookup_by_session_id(session_id)
-        if entry is not None:
-            self.registry.forget(entry.session_key)
+        self.registry.forget_runtime(session_id)

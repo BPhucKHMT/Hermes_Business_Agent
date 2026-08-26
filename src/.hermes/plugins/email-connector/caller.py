@@ -24,10 +24,12 @@ class CallerContext:
 
 
 class CallerContextRegistry:
-    def __init__(self, session_store):
+    def __init__(self, session_store, gateway_config=None):
         self._session_store = session_store
+        self._gateway_config = gateway_config
         self._by_session_key: dict[str, CallerContext] = {}
         self._redirect_only: set[str] = set()
+        self._session_keys_by_runtime_id: dict[str, str] = {}
         self._lock = Lock()
 
     def capture_gateway(self, event: object) -> CallerContext | None:
@@ -36,7 +38,7 @@ class CallerContextRegistry:
         if platform != "telegram":
             return None
 
-        session_key = build_session_key(source, profile=source.profile)
+        session_key = self._session_key(source)
         if source.chat_type != "dm":
             with self._lock:
                 self._by_session_key.pop(session_key, None)
@@ -53,7 +55,7 @@ class CallerContextRegistry:
             raise ValueError("Telegram DM caller requires user_id and chat_id")
 
         profile = source.profile or "default"
-        derived_key = build_session_key(source, profile=source.profile)
+        derived_key = self._session_key(source)
         if session_key != derived_key:
             raise ValueError("session_key does not match the trusted gateway source")
 
@@ -83,6 +85,7 @@ class CallerContextRegistry:
         if entry is None:
             raise LookupError("Hermes session is not bound to a gateway caller")
         with self._lock:
+            self._session_keys_by_runtime_id[runtime_id] = entry.session_key
             if entry.session_key in self._redirect_only:
                 raise DmOnlyError(DM_REDIRECT_TEXT)
             caller = self._by_session_key.get(entry.session_key)
@@ -96,7 +99,40 @@ class CallerContextRegistry:
         if issued is not caller:
             raise LookupError("caller is not a registry-issued captured context")
 
+    def forget_runtime(self, session_id: str) -> None:
+        with self._lock:
+            session_key = self._session_keys_by_runtime_id.pop(session_id, None)
+        if session_key is not None:
+            self.forget(session_key)
+
     def forget(self, session_key: str) -> None:
         with self._lock:
             self._by_session_key.pop(session_key, None)
             self._redirect_only.discard(session_key)
+            stale_ids = [
+                runtime_id
+                for runtime_id, bound_key in self._session_keys_by_runtime_id.items()
+                if bound_key == session_key
+            ]
+            for runtime_id in stale_ids:
+                self._session_keys_by_runtime_id.pop(runtime_id, None)
+
+    def _session_key(self, source) -> str:
+        config = self._gateway_config
+        profile = source.profile
+        if config is not None and not getattr(config, "multiplex_profiles", False):
+            profile = None
+        return build_session_key(
+            source,
+            group_sessions_per_user=getattr(
+                config,
+                "group_sessions_per_user",
+                True,
+            ),
+            thread_sessions_per_user=getattr(
+                config,
+                "thread_sessions_per_user",
+                False,
+            ),
+            profile=profile,
+        )

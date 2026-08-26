@@ -1,4 +1,6 @@
 import asyncio
+from dataclasses import replace
+from importlib.util import module_from_spec, spec_from_file_location
 import os
 import sys
 from concurrent.futures import ThreadPoolExecutor
@@ -11,16 +13,25 @@ import pytest
 ROOT = Path(__file__).resolve().parents[2]
 PLUGIN = ROOT / "src/.hermes/plugins/email-connector"
 UPSTREAM = Path(os.environ["LOCALAPPDATA"]) / "hermes/hermes-agent"
-for path in (PLUGIN, UPSTREAM):
-    if str(path) not in sys.path:
-        sys.path.insert(0, str(path))
+if str(UPSTREAM) not in sys.path:
+    sys.path.insert(0, str(UPSTREAM))
 
-from caller import CallerContext, CallerContextRegistry, DM_REDIRECT_TEXT
-from delivery import PrivateDelivery
-from gateway.config import Platform
+PLUGIN_PACKAGE = "h009_email_connector_plugin"
+PLUGIN_SPEC = spec_from_file_location(
+    PLUGIN_PACKAGE,
+    PLUGIN / "__init__.py",
+    submodule_search_locations=[str(PLUGIN)],
+)
+PLUGIN_MODULE = module_from_spec(PLUGIN_SPEC)
+sys.modules[PLUGIN_PACKAGE] = PLUGIN_MODULE
+PLUGIN_SPEC.loader.exec_module(PLUGIN_MODULE)
+
+from h009_email_connector_plugin.caller import DM_REDIRECT_TEXT
+from h009_email_connector_plugin.delivery import PrivateDelivery
+from gateway.config import GatewayConfig, Platform
 from gateway.platforms.base import MessageEvent, SendResult
 from gateway.session import SessionSource, SessionStore, build_session_key
-from gmail_tools import PersonalGmailTools
+from h009_email_connector_plugin.gmail_tools import PersonalGmailTools
 
 
 class ProbeSessionStore:
@@ -29,6 +40,8 @@ class ProbeSessionStore:
 
     def bind(self, session_id, session_key):
         self._by_id[session_id] = SimpleNamespace(session_key=session_key)
+    def remove(self, session_id):
+        self._by_id.pop(session_id, None)
 
     def lookup_by_session_id(self, session_id):
         return self._by_id.get(session_id)
@@ -98,14 +111,96 @@ class RuntimeProbe:
             session_id=session_id,
         )
 
+class ProbePluginContext:
+    def __init__(self):
+        self.hooks = {}
+
+    def register_hook(self, name, callback):
+        self.hooks[name] = callback
+
+
+def load_registered_plugin():
+    context = ProbePluginContext()
+    guard = PLUGIN_MODULE.register(context)
+    return context, guard
+
 
 @pytest.fixture
 def runtime_probe():
     return RuntimeProbe()
 
+@pytest.fixture
+def installed_session_store(tmp_path, monkeypatch):
+    home = tmp_path / "hermes-home"
+    monkeypatch.setenv("HERMES_HOME", str(home))
+    config = GatewayConfig(
+        sessions_dir=home / "sessions",
+        write_sessions_json=False,
+    )
+    store = SessionStore(config.sessions_dir, config)
+    try:
+        yield store, config
+    finally:
+        store.close_all_db_handles()
 
-def test_installed_session_store_exposes_public_session_id_lookup():
-    assert callable(SessionStore.lookup_by_session_id)
+
+def test_registered_guard_binds_actual_hermes_session_lifecycle(
+    installed_session_store,
+    runtime_probe,
+):
+    store, config = installed_session_store
+    context, guard = load_registered_plugin()
+    event = runtime_probe.dm_event(user_id="111", chat_id="111")
+    gateway = SimpleNamespace(config=config)
+
+    context.hooks["pre_gateway_dispatch"](
+        event=event,
+        gateway=gateway,
+        session_store=store,
+    )
+    entry = store.get_or_create_session(event.source)
+    decision = context.hooks["pre_tool_call"](
+        tool_name="email_search",
+        args={"query": "marker"},
+        task_id=entry.session_id,
+        session_id=entry.session_id,
+    )
+    caller = guard.registry.resolve_dm_tool(
+        task_id=entry.session_id,
+        session_id=entry.session_id,
+    )
+
+    assert decision is None
+    assert caller.principal_id == "telegram:hermes-business:111"
+    assert caller.session_key == entry.session_key
+
+
+def test_registered_group_guard_blocks_before_gmail_handler(
+    installed_session_store,
+    runtime_probe,
+):
+    store, config = installed_session_store
+    context, _guard = load_registered_plugin()
+    event = runtime_probe.group_event(user_id="111")
+    gateway = SimpleNamespace(config=config)
+
+    context.hooks["pre_gateway_dispatch"](
+        event=event,
+        gateway=gateway,
+        session_store=store,
+    )
+    entry = store.get_or_create_session(event.source)
+    decision = context.hooks["pre_tool_call"](
+        tool_name="email_search",
+        args={"query": "marker"},
+        task_id=entry.session_id,
+        session_id=entry.session_id,
+    )
+    if decision is None:
+        runtime_probe.gmail.search("unexpected", "marker")
+
+    assert decision == {"action": "block", "message": DM_REDIRECT_TEXT}
+    assert runtime_probe.gmail.calls == []
 
 
 def test_concurrent_dm_callers_never_swap_identity(runtime_probe):
@@ -189,24 +284,18 @@ def test_private_delivery_targets_only_the_registry_issued_dm(runtime_probe):
     assert adapter.calls == [("111", "Nội dung Gmail riêng tư", None, None)]
 
 
-def test_private_delivery_rejects_forged_caller(runtime_probe):
+def test_private_delivery_rejects_identity_clone_of_issued_caller(runtime_probe):
+    caller = runtime_probe.capture_and_resolve_dm(
+        runtime_probe.dm_event(user_id="111", chat_id="111")
+    )
+    clone = replace(caller)
     adapter = ProbeTelegramAdapter()
     gateway = SimpleNamespace(adapters={Platform.TELEGRAM: adapter})
-    forged = CallerContext(
-        principal_id="telegram:hermes-business:222",
-        platform="telegram",
-        user_id="222",
-        chat_id="222",
-        thread_id=None,
-        chat_type="dm",
-        profile="hermes-business",
-        session_key="agent:hermes-business:telegram:dm:222",
-    )
 
     with pytest.raises(LookupError, match="registry-issued"):
         asyncio.run(
             PrivateDelivery(gateway, runtime_probe.registry).send_dm(
-                forged,
+                clone,
                 "stolen",
             )
         )
@@ -222,6 +311,7 @@ def test_session_finalize_forgets_issued_caller(runtime_probe):
         task_id=session_id,
         session_id=session_id,
     )
+    runtime_probe.session_store.remove(session_id)
 
     runtime_probe.tools.on_session_finalize(session_id=session_id)
 

@@ -1,0 +1,11 @@
+name: email-connector
+label: Generic Multi-User Email Connector
+kind: standalone
+version: 0.1.0
+description: Read-only per-user Gmail access with host-bound caller isolation.
+author: Hermes project team
+platforms: [windows, linux, darwin]
+provides_hooks:
+  - pre_gateway_dispatch
+  - pre_tool_call
+  - on_session_finalize
