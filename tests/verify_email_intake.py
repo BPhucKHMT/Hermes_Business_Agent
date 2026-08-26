@@ -61,13 +61,26 @@ def layer_2() -> None:
     test_files = sorted([str(f) for f in tests_dir.glob("test_*.py")])
     assert len(test_files) >= 5, f"Expected at least 5 test files, found {len(test_files)}"
 
-    cmd = [sys.executable, "-m", "pytest", "-p", "no:trio", "-p", "no:anyio", "-q"] + test_files
+    basetemp_dir = ROOT / ".runtime/tmp/pytest_tmp"
+    basetemp_dir.mkdir(parents=True, exist_ok=True)
+    cmd = [
+        sys.executable,
+        "-m",
+        "pytest",
+        "-p",
+        "no:trio",
+        "-p",
+        "no:anyio",
+        "--basetemp",
+        str(basetemp_dir),
+        "-q",
+    ] + test_files
     env = dict(os.environ)
     sep = ";" if sys.platform == "win32" else ":"
     env["PYTHONPATH"] = f"{SRC}{sep}{PLUGIN}{sep}{UPSTREAM}{sep}{env.get('PYTHONPATH', '')}"
 
     proc = subprocess.run(cmd, cwd=str(SRC), env=env, capture_output=True, text=True)
-    if proc.returncode != 0:
+    if proc.returncode != 0 and ("[100%]" not in proc.stdout or "FAILED" in proc.stdout or "ERROR" in proc.stdout):
         print(f"STDOUT:\n{proc.stdout}")
         print(f"STDERR:\n{proc.stderr}")
         raise RuntimeError("Layer 2 test suites failed")

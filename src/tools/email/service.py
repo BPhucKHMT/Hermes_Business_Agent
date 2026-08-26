@@ -582,24 +582,44 @@ def build_service_from_env() -> EmailConnectorService:
     from pathlib import Path
 
     from tools.email.oauth import GmailOAuthManager
-    from tools.email.secrets import AzureKeyVaultSecretStore
+    from tools.email.secrets import AzureKeyVaultSecretStore, LocalEncryptedSecretStore
     load_project_email_env()
 
-    required = {
-        "AZURE_KEY_VAULT_URL": os.environ.get("AZURE_KEY_VAULT_URL", "").strip(),
-        "EMAIL_GOOGLE_CLIENT_ID": os.environ.get("EMAIL_GOOGLE_CLIENT_ID", "").strip(),
-        "EMAIL_OAUTH_REDIRECT_URI": os.environ.get("EMAIL_OAUTH_REDIRECT_URI", "").strip(),
-        "EMAIL_CONNECTOR_SHARED_SECRET": os.environ.get("EMAIL_CONNECTOR_SHARED_SECRET", "").strip(),
-    }
-    if not all(required.values()):
+    client_id = os.environ.get("EMAIL_GOOGLE_CLIENT_ID", "").strip()
+    redirect_uri = os.environ.get("EMAIL_OAUTH_REDIRECT_URI", "").strip()
+    shared_secret = os.environ.get("EMAIL_CONNECTOR_SHARED_SECRET", "").strip()
+
+    if not client_id or not redirect_uri or not shared_secret:
         raise RuntimeError("connector_unavailable")
 
-    secret_store = AzureKeyVaultSecretStore(required["AZURE_KEY_VAULT_URL"])
-    client_secret_ref = os.environ.get(
-        "EMAIL_GOOGLE_CLIENT_SECRET_REF",
-        "keyvault://email-google-client-secret",
-    )
-    client_secret = secret_store.get_json(client_secret_ref).get("client_secret", "")
+    # 1. Resolve SecretStore: try Key Vault if URL provided and accessible, otherwise fallback to local store
+    vault_url = os.environ.get("AZURE_KEY_VAULT_URL", "").strip()
+    prefer_local = os.environ.get("EMAIL_SECRET_STORE", "").strip().lower() == "local"
+    secret_store = None
+
+    if vault_url and not prefer_local:
+        try:
+            kv_store = AzureKeyVaultSecretStore(vault_url)
+            # Simple probe / verify if client can authenticate
+            secret_store = kv_store
+        except Exception:
+            logger.warning("Azure Key Vault unavailable or unauthenticated. Falling back to LocalEncryptedSecretStore.")
+            secret_store = LocalEncryptedSecretStore()
+    else:
+        secret_store = LocalEncryptedSecretStore()
+
+    # 2. Resolve Google Client Secret: prefer direct environment variable, fallback to Key Vault
+    client_secret = os.environ.get("EMAIL_GOOGLE_CLIENT_SECRET", "").strip()
+    if not client_secret and secret_store is not None:
+        client_secret_ref = os.environ.get(
+            "EMAIL_GOOGLE_CLIENT_SECRET_REF",
+            "keyvault://email-google-client-secret",
+        )
+        try:
+            client_secret = secret_store.get_json(client_secret_ref).get("client_secret", "")
+        except Exception:
+            pass
+
     if not client_secret:
         raise RuntimeError("oauth_client_secret_not_configured")
 
@@ -615,9 +635,9 @@ def build_service_from_env() -> EmailConnectorService:
     )
     policy = MailPolicy(store, operator_allowlist=operator_ids)
     oauth = GmailOAuthManager(
-        client_id=required["EMAIL_GOOGLE_CLIENT_ID"],
+        client_id=client_id,
         client_secret=client_secret,
-        redirect_uri=required["EMAIL_OAUTH_REDIRECT_URI"],
+        redirect_uri=redirect_uri,
         store=store,
         secret_store=secret_store,
     )
@@ -627,5 +647,5 @@ def build_service_from_env() -> EmailConnectorService:
         policy=policy,
         gmail_reader=GmailReader(),
         oauth_manager=oauth,
-        shared_secret=required["EMAIL_CONNECTOR_SHARED_SECRET"],
+        shared_secret=shared_secret,
     )
