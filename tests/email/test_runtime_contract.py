@@ -22,7 +22,7 @@ import tools
 if str(SRC / "tools") not in tools.__path__:
     tools.__path__.insert(0, str(SRC / "tools"))
 
-from caller import CallerContext, CallerContextRegistry, DM_REDIRECT_TEXT
+from caller import CallerContext, CallerContextRegistry, DM_REDIRECT_TEXT, DmOnlyError
 from delivery import PrivateDelivery
 from gateway.config import GatewayConfig, Platform
 from gateway.platforms.base import MessageEvent, SendResult
@@ -248,6 +248,21 @@ def test_model_cannot_override_dm_principal(runtime_probe):
     assert result["status"] == "ok"
     assert runtime_probe.gmail.calls == ["marker"]
 
+
+
+def test_command_caller_comes_from_trusted_gateway_hook(runtime_probe):
+    runtime_probe.capture(runtime_probe.dm_event(user_id="111", chat_id="111"))
+
+    caller = runtime_probe.registry.resolve_command()
+
+    assert caller.principal_id == "telegram:hermes-business:111"
+
+
+def test_group_command_context_is_dm_redirect_only(runtime_probe):
+    runtime_probe.capture(runtime_probe.group_event(user_id="111"))
+
+    with pytest.raises(DmOnlyError, match="Mở chat riêng"):
+        runtime_probe.registry.resolve_command()
 
 def test_conflicting_runtime_session_identifiers_are_rejected(runtime_probe):
     session_id = runtime_probe.capture(

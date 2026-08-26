@@ -51,12 +51,14 @@ class EmailConnectorService:
         secret_store: SecretStore,
         policy: MailPolicy,
         gmail_reader: Optional[GmailReader] = None,
+        oauth_manager: Optional[Any] = None,
         shared_secret: str = "dev-shared-secret",
     ) -> None:
         self.store = store
         self.secret_store = secret_store
         self.policy = policy
         self.gmail_reader = gmail_reader or GmailReader()
+        self.oauth_manager = oauth_manager
         self.shared_secret = shared_secret
 
     def _verify_hmac(self, method: str, path: str, body: bytes, headers: Dict[str, str]) -> bool:
@@ -104,16 +106,76 @@ class EmailConnectorService:
                 body=json.dumps({"ok": False, "error": {"code": "malformed_json"}}).encode("utf-8"),
             )
 
-        if path == "/v1/search" and method == "POST":
-            return self._handle_search(data)
-        elif path == "/v1/thread" and method == "POST":
-            return self._handle_thread(data)
-        elif path == "/v1/connections" and method == "GET":
-            return self._handle_list_connections(data)
+        try:
+            if path == "/v1/oauth/start" and method == "POST":
+                return self._handle_oauth_start(data)
+            if path == "/v1/search" and method == "POST":
+                return self._handle_search(data)
+            if path == "/v1/thread" and method == "POST":
+                return self._handle_thread(data)
+            if path == "/v1/connections" and method == "GET":
+                return self._handle_list_connections(data)
+            if path == "/v1/disconnect" and method == "POST":
+                return self._handle_disconnect(data)
+        except (FileNotFoundError, PermissionError, ValueError) as error:
+            return self._error_response(403, str(error).split(":", 1)[0])
+        except Exception:
+            logger.exception("Email connector request failed for %s", path)
+            return self._error_response(503, "connector_unavailable")
 
+        return self._error_response(404, "not_found")
+
+    @staticmethod
+    def _error_response(status: int, code: str) -> ServiceResponse:
         return ServiceResponse(
-            status=404,
-            body=json.dumps({"ok": False, "error": {"code": "not_found"}}).encode("utf-8"),
+            status=status,
+            body=json.dumps({"ok": False, "error": {"code": code}}).encode("utf-8"),
+        )
+
+    def _handle_oauth_start(self, data: Dict[str, Any]) -> ServiceResponse:
+        caller = data.get("caller", {})
+        principal_id = caller.get("principal_id", "")
+        if caller.get("chat_type") != "dm" or not principal_id:
+            return self._error_response(403, "dm_required")
+        if self.oauth_manager is None:
+            return self._error_response(503, "oauth_not_configured")
+
+        start = self.oauth_manager.create_authorization_start(principal_id)
+        return ServiceResponse(
+            status=200,
+            body=json.dumps(
+                {
+                    "ok": True,
+                    "result": {
+                        "authorization_url": start.url,
+                        "request_id": start.request_id,
+                    },
+                }
+            ).encode("utf-8"),
+        )
+
+    def _handle_disconnect(self, data: Dict[str, Any]) -> ServiceResponse:
+        caller = data.get("caller", {})
+        principal_id = caller.get("principal_id", "")
+        connection_id = data.get("connection_id", "")
+        if caller.get("chat_type") != "dm" or not principal_id:
+            return self._error_response(403, "dm_required")
+        if not connection_id:
+            return self._error_response(400, "connection_id_required")
+
+        connection = self.store.revoke_connection(principal_id, connection_id)
+        self.secret_store.delete(connection.secret_ref)
+        return ServiceResponse(
+            status=200,
+            body=json.dumps(
+                {
+                    "ok": True,
+                    "result": {
+                        "connection_id": connection.connection_id,
+                        "status": "revoked",
+                    },
+                }
+            ).encode("utf-8"),
         )
 
     def _handle_search(self, data: Dict[str, Any]) -> ServiceResponse:

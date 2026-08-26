@@ -1,57 +1,86 @@
 from __future__ import annotations
 
 import json
-import logging
 from typing import Any, Dict
 
-from caller import CallerContext, DM_REDIRECT_TEXT
-from schemas import (
-    EMAIL_CONNECTION_STATUS_SCHEMA,
-    EMAIL_GET_THREAD_SCHEMA,
-    EMAIL_SEARCH_SCHEMA,
-)
-
-logger = logging.getLogger(__name__)
+from caller import CallerContextRegistry, DmOnlyError
 
 
-def handle_email_search(params: Dict[str, Any], caller_context: Any = None, **kwargs) -> str:
-    if caller_context is None:
-        return json.dumps({"ok": False, "error": {"code": "missing_caller_context"}})
-
-    if getattr(caller_context, "chat_type", "") != "dm":
-        return json.dumps({"ok": True, "delivery": "redirect_to_dm", "message": DM_REDIRECT_TEXT})
-
-    query = params.get("query", "")
-    return json.dumps({
-        "ok": True,
-        "delivery": "dm",
-        "query": query,
-        "results": f"Grounded search for '{query}'",
-    })
+def _error(code: str) -> str:
+    return json.dumps({"ok": False, "error": {"code": code}})
 
 
-def handle_email_get_thread(params: Dict[str, Any], caller_context: Any = None, **kwargs) -> str:
-    if caller_context is None:
-        return json.dumps({"ok": False, "error": {"code": "missing_caller_context"}})
-
-    if getattr(caller_context, "chat_type", "") != "dm":
-        return json.dumps({"ok": True, "delivery": "redirect_to_dm", "message": DM_REDIRECT_TEXT})
-
-    thread_id = params.get("thread_id", "")
-    return json.dumps({
-        "ok": True,
-        "delivery": "dm",
-        "thread_id": thread_id,
-        "content": f"Grounded thread contents for {thread_id}",
-    })
+def _resolve_caller(
+    registry: CallerContextRegistry | Any,
+    task_id: str,
+    session_id: str,
+) -> Any:
+    if registry is None:
+        raise LookupError("caller_registry_unavailable")
+    return registry.resolve_dm_tool(task_id=task_id, session_id=session_id)
 
 
-def handle_email_connection_status(params: Dict[str, Any], caller_context: Any = None, **kwargs) -> str:
-    if caller_context is None:
-        return json.dumps({"ok": False, "error": {"code": "missing_caller_context"}})
+def handle_email_search(
+    params: Dict[str, Any],
+    *,
+    client: Any = None,
+    registry: Any = None,
+    task_id: str = "",
+    session_id: str = "",
+    **kwargs: Any,
+) -> str:
+    del kwargs
+    if client is None:
+        return _error("connector_unavailable")
+    try:
+        caller = _resolve_caller(registry, task_id, session_id)
+    except DmOnlyError:
+        return _error("dm_required")
+    except LookupError:
+        return _error("missing_caller_context")
+    result = client.search(caller, params.get("query", ""), params.get("limit", 10))
+    return json.dumps(result)
 
-    return json.dumps({
-        "ok": True,
-        "principal": getattr(caller_context, "principal_id", "unknown"),
-        "status": "connected",
-    })
+
+def handle_email_get_thread(
+    params: Dict[str, Any],
+    *,
+    client: Any = None,
+    registry: Any = None,
+    task_id: str = "",
+    session_id: str = "",
+    **kwargs: Any,
+) -> str:
+    del kwargs
+    if client is None:
+        return _error("connector_unavailable")
+    try:
+        caller = _resolve_caller(registry, task_id, session_id)
+    except DmOnlyError:
+        return _error("dm_required")
+    except LookupError:
+        return _error("missing_caller_context")
+    result = client.get_thread(caller, params.get("thread_id", ""))
+    return json.dumps(result)
+
+
+def handle_email_connection_status(
+    params: Dict[str, Any],
+    *,
+    client: Any = None,
+    registry: Any = None,
+    task_id: str = "",
+    session_id: str = "",
+    **kwargs: Any,
+) -> str:
+    del params
+    del kwargs
+    if client is None:
+        return _error("connector_unavailable")
+    try:
+        caller = _resolve_caller(registry, task_id, session_id)
+    except DmOnlyError:
+        return _error("dm_required")
+    except LookupError:
+        return _error("missing_caller_context")
+    return json.dumps(client.connections(caller))

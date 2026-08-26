@@ -1,3 +1,4 @@
+from contextvars import ContextVar
 from dataclasses import dataclass
 from threading import Lock
 from typing import Any, Optional
@@ -31,6 +32,14 @@ class CallerContextRegistry:
         self._issued_by_session_key: dict[str, CallerContext] = {}
         self._session_key_by_session_id: dict[str, str] = {}
         self._redirect_only_session_keys: set[str] = set()
+        self._current_caller: ContextVar[CallerContext | None] = ContextVar(
+            f"email_caller_{id(self)}",
+            default=None,
+        )
+        self._current_redirect: ContextVar[bool] = ContextVar(
+            f"email_redirect_{id(self)}",
+            default=False,
+        )
         self._lock = Lock()
 
     def set_session_store(self, session_store: Any) -> None:
@@ -47,9 +56,11 @@ class CallerContextRegistry:
         derived_key = build_session_key(source)
         profile_key = build_session_key(source, profile=profile)
         effective_key = session_key or derived_key
-
         platform = getattr(source.platform, "value", source.platform)
+
         if platform != "telegram" or getattr(source, "chat_type", "") != "dm":
+            self._current_caller.set(None)
+            self._current_redirect.set(True)
             with self._lock:
                 self._redirect_only_session_keys.add(effective_key)
                 if profile_key:
@@ -77,6 +88,8 @@ class CallerContextRegistry:
                 self._by_session_key[profile_key] = caller
                 self._issued_by_session_key[profile_key] = caller
                 self._redirect_only_session_keys.discard(profile_key)
+        self._current_caller.set(caller)
+        self._current_redirect.set(False)
         return caller
 
     def resolve_dm_tool(self, *, task_id: str = "", session_id: str = "") -> CallerContext:
@@ -109,6 +122,14 @@ class CallerContextRegistry:
 
         if caller is None:
             raise LookupError("Hermes session has no captured Telegram DM caller")
+        return caller
+
+    def resolve_command(self) -> CallerContext:
+        if self._current_redirect.get():
+            raise DmOnlyError(DM_REDIRECT_TEXT)
+        caller = self._current_caller.get()
+        if caller is None:
+            raise LookupError("command has no captured Telegram DM caller")
         return caller
 
     def get_issued_dm(self, session_key: str) -> Optional[CallerContext]:
