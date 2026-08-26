@@ -205,10 +205,42 @@
         "layer_2": "uv run --frozen python ../tests/verify_progress.py --layer 2",
         "layer_3": "fresh Hermes process and approved Protein Bar Telegram chat complete docs/superpowers/specs/2026-08-22-progress-native-redesign.md Section I Layer 3 scenarios"
       },
+      "state": "passing",
+      "evidence": {
+        "verified_at_utc": "2026-08-20T08:39:11Z",
+        "verifier": "independent verification agent; Telegram acceptance confirmed by operator",
+        "layer_1": {
+          "command": "python tests/verify_progress.py --layer 1",
+          "exit_status": 0,
+          "result": "progress layer 1: pass"
+        },
+        "layer_2": {
+          "command": "uv run --frozen python ../tests/verify_progress.py --layer 2",
+          "exit_status": 0,
+          "result": "progress layer 2: pass"
+        },
+        "layer_3": {
+          "command": "docs/plan/protein_bar.md End-to-End Release Checklist A-H",
+          "exit_status": 0,
+          "result": "progress layer 3: pass"
+        }
+      },
+      "blocked": null,
+      "depends_on": ["H007"]
+    },
+    {
+      "id": "H009",
+      "title": "Hermes ingests and classifies Gmail with strict per-user authorization",
+      "behavior": "Hermes connects multiple Gmail mailboxes (personal and shared) via official Google REST APIs, enforces strict per-user authorization checks so that personal emails remain accessible only to their owners, classifies messages into business categories (suppliers, landlords, billing, general), and provides read-only search, triage, and draft preparation with zero outbound email capabilities.",
+      "verification": {
+        "layer_1": "python tests/verify_email_intake.py --layer 1",
+        "layer_2": "uv run --frozen python ../tests/verify_email_intake.py --layer 2",
+        "layer_3": "fresh Hermes process, approved Telegram chat, and test Gmail mailboxes complete multi-user isolation, shared inbox, and supplier triage release checklist"
+      },
       "state": "active",
       "evidence": null,
       "blocked": null,
-      "depends_on": ["H007"]
+      "depends_on": ["H008"]
     }
   ]
 }

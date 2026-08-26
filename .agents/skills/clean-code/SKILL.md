@@ -25,6 +25,47 @@ priority: CRITICAL
 
 ---
 
+## Build-or-Reuse Gate
+
+Before implementation, stop at the first rung that satisfies the verified
+requirement:
+
+1. **Delete the need** — do not build behavior the product does not require.
+2. **Use the standard library** — prefer maintained, edge-case-correct primitives.
+3. **Use the native platform** — choose database, browser, OS, or framework behavior
+   over application code when it owns the invariant.
+4. **Reuse repository code** — search existing modules before adding a duplicate.
+5. **Use installed dependencies** — inspect the installed version's API before
+   writing a wrapper, parser, retry loop, cache, serializer, or crawler behavior.
+6. **Write minimum custom code** — only when earlier rungs cannot satisfy the
+   requirement.
+
+Ask before custom implementation:
+
+- Does this behavior need to exist?
+- Does Python or the platform already provide it?
+- Is equivalent repository code already installed and tested?
+- Does a current dependency expose the needed data or operation?
+- Was the API checked against the version locked by this repository?
+- Is custom logic enforcing a project-owned invariant?
+- Can this change delete code instead of adding code?
+
+| Smell | Preferred action |
+|-------|------------------|
+| Custom HTML parser when the crawler returns structured media | Use crawler metadata; keep parsing only as a proven fallback |
+| Custom retry framework around an SDK with retry policy | Configure the SDK |
+| Wrapper class that adds no invariant | Call the dependency directly |
+| Interface or factory with one implementation | Use the concrete function or class |
+| Generic repository with one data source | Use focused storage functions |
+| Custom URL validation for Hermes SSRF policy | Keep it when the dependency does not own that trust boundary |
+
+Do not remove security, accessibility, data-loss prevention, evidence integrity,
+workspace isolation, or explicit product requirements in the name of simplicity.
+Custom complexity must map to a documented invariant or a failing characterization
+test.
+
+---
+
 ## Naming Rules
 
 | Element | Convention |

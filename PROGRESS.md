@@ -2,10 +2,9 @@
 
 ## Harness Status
 
-- Phase: H007 Protein Bar workspace is `passing`; independent verification re-ran static and artifact gates, verified live Azure workspace isolation, profile/skill discovery and gateway status, and operator confirmed Telegram checklist H.
+- Phase: H009 (Gmail Multi-Mailbox Intake & Strict Isolation) is `active`; H008 is `passing`; H006 remains `blocked` by Azure image quota.
 - Workspace: `C:\Hermes-Business-Agent` on `main`; existing unrelated uncommitted changes remain and must not be reset.
-- WIP limit: 1; no feature is `active`. H006 remains `blocked` by Azure image-enrichment free-tier quota.
-
+- WIP limit: 1; H009 is the sole `active` feature.
 ## Completed
 
 - H001–H005 remain `passing` with recorded evidence.
@@ -265,3 +264,31 @@
 - Enhanced PowerPoint Presentation Skill: fixed python-pptx auto-sizing font defaults (13.5–15pt for bullets, 22–24pt for titles), word wrapping, and smart URL formatting in `pptx_create.py`, and enriched `powerpoint` SKILL.md with dynamic visual design principles, allowing the Agent to dynamically generate unbounded presentation layouts via Code Interpreter.
 - Completed Full Repository Cleanup: removed all obsolete pilot scripts (`create_deck.py`, `generate_pro_deck.py`, `protein-bar-brief.py`, `daily-brief-vi.md`), backup `.pre_*` files, and redundant hardcoded scripts (`render_deck.py`). Single source of truth for business docs established in `src/docs/`.
 - Verified all 6 test suites (`verify_knowledge.py` L1/L2, `verify_progress.py` L1/L2, `verify_research.py` L1/L2) passing 100%.
+
+## 2026-08-25 Knowledge clean-code refactor handoff
+
+- Refactored the Knowledge Tool on branch `fix/h008-runtime-boundary-cleanup` and pushed commit `453cad0 refactor(knowledge): clarify runtime module boundaries` to `origin/fix/h008-runtime-boundary-cleanup`.
+- Extracted focused modules for URL validation, crawl sessions, capture validation, artifact mapping, asset selection/download, and CLI parsing. Preserved compatibility exports in `web.py` and `browser_executor.py` for script-style callers and dynamic verifiers.
+- Reused Crawl4AI `media.images` as the primary image metadata source; retained HTML parsing only as fallback. Kept Hermes-owned SSRF, origin, budget, path, digest, MIME, workspace, provenance, and fail-closed boundaries.
+- Eliminated the four original C901 hotspots (`knowledge.main`, `session.accept_observation`, `artifact_capture.map_crawl_result`, and `capture_validation.validate_capture`). Focused Flake8 with maximum complexity 10 passes across `src/tools/knowledge`.
+- Added developer-only module navigation at `docs/knowledge-module-map.md`; it is outside production `src` context and was force-added because root `.gitignore` excludes `docs/`.
+- Fresh pre-commit evidence at 2026-08-25T07:16Z, exit 0: Knowledge Layer 1/2, Research Layer 1/2, Progress Layer 1/2, focused Flake8/C901, compileall, and `git diff --check`. Azure emitted only the known soft-delete subtype warning.
+- Repository-wide type checker remained acceptable: 194 Python files, 54% fully annotated, 140 `Any` references. Knowledge-specific typing debt remains about 43%; do not add fake SDK types solely to raise the metric.
+- After the pushed commit, added an uncommitted anti-over-engineering policy to root `AGENTS.md` and detailed Build-or-Reuse Gate to `.agents/skills/clean-code/SKILL.md`. `git diff --check` passes. `src/AGENTS.md` was intentionally not changed.
+- Working tree at 2026-08-25T07:23:57Z contains exactly three modified files: `.agents/skills/clean-code/SKILL.md`, root `AGENTS.md`, and user-owned `src/workspaces/protein-bar/SOUL.md`.
+- `src/workspaces/protein-bar/SOUL.md` is unrelated user work. Do not reset it or include it in the clean-code policy commit without explicit user direction.
+
+### Next session action
+
+1. Follow startup order and inspect current Git status before any edit.
+2. Review the two uncommitted policy diffs, run `git diff --check`, then commit/push only root `AGENTS.md` and `.agents/skills/clean-code/SKILL.md` if user approves.
+3. Keep `src/workspaces/protein-bar/SOUL.md` outside that commit.
+4. Do not split `src/tools/knowledge` into subfolders yet. Use `docs/knowledge-module-map.md`; package migration requires a separate approved feature and package-import verification.
+5. Do not change feature state from this implementer session; independent verifier evidence remains required by the feature-state contract.
+
+## 2026-08-25 H009 Gmail Multi-Mailbox Intake & Strict Isolation Activation
+
+- Transitioned H009 to `active` in `feature-list.json`.
+- Plan documented at `docs/superpowers/plans/2026-08-25-h009-gmail-intake.md`.
+- Architecture enforces strict per-user authorization for personal mailboxes while supporting shared mailboxes and intelligent categorization (suppliers, landlords, billing, general).
+- Outbound email capabilities remain 100% disabled in H009.

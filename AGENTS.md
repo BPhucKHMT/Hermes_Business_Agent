@@ -41,6 +41,27 @@ and DRY; use clear names, small focused functions, guard clauses, and the minimu
 working diff. Do not add speculative abstractions, incident-specific branches,
 unused helpers, or comments that restate obvious code.
 
+### Simplicity and Reuse Gate
+
+Before adding code, abstractions, dependencies, or custom infrastructure, stop at
+the first option that satisfies the verified requirement:
+
+1. Remove the need when it is not required.
+2. Use the standard library or native platform behavior.
+3. Reuse an existing repository function, module, or installed dependency.
+4. Use the installed library's documented API.
+5. Add the minimum custom code only when earlier options are insufficient.
+
+Do not reimplement capabilities already provided by the standard library,
+platform, dependencies, or repository. Before writing a custom parser, crawler,
+retry loop, cache, serializer, validator, state machine, or framework wrapper,
+verify the existing API and identify why it is insufficient.
+
+Custom code is justified when it enforces a Hermes-owned security, evidence,
+workspace-isolation, deployment, or product contract that the dependency does
+not own. Follow the detailed build-or-reuse checklist in the canonical clean-code
+skill.
+
 Verification for Python changes must cover syntax, applicable style/static checks,
 and behavior. A style-only pass does not prove product behavior.
 
