@@ -2,21 +2,15 @@ import os
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[2]
-SRC = ROOT / "src"
-PLUGIN = SRC / ".hermes/plugins/email-connector"
-UPSTREAM = Path(os.environ["LOCALAPPDATA"]) / "hermes/hermes-agent"
+# Add src and plugin directly
+_ROOT = Path(__file__).resolve().parents[2]
+_SRC = _ROOT / "src"
+_PLUGIN = _SRC / ".hermes/plugins/email-connector"
+_UPSTREAM = Path(os.environ.get("LOCALAPPDATA", "")) / "hermes/hermes-agent"
 
-# Crucial: SRC must come BEFORE UPSTREAM so src/tools takes precedence over UPSTREAM/tools
-for p in (PLUGIN, SRC, UPSTREAM):
-    while str(p) in sys.path:
-        sys.path.remove(str(p))
-    sys.path.insert(0, str(p))
-
-# Extend tools.__path__ if tools was already imported by upstream or pytest
-import tools
-if str(SRC / "tools") not in tools.__path__:
-    tools.__path__.insert(0, str(SRC / "tools"))
+for _p in (_SRC, _PLUGIN, _UPSTREAM):
+    if str(_p) not in sys.path:
+        sys.path.insert(0, str(_p))
 
 import pytest
 from tools.email.contracts import (
