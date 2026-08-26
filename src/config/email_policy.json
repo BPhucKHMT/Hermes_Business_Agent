@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "max_connections_per_principal": 3,
+  "oauth_link_ttl_seconds": 300,
+  "internal_request_ttl_seconds": 30,
+  "search_limit_max": 20,
+  "thread_text_bytes_max": 65536,
+  "private_group_delivery": "redirect_to_dm",
+  "gmail_scopes": [
+    "https://www.googleapis.com/auth/gmail.readonly"
+  ]
+}

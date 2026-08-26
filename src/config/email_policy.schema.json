@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "EmailPolicyConfig",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "max_connections_per_principal",
+    "oauth_link_ttl_seconds",
+    "internal_request_ttl_seconds",
+    "search_limit_max",
+    "thread_text_bytes_max",
+    "private_group_delivery",
+    "gmail_scopes"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "max_connections_per_principal": { "type": "integer", "minimum": 1, "maximum": 10 },
+    "oauth_link_ttl_seconds": { "type": "integer", "minimum": 60, "maximum": 3600 },
+    "internal_request_ttl_seconds": { "type": "integer", "minimum": 5, "maximum": 120 },
+    "search_limit_max": { "type": "integer", "minimum": 1, "maximum": 100 },
+    "thread_text_bytes_max": { "type": "integer", "minimum": 1024, "maximum": 524288 },
+    "private_group_delivery": { "type": "string", "enum": ["redirect_to_dm"] },
+    "gmail_scopes": {
+      "type": "array",
+      "items": { "type": "string", "const": "https://www.googleapis.com/auth/gmail.readonly" }
+    }
+  }
+}
