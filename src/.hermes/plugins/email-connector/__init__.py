@@ -70,32 +70,37 @@ def register(ctx: Any) -> PersonalGmailTools:
         description="Check status of connected Gmail mailboxes.",
     )
 
-    # 2. Register commands
-    ctx.register_command(
-        "connect_gmail",
-        partial(handle_connect_gmail, client=client, registry=registry),
-        description="Connect a private Gmail account",
-    )
-    ctx.register_command(
-        "mail_status",
-        partial(handle_mail_status, client=client, registry=registry),
-        description="Check email connection status",
-    )
-    ctx.register_command(
-        "disconnect_gmail",
-        partial(handle_disconnect_gmail, client=client, registry=registry),
-        description="Disconnect a connected Gmail account",
-    )
-    ctx.register_command(
-        "share_mailbox",
-        partial(handle_share_mailbox, client=client, registry=registry),
-        description="Propose sharing a mailbox with a Telegram destination",
-    )
-    ctx.register_command(
-        "email_grant",
-        partial(handle_email_grant, client=client, registry=registry),
-        description="Approve or deny a mailbox grant as an operator",
-    )
+    # 2. Register commands (both underscored and hyphenated so Telegram and Gateway match)
+    for cmd_name in ("connect_gmail", "connect-gmail"):
+        ctx.register_command(
+            cmd_name,
+            partial(handle_connect_gmail, client=client, registry=registry),
+            description="Connect a private Gmail account",
+        )
+    for cmd_name in ("mail_status", "mail-status"):
+        ctx.register_command(
+            cmd_name,
+            partial(handle_mail_status, client=client, registry=registry),
+            description="Check email connection status",
+        )
+    for cmd_name in ("disconnect_gmail", "disconnect-gmail"):
+        ctx.register_command(
+            cmd_name,
+            partial(handle_disconnect_gmail, client=client, registry=registry),
+            description="Disconnect a connected Gmail account",
+        )
+    for cmd_name in ("share_mailbox", "share-mailbox"):
+        ctx.register_command(
+            cmd_name,
+            partial(handle_share_mailbox, client=client, registry=registry),
+            description="Propose sharing a mailbox with a Telegram destination",
+        )
+    for cmd_name in ("email_grant", "email-grant"):
+        ctx.register_command(
+            cmd_name,
+            partial(handle_email_grant, client=client, registry=registry),
+            description="Approve or deny a mailbox grant as an operator",
+        )
 
     # One guard/registry is owned by this plugin registration; caller state is
     # scoped to host execution contexts by CallerContextRegistry.
