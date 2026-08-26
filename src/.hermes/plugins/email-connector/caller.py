@@ -1,0 +1,72 @@
+from dataclasses import dataclass
+from threading import Lock
+
+from gateway.session import build_session_key
+
+
+DM_REDIRECT_TEXT = "Mở chat riêng với Hermes để xem Gmail cá nhân."
+
+
+class DmOnlyError(ValueError):
+    pass
+
+
+@dataclass(frozen=True)
+class CallerContext:
+    principal_id: str
+    platform: str
+    user_id: str
+    chat_id: str
+    thread_id: str | None
+    chat_type: str
+    profile: str
+    session_key: str
+
+
+class CallerContextRegistry:
+    def __init__(self, session_store):
+        self._session_store = session_store
+        self._by_session_key: dict[str, CallerContext] = {}
+        self._lock = Lock()
+
+    def capture_dm(self, event: object, session_key: str) -> CallerContext:
+        source = event.source
+        platform = getattr(source.platform, "value", source.platform)
+        if platform != "telegram" or source.chat_type != "dm":
+            raise DmOnlyError(DM_REDIRECT_TEXT)
+        if not source.user_id or not source.chat_id:
+            raise ValueError("Telegram DM caller requires user_id and chat_id")
+
+        profile = source.profile or "default"
+        derived_key = build_session_key(source, profile=source.profile)
+        if session_key != derived_key:
+            raise ValueError("session_key does not match the trusted gateway source")
+
+        caller = CallerContext(
+            principal_id=f"telegram:{profile}:{source.user_id}",
+            platform=platform,
+            user_id=str(source.user_id),
+            chat_id=str(source.chat_id),
+            thread_id=str(source.thread_id) if source.thread_id else None,
+            chat_type="dm",
+            profile=profile,
+            session_key=session_key,
+        )
+        with self._lock:
+            self._by_session_key[session_key] = caller
+        return caller
+
+    def resolve_dm_tool(self, *, task_id: str, session_id: str) -> CallerContext:
+        runtime_id = session_id or task_id
+        entry = self._session_store.lookup_by_session_id(runtime_id)
+        if entry is None:
+            raise LookupError("Hermes session is not bound to a gateway caller")
+        with self._lock:
+            caller = self._by_session_key.get(entry.session_key)
+        if caller is None:
+            raise LookupError("Hermes session has no captured Telegram DM caller")
+        return caller
+
+    def forget(self, session_key: str) -> None:
+        with self._lock:
+            self._by_session_key.pop(session_key, None)
