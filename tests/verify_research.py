@@ -21,31 +21,38 @@ def load_module(name: str, path: Path):
 
 
 def fixture(mode="temporary"):
+    source_text = "Tavily publishes a web research API."
+    source_fingerprint = "sha256:" + __import__("hashlib").sha256(source_text.encode("utf-8")).hexdigest()
     return {
-        "schema_version": 1,
-        "dossier_id": "firecrawl-2026",
-        "session_id": "telegram-7275339077",
+        "schema_version": 2,
+        "dossier_id": "tavily-research-2026",
+        "session_id": "telegram-research-session",
         "mode": mode,
-        "question": "Có nên dùng Firecrawl?",
-        "scope": "Giá và rủi ro năm 2026",
-        "created_at": "2026-08-12T03:00:00Z",
-        "updated_at": "2026-08-12T03:00:00Z",
-        "executive_answer": "Phù hợp cho AI research nếu kiểm soát chi phí.",
+        "question": "How should Hermes research the public web?",
+        "scope": "Tavily-first public research",
+        "created_at": "2026-08-27T00:00:00Z",
+        "updated_at": "2026-08-27T00:00:00Z",
+        "executive_answer": "Use Tavily with direct evidence verification.",
         "sources": [{
-            "id": "s1", "title": "Firecrawl Pricing", "publisher": "Firecrawl",
-            "retrieved_at": "2026-08-12T03:00:00Z", "url": "https://firecrawl.dev/pricing",
+            "id": "s1", "title": "Tavily Research", "publisher": "Tavily",
+            "retrieved_at": "2026-08-27T00:00:00Z",
+            "url": "https://docs.tavily.com/documentation/api-reference/endpoint/research",
             "access_status": "read", "classification": "primary",
-            "independence": "vendor", "fingerprint": "sha256:abc"
+            "independence": "vendor", "acquisition_method": "tavily-extract",
+            "freshness": "unknown", "fingerprint": source_fingerprint
+        }],
+        "evidence": [{
+            "id": "e1", "source_id": "s1", "kind": "text",
+            "value": source_text, "fingerprint": source_fingerprint
         }],
         "claims": [{
-            "id": "c1", "type": "fact", "text": "Firecrawl publishes usage plans.",
-            "evidence_ids": ["s1"], "counter_evidence_ids": [],
-            "confidence": "high", "confidence_rationale": "Direct vendor pricing page."
+            "id": "c1", "type": "fact", "text": "Tavily publishes a web research API.",
+            "evidence_ids": ["e1"], "counter_evidence_ids": [],
+            "confidence": "high", "confidence_rationale": "Direct documentation."
         }],
-        "contradictions": [], "gaps": ["Enterprise negotiated price"],
-        "method": "Opened primary pricing page.", "limitations": ["Prices may change."],
+        "contradictions": [], "gaps": [], "unknowns": [], "next_questions": [],
+        "method": "Opened primary documentation.", "limitations": []
     }
-
 
 def expect_error(fn, text):
     try:
@@ -116,21 +123,42 @@ def layer_2() -> None:
 
     bad = fixture(); bad["sources"].append(dict(bad["sources"][0]))
     expect_error(lambda: store.validate_dossier(bad), "duplicate")
+    bad = fixture(); bad["evidence"] = []
+    expect_error(lambda: store.validate_dossier(bad), "missing evidence")
+    bad = fixture(); bad["evidence"][0]["value"] = "changed"
+    expect_error(lambda: store.validate_dossier(bad), "fingerprint")
     bad = fixture(); bad["claims"][0]["evidence_ids"] = ["missing"]
     expect_error(lambda: store.validate_dossier(bad), "missing")
+    bad = fixture(); bad["sources"][0]["classification"] = "candidate"
+    expect_error(lambda: store.validate_dossier(bad), "candidate")
     bad = fixture(); bad["sources"][0]["url"] = "javascript:alert(1)"
     expect_error(lambda: store.validate_dossier(bad), "http")
     bad = fixture("watch")
     expect_error(lambda: store.validate_dossier(bad), "watch_intent")
 
+    store.validate_first_party_endpoint("thecoffeehouse.com", "https://order.thecoffeehouse.com/api/v5/menu")
+    store.validate_first_party_endpoint("thecoffeehouse.com", "https://thecoffeehouse.com/order")
+    expect_error(
+        lambda: store.validate_first_party_endpoint("thecoffeehouse.com", "https://analytics.example.net/menu"),
+        "first-party"
+    )
     with tempfile.TemporaryDirectory() as tmp:
         workspace = Path(tmp)
         temporary = store.write_temporary(workspace, data["session_id"], data)
         assert temporary.name == "dossier.json" and json.loads(temporary.read_text(encoding="utf-8"))["question"] == data["question"]
         report = renderer.write_report(temporary, temporary.with_name("report.html"))
         html = report.read_text(encoding="utf-8")
-        assert data["question"] in html and "https://firecrawl.dev/pricing" in html
+        assert data["question"] in html and "https://docs.tavily.com" in html
         assert not any(token in html.lower() for token in ("<script", "<iframe", "<form", "onerror="))
+
+        # Test legacy v1 archive
+        legacy_dir = workspace / ".runtime/research/saved/legacy-item"
+        legacy_dir.mkdir(parents=True, exist_ok=True)
+        (legacy_dir / "dossier.json").write_text(json.dumps({"schema_version": 1, "dossier_id": "legacy-item"}), encoding="utf-8")
+        archived = store.archive_legacy_dossiers(workspace)
+        assert "legacy-item" in archived
+        assert (workspace / ".runtime/research/legacy-v1/legacy-item/dossier.json").is_file()
+        assert not legacy_dir.exists()
 
         saved = store.save_dossier(workspace, data["dossier_id"], data, "save")
         assert store.load_dossier(workspace, data["dossier_id"])["mode"] == "save"
