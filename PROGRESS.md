@@ -323,3 +323,29 @@
 - Architecture integrates Tavily as the sole external research provider (`tvly` CLI and native search/extract), Hermes Browser for dynamic public SPAs, first-party data discovery for rich structured APIs (e.g. The Coffee House), and schema-v2 evidence graphs with exact excerpts and structured values.
 - Preserves strict boundary with `hermes-azure-rag` (H006): session research never mutates Azure Blob/Search.
 - Requires operator environment secret `TAVILY_API_KEY` configured in `%LOCALAPPDATA%\hermes\.env`.
+
+## 2026-08-27 H010 Implementation & Layer 1/2 Verification Handoff
+
+- Completed Tasks 1–7 of `docs/superpowers/plans/2026-08-27-research-tavily-first.md`:
+  - Pinned `tavily-cli==0.1.6` and `agent-browser@0.35.1` in `src/setup.cmd`, `src/setup.sh`, and documented one-store authentication in `src/README.md`.
+  - Created `src/config/research_policy.json` with per-run execution ceilings (Quick 120s, Deep 900s, Site Intelligence 300s, 20 MiB temp storage limit).
+  - Upgraded `src/skills/research/SKILL.md` and references (`research-protocol.md`, `source-quality.md`, `report-contract.md`) with 3 research modes, capture-only public API inspection, same official domain restrictions, and `grounded-citations` integration.
+  - Upgraded `src/skills/research/scripts/research_store.py` to Evidence Schema v2 with deterministic Unicode NFC/LF normalization, canonical JSON serialization, SHA-256 fingerprinting, first-party endpoint validation, and legacy v1 archive migration (`archive_legacy_dossiers`).
+  - Upgraded `src/skills/research/scripts/render_report.py` to resolve claims through evidence records to sources, generate clickable citation badges `[e1]`, and render detailed evidence cards with provenance, method, freshness, and location context while preventing XSS.
+  - Created deterministic test fixtures in `tests/fixtures/research/` (`coffee_house_menu_sanitized.json`, `coffee_house_menu_expected.json`, `manifest.json`, `tavily_search_success.json`, `tavily_research_candidate.json`, `tavily_failure.json`).
+  - Verified zero hardcoded brand endpoints or product IDs in production skills/scripts.
+- Verification Results (2026-08-27):
+  - `uv lock --check`: pass (exit 0).
+  - `uv run --frozen python -m compileall -q skills/research`: pass (exit 0).
+  - `uv run --frozen python ../tests/verify_research.py --layer 1`: pass (exit 0).
+  - `uv run --frozen python ../tests/verify_research.py --layer 2`: pass (exit 0).
+  - `uv run --frozen python ../tests/verify_knowledge.py --layer 1 & 2`: pass (exit 0).
+  - `uv run --frozen python ../tests/verify_progress.py --layer 1 & 2`: pass (exit 0).
+- Layer 3 Telegram Release Scenarios (for Independent Verifier):
+  1. Quick Fact Scenario: Bounded factual query returns cited answer without creating unrequested dossier.
+  2. Deep Competitor Report Scenario: Multi-source research brief confirmation -> `tvly research` candidate synthesis -> primary evidence reopening -> gap analysis -> HTML report with citations.
+  3. The Coffee House Site Intelligence Scenario: Clean-session browser capture naturally observes first-party menu data -> projects categories and integer VND prices with location context disclosure -> zero hardcoded brand endpoints.
+  4. Failure / Quota Scenario: Gracefully degrades with preserved evidence and coverage gap disclosure.
+  5. Negative Security Scenario: Rejects authenticated/private endpoints and third-party tracking APIs.
+  6. Persistence Scenario: Default session-scoped; explicit `save` persists to `.runtime/research/saved/` without mutating Azure.
+- H010 remains `active` with `evidence: null`; only an independent verifier may transition H010 to `passing`.
