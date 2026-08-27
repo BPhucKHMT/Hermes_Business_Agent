@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "description": "Deterministic sanitized test fixtures for Tavily-first research and site intelligence",
+  "fixtures": [
+    {
+      "name": "coffee_house_menu_sanitized.json",
+      "purpose": "Simulate clean-session browser public API response capture",
+      "source_url": "https://order.thecoffeehouse.com/product-listing",
+      "official_domain": "thecoffeehouse.com",
+      "sanitized_fields": [
+        "headers",
+        "cookies",
+        "tokens",
+        "user_data",
+        "analytics",
+        "internal_branch_state"
+      ],
+      "capture_date": "2026-08-27"
+    },
+    {
+      "name": "coffee_house_menu_expected.json",
+      "purpose": "Golden normalized category and pricing projection assertion",
+      "capture_date": "2026-08-27"
+    }
+  ]
+}

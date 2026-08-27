@@ -1,0 +1,64 @@
+{
+  "total_categories": 2,
+  "total_products": 3,
+  "categories": [
+    {
+      "id": 92,
+      "name": "Món Mới Phải Thử",
+      "product_count": 2
+    },
+    {
+      "id": 7677,
+      "name": "Americano",
+      "product_count": 1
+    }
+  ],
+  "products": [
+    {
+      "id": "699eafedbde92e0012ac3304",
+      "name": "Pizza Tomyum Hải Sản",
+      "category_id": 92,
+      "base_price": 59000,
+      "sizes": [
+        {
+          "id": "4144",
+          "name": "Vừa",
+          "price": 59000
+        }
+      ]
+    },
+    {
+      "id": "67e13816c6fcd7001a826690",
+      "name": "Wafu Pasta Cá Bào Trứng Onsen Xốt Mentaiko",
+      "category_id": 92,
+      "base_price": 69000,
+      "sizes": [
+        {
+          "id": "3391",
+          "name": "Vừa",
+          "price": 69000
+        }
+      ]
+    },
+    {
+      "id": "689d6a009843e40012394b40",
+      "name": "Specialty Coffee Đá",
+      "category_id": 7677,
+      "base_price": 69000,
+      "sizes": [
+        {
+          "id": "3735",
+          "name": "Vừa",
+          "price": 69000
+        }
+      ],
+      "toppings": [
+        {
+          "id": "10100080.0",
+          "name": "Sữa Tươi",
+          "price": 5000
+        }
+      ]
+    }
+  ]
+}

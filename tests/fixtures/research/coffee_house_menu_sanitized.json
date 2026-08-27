@@ -1,0 +1,88 @@
+{
+  "visible_page_url": "https://order.thecoffeehouse.com/product-listing",
+  "official_domain": "thecoffeehouse.com",
+  "observed_at": "2026-08-27T00:00:00Z",
+  "location_context": "default unauthenticated context; no branch selected",
+  "response": {
+    "error": null,
+    "menu": [
+      {
+        "id": 92,
+        "name": "Món Mới Phải Thử",
+        "products": [
+          {
+            "id": "699eafedbde92e0012ac3304",
+            "name": "Pizza Tomyum Hải Sản",
+            "price": 59000,
+            "options": [
+              {
+                "group_id": 0,
+                "name": "Size",
+                "items": [
+                  {
+                    "id": "4144",
+                    "name": "Vừa",
+                    "price": 59000
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "67e13816c6fcd7001a826690",
+            "name": "Wafu Pasta Cá Bào Trứng Onsen Xốt Mentaiko",
+            "price": 69000,
+            "options": [
+              {
+                "group_id": 0,
+                "name": "Size",
+                "items": [
+                  {
+                    "id": "3391",
+                    "name": "Vừa",
+                    "price": 69000
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": 7677,
+        "name": "Americano",
+        "products": [
+          {
+            "id": "689d6a009843e40012394b40",
+            "name": "Specialty Coffee Đá",
+            "price": 69000,
+            "options": [
+              {
+                "group_id": 0,
+                "name": "Size",
+                "items": [
+                  {
+                    "id": "3735",
+                    "name": "Vừa",
+                    "price": 69000
+                  }
+                ]
+              },
+              {
+                "group_id": 20,
+                "name": "Topping",
+                "items": [
+                  {
+                    "id": "10100080.0",
+                    "name": "Sữa Tươi",
+                    "price": 5000
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

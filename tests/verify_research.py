@@ -189,6 +189,49 @@ def layer_2() -> None:
     html = renderer.render_html(escaped)
     assert "&lt;script&gt;" in html and "<script" not in html.lower()
     assert "&lt;img" in html and "<img" not in html.lower()
+    # Test Site-Intelligence Menu Projection Fixture
+    fixture_path = ROOT / "tests/fixtures/research/coffee_house_menu_sanitized.json"
+    expected_path = ROOT / "tests/fixtures/research/coffee_house_menu_expected.json"
+    assert fixture_path.is_file() and expected_path.is_file()
+    raw_fix = json.loads(fixture_path.read_text(encoding="utf-8"))
+    expected = json.loads(expected_path.read_text(encoding="utf-8"))
+    store.validate_first_party_endpoint(raw_fix["official_domain"], raw_fix["visible_page_url"])
+
+    cats = []
+    prods = []
+    for c in raw_fix["response"]["menu"]:
+        cats.append({"id": c["id"], "name": c["name"], "product_count": len(c.get("products", []))})
+        for p in c.get("products", []):
+            prod_entry = {
+                "id": p["id"], "name": p["name"], "category_id": c["id"],
+                "base_price": p["price"], "sizes": []
+            }
+            assert isinstance(p["price"], int) and p["price"] >= 0
+            for opt in p.get("options", []):
+                if opt.get("name") == "Size":
+                    for s in opt.get("items", []):
+                        assert isinstance(s["price"], int) and s["price"] >= 0
+                        prod_entry["sizes"].append({"id": s["id"], "name": s["name"], "price": s["price"]})
+                elif opt.get("name") == "Topping":
+                    prod_entry.setdefault("toppings", [])
+                    for t in opt.get("items", []):
+                        assert isinstance(t["price"], int) and t["price"] >= 0
+                        prod_entry["toppings"].append({"id": t["id"], "name": t["name"], "price": t["price"]})
+            prods.append(prod_entry)
+
+    assert len(cats) == expected["total_categories"]
+    assert len(prods) == expected["total_products"]
+    assert cats == expected["categories"]
+    assert prods == expected["products"]
+
+    # Ensure zero hardcoded site names, product IDs, or endpoints in production skill files
+    skill_corpus = (
+        SKILL.read_text(encoding="utf-8") + "\n" +
+        (SCRIPTS / "research_store.py").read_text(encoding="utf-8") + "\n" +
+        (SCRIPTS / "render_report.py").read_text(encoding="utf-8")
+    ).lower()
+    for forbidden_brand in ("api.thecoffeehouse.com", "699eafedbde92e0012ac3304", "pizza tomyum hải sản"):
+        assert forbidden_brand.lower() not in skill_corpus, f"found hardcoded brand data in skill: {forbidden_brand}"
     files = [SKILL, *sorted((SKILL.parent / "references").glob("*.md"))]
     contract = "\n".join(path.read_text(encoding="utf-8") for path in files).lower()
     for value in (".runtime/research/temporary", ".runtime/research/saved", "dossier.json", "cleanup", "media:<absolute-path>"):
