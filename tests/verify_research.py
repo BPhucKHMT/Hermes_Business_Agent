@@ -74,6 +74,15 @@ def layer_1() -> None:
     assert "src/.runtime/" in (ROOT / ".gitignore").read_text(encoding="utf-8")
     forbidden = ("C:/Hermes agent", "DECISIONS.md", "PROGRESS.md", "feature-list.json", ".hermes.md")
     assert not any(value in text for value in forbidden), "runtime boundary leak"
+    setup_cmd = (ROOT / "src/setup.cmd").read_text(encoding="utf-8")
+    setup_sh = (ROOT / "src/setup.sh").read_text(encoding="utf-8")
+    readme = (ROOT / "src/README.md").read_text(encoding="utf-8")
+    for text in (setup_cmd, setup_sh):
+        assert "tavily-cli==0.1.6" in text
+        assert "agent-browser@0.35.1" in text
+    assert "%LOCALAPPDATA%\\hermes\\.env" in readme
+    assert "TAVILY_API_KEY" in readme
+    assert "tvly login --api-key" not in readme
 
 
 def layer_2() -> None:

@@ -36,6 +36,16 @@ Linux:   chmod +x setup.sh && ./setup.sh
 
 Do not copy or commit `.venv`; uv recreates it from `.python-version`, `pyproject.toml`, and `uv.lock`. Skills invoke project tools with `uv run --frozen python ...`, so their interpreter and dependencies do not depend on the Python used by Hermes itself. Operator setup owns dependency and browser installation; chat-driven agents must not run `uv sync`, modify the lockfile, or install packages.
 
+
+Tavily research uses one operator secret. On Windows, place TAVILY_API_KEY in
+%LOCALAPPDATA%\hermes\.env; use the equivalent Hermes operator/profile env on
+other platforms. Do not store credentials in this workspace or login via flags.
+`tavily`; the official CLI reads the same environment variable:
+
+```text
+hermes config set web.search_backend tavily
+hermes config set web.extract_backend tavily
+```
 Start a new Hermes session with this workspace configured. Use `/hermes-project` for capability routing, `/research` for public-web evidence or current-response document analysis, and `/hermes-azure-rag` when approved documents must persist beyond the current response or a question uses retained company knowledge. Durable attachments go to Azure and must not fall back to generic memory or OCR.
 
 All bot users share the fixed `internal` knowledge group in V1. The CLI does
@@ -52,6 +62,14 @@ DOCX, and PDF delivery are not project capabilities until separately verified.
 - This `AGENTS.md` is Hermes runtime context.
 - Each skill is a directory containing `SKILL.md`.
 - Create `scripts/`, `references/`, or `templates/` only inside skills that need them.
-- Secrets belong in `%LOCALAPPDATA%\hermes\.env`, not this workspace.
 - MCP requires `mcp_servers` in global configuration and a separate feature verifier.
 - Advertise a capability only after its implementation and verifier exist.
+
+## Email Intake & Commands (H009)
+
+- `/connect_gmail` (`/connect_email`, `/connect_mail`): OAuth2 Google connection link (DM only).
+- `/mail_status` (`/email_status`): Check connected mailbox accounts and connection IDs.
+- `/disconnect_gmail <id>` (`/disconnect_email <id>`): Disconnect linked mailbox.
+- `/share_mailbox <id> <chat_id>`: Propose sharing mailbox with Telegram group.
+- `/email_grant <req_id> approve|deny`: Operator decision on mailbox sharing.
+- Natural language queries trigger `email_search` and `email_get_thread` automatically.
