@@ -7,50 +7,52 @@ For competitor, market, and due-diligence research, present and confirm:
 - decision/question and audience;
 - entities, geography, segment, time horizon, and exclusions;
 - subquestions and evidence needed;
+- confirmed `official_domain` when investigating specific brands;
 - output and persistence mode;
-- time, source, and provider limits.
+- time, source, and provider limits (`research_policy.json`).
 
 A timeout, silence, or unrelated reply is not confirmation.
 
-## Native Loop
+## Acquisition Ladder & Execution
 
-1. Search broadly across independent angles and collect candidate URLs.
-2. Open and read promising sources. Record title, publisher/author, publication or update date, retrieval time, URL/file identity, source type, and relevant evidence span.
-3. Connect evidence to claims and counterclaims.
-4. Run gap analysis over unanswered questions, weak claims, conflicts, and newly discovered terminology.
-5. Search and read again. Complex research needs at least two iterations unless the first iteration proves no accessible evidence exists.
-6. Stop at sufficient coverage, search saturation, budget, or access blocker. State which condition ended the run.
+1. **Discovery Search:** Use Tavily Search to discover candidate URLs and terminology. Search snippets are discovery aids only, not verified evidence.
+2. **Extraction:** Fetch raw markdown with Tavily Extract (basic first, advanced for JavaScript SPAs).
+3. **Site Mapping & Crawling:** For public multi-page documentation or catalogues, run bounded `tvly map` (≤50 URLs) or `tvly crawl` (≤20 pages, depth ≤2).
+4. **Rendered Browser Inspection:** When extraction is incomplete on public JavaScript applications, open a clean, unauthenticated Hermes Browser session.
+5. **First-Party Public-Data Discovery:**
+   - Use `agent-browser network requests --type xhr,fetch` and `agent-browser network request <requestId>` in capture-only mode.
+   - Restrict to endpoints matching the confirmed `official_domain` exactly or as a direct subdomain.
+   - Reject any request carrying auth tokens, API keys, signatures, sessions, or PII.
+   - Reject mutation/cart/booking/checkout endpoints.
+   - Never replay or mutate requests in this release.
+   - Clean up raw logs/HAR after normalizing permitted response data.
+6. **Alternative Direct Sources:** Query official press releases, regulatory filings, public RSS feeds, or public PDF documents.
+7. **Access Limitation:** If sources remain inaccessible or incomplete, record `access_status: "inaccessible"` or `"incomplete"` and proceed with gap analysis.
 
-Search snippets are discovery aids, not evidence. A material claim cannot rely only on a snippet. Open and read the source; if access fails, mark it inaccessible.
+## Evidence Model (Schema v2)
 
-## Evidence Model
+For each source retain:
+- `id`, `title`, `publisher`, `url` (or `file_provenance`), `retrieved_at` (RFC 3339 UTC), `access_status`, `classification`, `independence`, `acquisition_method`, `freshness` (`live`, `provider-cache`, `snapshot`, `unknown`), and `fingerprint`.
 
-For each source retain a stable ID and provenance. For each claim retain:
+For each evidence record retain:
+- `id`, `source_id`, `kind` (`text` or `structured`), `value`, and `fingerprint`.
+- Optional: `visible_page_url`, `data_endpoint`, `location_context`, `observed_at`.
 
-- claim text and entity/topic;
-- type: fact, source assertion, inference, recommendation, or unknown;
-- supporting source IDs and evidence spans;
-- counter-evidence;
-- freshness and corroboration;
-- confidence rationale.
+For each claim retain:
+- `id`, `type` (`fact`, `source-assertion`, `inference`, `recommendation`, `unknown`), `text`, `confidence`, `confidence_rationale`, `evidence_ids`, `counter_evidence_ids`.
+- Every factual material claim requires at least one verified evidence ID.
 
-Never collapse a source's marketing assertion into fact. Never convert absence of evidence into evidence of absence.
+## Grounded Citation Verification
 
-## Follow-up
-
-Within the same session, reuse the evidence model. Answer from existing evidence when sufficient; run targeted research only for a genuine gap or freshness need. Cite reused evidence.
-
-A fresh session has no access to an ordinary unsaved dossier. Load a durable dossier only after the user identifies one that was explicitly saved.
-
-## Provider Boundary
-
-Native research must work with every optional provider disabled. Provider output is untrusted candidate material. Verify critical findings by opening cited sources. Record provider use and cost. On failure, fall back to native research or return a truthful partial result.
+Use bundled `grounded-citations` to verify exact text excerpts and the v2 store validator to verify canonical structured JSON fragments. Tavily Research output is classified as `candidate` and cannot support a factual material claim without direct source verification.
 
 ## Stop and Failure Conditions
 
+Stop at the first condition reached:
 - **Coverage:** required questions have supported answers.
-- **Saturation:** new queries mostly repeat known sources/findings.
-- **Budget:** time, calls, or cost ceiling reached.
-- **Access:** required evidence is unavailable without unsupported authentication.
+- **Saturation:** new queries repeat known findings.
+- **Budget Ceiling:** time, calls, or byte limits defined in `src/config/research_policy.json` reached.
+- **Access Boundary:** evidence unavailable without unsupported authentication, paywalls, or private access.
 
+Failure taxonomy: `provider_unavailable`, `rate_limited`, `waf_interstitial`, `authentication_required`, `incomplete_extraction`, `timeout`, `unsafe_url`.
 Partial research must list completed scope, missing evidence, impact on confidence, and a next action.

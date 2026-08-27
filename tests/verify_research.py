@@ -83,6 +83,25 @@ def layer_1() -> None:
     assert "%LOCALAPPDATA%\\hermes\\.env" in readme
     assert "TAVILY_API_KEY" in readme
     assert "tvly login --api-key" not in readme
+    policy_path = ROOT / "src/config/research_policy.json"
+    assert policy_path.is_file(), f"missing policy: {policy_path}"
+    policy = json.loads(policy_path.read_text(encoding="utf-8"))
+    assert policy == {
+        "schema_version": 1,
+        "quick": {"search_calls": 2, "extract_calls": 2, "extract_urls": 5, "browser_navigations": 1, "source_bytes": 2097152, "seconds": 120},
+        "deep": {"research_runs": 1, "research_model": "mini", "status_polls": 60, "search_calls": 2, "extract_urls": 10, "browser_navigations": 3, "network_responses": 10, "source_bytes": 2097152, "seconds": 900},
+        "site": {"map_calls": 1, "map_urls": 50, "crawl_calls": 1, "crawl_pages": 20, "crawl_depth": 2, "extract_calls": 2, "extract_urls": 5, "browser_navigations": 2, "network_requests": 50, "network_responses": 10, "response_bytes": 5242880, "seconds": 300},
+        "temporary_bytes": 20971520,
+        "pro_requires_confirmation": True
+    }
+    contract = "\n".join(
+        path.read_text(encoding="utf-8")
+        for path in [SKILL, *sorted((SKILL.parent / "references").glob("*.md"))]
+    ).lower()
+    for phrase in ("quick", "deep", "site intelligence", "tvly research", "capture-only", "official_domain", "grounded-citations"):
+        assert phrase in contract, f"missing phrase: {phrase}"
+    for forbidden_token in ("camofox", "captcha solver"):
+        assert forbidden_token not in contract, f"forbidden token found: {forbidden_token}"
 
 
 def layer_2() -> None:

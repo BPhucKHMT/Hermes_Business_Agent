@@ -5,9 +5,9 @@
 Send a short executive brief containing:
 
 - direct answer;
-- three to five key findings with citations;
+- three to five key findings with inline citations;
 - main contradiction or uncertainty;
-- confidence and important limitation;
+- confidence score and important limitation;
 - attached HTML report name;
 - persistence status: session only, saved, tracked, or watch intent.
 
@@ -15,33 +15,30 @@ For Telegram native attachment delivery:
 
 1. Write the complete report under the configured current workspace and verify that the HTML file exists before delivery.
 2. End the final response with `MEDIA:<absolute-path>` on its own line, replacing `<absolute-path>` with the real absolute path to the report.
-3. The actual `MEDIA:` directive must not be wrapped in backticks or a fenced code block. Backticks in this document describe syntax only; a formatted directive is literal text and will not upload a file.
+3. The actual `MEDIA:` directive must not be wrapped in backticks or a fenced code block.
 4. Mention the attachment only when emitting the valid directive. If report creation or path verification fails, return an actionable partial-result error instead of claiming attachment success.
 
-`dossier.json` is canonical. HTML is derived and replaceable by a future PPTX renderer. Ordinary output lives under `.runtime/research/temporary/<session-id>/`; explicit durable modes live under `.runtime/research/saved/<dossier-id>/`. Run `cleanup` for expired temporary artifacts, never saved dossiers.
+`dossier.json` (schema version 2) is canonical. HTML is derived output. Ordinary output lives under `.runtime/research/temporary/<session-id>/`; explicit durable modes live under `.runtime/research/saved/<dossier-id>/`.
 
-## Canonical Report
+## Canonical Report Sections
 
-Use Markdown as canonical content and produce safe HTML for delivery.
+1. **Research Question & Confirmed Scope** (including confirmed `official_domain` if applicable).
+2. **Executive Answer**.
+3. **Key Findings & Evidence Cards** (showing exact excerpts or structured field/value, acquisition method, freshness, retrieval timestamp, location context).
+4. **Grounded Analysis**.
+5. **Competitor / Entity Comparison** (when applicable).
+6. **Contradictions & Confidence Rationale**.
+7. **Inferences & Recommendations** (labeled explicitly as inference).
+8. **Evidence Gaps & Inaccessible Sources**.
+9. **Verified Sources & Provenance** (ID, Title, Publisher, URL/File, Method, Freshness, Fingerprint).
+10. **Methodology & Stop Reason** (search window, models, budget ceiling reached, provider limitations).
 
-Required sections:
+## Citation & Evidence Rules
 
-1. Research question and confirmed scope.
-2. Executive answer.
-3. Key findings.
-4. Grounded analysis.
-5. Competitor profiles and comparison when applicable.
-6. Contradictions, uncertainty, and confidence rationale.
-7. Implications and recommendations labeled as inference.
-8. Evidence gaps and next research questions.
-9. Source list with title, publisher, date, retrieval date, and retrievable URL or file provenance.
-10. Method note with search window, stop condition, limitations, and provider use.
-
-## Citation Rules
-
-Place citations next to supported claims. A source-list entry alone is not claim provenance. Opened source content must support the nearby claim. If it does not, remove the claim, find evidence, or label uncertainty.
-
-Never cite a search snippet as evidence for a material claim. Identify inaccessible URLs as discovery-only, not verified sources.
+- Claims link directly to verified evidence records (`evidence_ids`).
+- Every factual material claim requires verified evidence.
+- A search snippet is never cited as evidence.
+- Inaccessible or incomplete URLs are listed in evidence gaps, not as verified sources.
 
 ## HTML Safety
 
@@ -57,4 +54,4 @@ A partial report must state failed boundary, completed scope, missing evidence, 
 
 ## Persistence Notice
 
-Report delivery does not create durable memory. State `session-scoped` unless the user explicitly requests `save`, `track`, or `watch`.
+Report delivery does not create durable memory. State `session-scoped` unless the user explicitly requests `save`, `track`, or `watch`. Retain/ingest website intent routes strictly to `hermes-azure-rag`.

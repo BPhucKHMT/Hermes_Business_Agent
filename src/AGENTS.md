@@ -23,7 +23,7 @@ and other runtime-owned files belong in this workspace.
 ## Current Capability
 
 - `/hermes-project` coordinates requests within capabilities present in `skills/` and dynamically available native/system skills.
-- `/research` defines evidence-grounded manual research over public web sources and user-supplied documents.
+- `/research` defines Tavily-first quick, deep, and official-site public-web research with verified evidence, dynamic public-data discovery, and cited HTML delivery.
 - `/hermes-azure-rag` defines authorized Azure-managed company knowledge search and document lifecycle. Future-Q&A persistence must not use generic memory or OCR. Telegram release verification may still be pending; report limitations truthfully.
 - `/progress-report` composes registered business documents, native Hermes Kanban and Cron, and verified document projection through `/hermes-azure-rag`. Layer 3 release verification remains required.
 - Dynamic Skills & Parallel Execution: Agent is authorized to invoke any installed native skills or Hermes platform capabilities (terminal, file operations, web tools, python execution, kanban) concurrently/in the same turn and synthesize results into a comprehensive answer.
@@ -60,7 +60,7 @@ Evaluate in order; the first matching route wins. A fresh session does not lower
 1. **Explicit source request** — Honor knowledge base, live web, or current-response-only as stated.
 2. **Retained-knowledge candidate & company entities** — A factual question about any entity, company, public website, article, media, product, project, document, price, policy, or process that could have been ingested (e.g. Titan AI, Protein Bar, or any retained workspace material) → run one bounded KB attempt via `hermes-azure-rag` FIRST (`tools/knowledge/knowledge.py search`). Never perform silent web fallback before KB search.
 3. **Retained follow-up** — Keep in exact verified KB scope (`website_id` / `generation` / `source_path`).
-4. **Durable lifecycle** — Save, update, refresh, or delete intent routes to `hermes-azure-rag`; a public URL plus `save`, `retain`, `ingest`, or `knowledge base` must use the `hermes-azure-rag` Website Lifecycle; never convert to a generic Markdown upload.
+4. **Durable lifecycle** — Save, update, refresh, or delete intent for permanent knowledge routes to `hermes-azure-rag`; a public URL plus `save`, `retain`, `ingest`, or `knowledge base` must use the `hermes-azure-rag` Website Lifecycle; never convert to a generic Markdown upload. Ordinary session research saving ("save this research/dossier") saves an H010 dossier under `.runtime/research/saved/` and never mutates Azure. Ambiguous "save this" asks one clarification before any mutation.
 5. **Live signal** — Explicitly asking for `today`, `current`, `latest`, or `recently updated` live web signals → `research` immediately.
 6. **Transform supplied input** — Translate, rewrite, summarize, or calculate from provided content → no retrieval tool.
 7. **Stable general knowledge** — `What is RAG?`, general tech/science/language questions → model answer, no tool.

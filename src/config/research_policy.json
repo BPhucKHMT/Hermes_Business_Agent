@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "quick": {
+    "search_calls": 2,
+    "extract_calls": 2,
+    "extract_urls": 5,
+    "browser_navigations": 1,
+    "source_bytes": 2097152,
+    "seconds": 120
+  },
+  "deep": {
+    "research_runs": 1,
+    "research_model": "mini",
+    "status_polls": 60,
+    "search_calls": 2,
+    "extract_urls": 10,
+    "browser_navigations": 3,
+    "network_responses": 10,
+    "source_bytes": 2097152,
+    "seconds": 900
+  },
+  "site": {
+    "map_calls": 1,
+    "map_urls": 50,
+    "crawl_calls": 1,
+    "crawl_pages": 20,
+    "crawl_depth": 2,
+    "extract_calls": 2,
+    "extract_urls": 5,
+    "browser_navigations": 2,
+    "network_requests": 50,
+    "network_responses": 10,
+    "response_bytes": 5242880,
+    "seconds": 300
+  },
+  "temporary_bytes": 20971520,
+  "pro_requires_confirmation": true
+}

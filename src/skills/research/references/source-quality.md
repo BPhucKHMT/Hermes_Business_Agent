@@ -8,15 +8,19 @@ Assess sources per claim, not once for an entire report.
 - **Authority:** publisher/author is positioned to know the fact.
 - **Primary status:** official filing, product documentation, pricing page, dataset, interview, or original study.
 - **Independence:** corroborating sources do not copy the same upstream source.
-- **Freshness:** publication/update date fits the research time horizon.
+- **Freshness:** publication/update date fits the research time horizon. Classify as `live` (observed live via browser/API), `provider-cache` (cached by Tavily), `snapshot` (Wayback/archive), or `unknown`.
+- **Location Sensitivity:** for pricing and menus, record whether data applies to a specific branch/location or default store context.
 - **Method:** definitions, sample, measurement, and limitations are visible.
 - **Incentive:** marketing, advocacy, sales, or conflict of interest is disclosed.
 
 Primary does not always mean neutral. A company page is primary for its stated positioning and current published price, but not independent proof that its performance claim is true.
 
-## Material Claims
+## Material Claims & Sufficiency
 
-A material claim changes the answer, comparison, or recommendation. Prefer one direct primary source plus one independent source. If only one source exists, label the claim single-source and lower confidence. Search snippets are discovery aids, not evidence.
+A material claim changes the answer, comparison, or recommendation.
+- **Direct first-party facts (e.g. official menu prices):** One verified direct primary source with visible URL, timestamp, and location context is sufficient.
+- **Market trends, comparisons, or recommendations:** Prefer one direct primary source plus one independent source. If only one source exists, label the claim single-source and lower confidence.
+- Search snippets are discovery aids, not evidence.
 
 ## Contradiction
 
