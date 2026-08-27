@@ -5,7 +5,10 @@ import os
 from pathlib import Path
 import tempfile
 
-from research_store import validate_dossier
+try:
+    from research_store import validate_dossier
+except ImportError:
+    from skills.research.scripts.research_store import validate_dossier
 
 
 def render_html(dossier: dict) -> str:
@@ -15,9 +18,10 @@ def render_html(dossier: dict) -> str:
 
     # Render Claims
     claims_html = []
+    valid_types = {"fact", "inference", "recommendation", "source-assertion"}
     for claim in dossier["claims"]:
         c_type = str(claim.get("type", "fact")).lower()
-        badge_class = f"badge-{c_type}" if c_type in {"fact", "inference", "recommendation", "source-assertion"} else "badge-fact"
+        badge_class = f"badge-{c_type}" if c_type in valid_types else "badge-fact"
 
         links = []
         for e_id in claim.get("evidence_ids", []):
@@ -26,7 +30,10 @@ def render_html(dossier: dict) -> str:
                 src = sources.get(ev.get("source_id"), {})
                 url = src.get("url") or "#"
                 title = f"{src.get('title', 'Source')} (Evidence {e_id})"
-                links.append(f'<a class="citation-tag" href="{escape(url, quote=True)}" title="{escape(title)}">[{escape(e_id)}]</a>')
+                esc_url = escape(url, quote=True)
+                esc_title = escape(title)
+                esc_eid = escape(e_id)
+                links.append(f'<a class="citation-tag" href="{esc_url}" title="{esc_title}">[{esc_eid}]</a>')
             else:
                 links.append(f'<span class="citation-tag">[{escape(e_id)}]</span>')
 
@@ -37,10 +44,17 @@ def render_html(dossier: dict) -> str:
                 src = sources.get(ev.get("source_id"), {})
                 url = src.get("url") or "#"
                 title = f"Counter-evidence: {src.get('title', 'Source')} ({e_id})"
-                counter_links.append(f'<a class="citation-tag counter-tag" href="{escape(url, quote=True)}" title="{escape(title)}">[counter: {escape(e_id)}]</a>')
+                esc_url = escape(url, quote=True)
+                esc_title = escape(title)
+                esc_eid = escape(e_id)
+                counter_links.append(
+                    f'<a class="citation-tag counter-tag" href="{esc_url}" title="{esc_title}">[counter: {esc_eid}]</a>'
+                )
 
         rationale = escape(claim.get("confidence_rationale", ""))
         conf_level = str(claim.get("confidence", "medium")).lower()
+        formatted_claim = f'{escape(claim.get("text", ""))} {" ".join(links)} {" ".join(counter_links)}'
+        rationale_html = f'<p class="claim-rationale"><em>Rationale:</em> {rationale}</p>' if rationale else ""
 
         claims_html.append(f"""
         <div class="claim-card">
@@ -49,8 +63,8 @@ def render_html(dossier: dict) -> str:
             <span class="confidence-pill conf-{escape(conf_level)}">Confidence: {escape(conf_level.upper())}</span>
           </div>
           <div class="claim-body">
-            <p class="claim-text">{escape(claim.get("text", ""))} {" ".join(links)} {" ".join(counter_links)}</p>
-            {f'<p class="claim-rationale"><em>Rationale:</em> {rationale}</p>' if rationale else ''}
+            <p class="claim-text">{formatted_claim}</p>
+            {rationale_html}
           </div>
         </div>""")
 
@@ -71,7 +85,8 @@ def render_html(dossier: dict) -> str:
 
         val = ev.get("value")
         if isinstance(val, (dict, list)):
-            val_html = f'<pre class="evidence-code"><code>{escape(json.dumps(val, ensure_ascii=False, indent=2))}</code></pre>'
+            val_str = json.dumps(val, ensure_ascii=False, indent=2)
+            val_html = f'<pre class="evidence-code"><code>{escape(val_str)}</code></pre>'
         else:
             val_html = f'<blockquote class="evidence-quote">"{escape(str(val))}"</blockquote>'
 
@@ -86,7 +101,9 @@ def render_html(dossier: dict) -> str:
         if endpoint:
             meta_items.append(f'<span class="ev-tag">Endpoint: <code>{endpoint}</code></span>')
         if page_url and page_url != "#":
-            meta_items.append(f'<span class="ev-tag"><a href="{escape(page_url, quote=True)}" target="_blank" rel="noopener">Visible Page &nearr;</a></span>')
+            esc_purl = escape(page_url, quote=True)
+            link_html = f'<a href="{esc_purl}" target="_blank" rel="noopener">Visible Page &nearr;</a>'
+            meta_items.append(f'<span class="ev-tag">{link_html}</span>')
 
         evidence_cards.append(f"""
         <div class="evidence-card" id="ev-{e_id}">
@@ -111,9 +128,12 @@ def render_html(dossier: dict) -> str:
         status = escape(source.get("access_status", "read"))
 
         if url:
-            title_cell = f'<a href="{url}" target="_blank" rel="noopener" class="source-link"><strong>{title}</strong></a>'
+            title_cell = (
+                f'<a href="{url}" target="_blank" rel="noopener" class="source-link"><strong>{title}</strong></a>'
+            )
         else:
-            title_cell = f'<strong>{title}</strong> <span class="file-tag">[{escape(source.get("file_provenance", "file"))}]</span>'
+            file_tag = escape(source.get("file_provenance", "file"))
+            title_cell = f'<strong>{title}</strong> <span class="file-tag">[{file_tag}]</span>'
 
         source_rows.append(f"""
         <tr>
@@ -127,13 +147,29 @@ def render_html(dossier: dict) -> str:
         </tr>""")
 
     # Render Gaps, Unknowns, Limitations
-    gaps_html = "".join(f'<li class="gap-item"><span class="gap-icon">&bull;</span><span>{escape(str(item))}</span></li>' for item in dossier.get("gaps", []))
-    limitations_html = "".join(f'<li class="limit-item"><span class="limit-icon">&bull;</span><span>{escape(str(item))}</span></li>' for item in dossier.get("limitations", []))
-    unknowns_html = "".join(f'<li class="unknown-item"><span class="gap-icon">?</span><span>{escape(str(item))}</span></li>' for item in dossier.get("unknowns", []))
-    next_q_html = "".join(f'<li class="next-q-item"><span class="gap-icon">&rarr;</span><span>{escape(str(item))}</span></li>' for item in dossier.get("next_questions", []))
+    gaps_html = "".join(
+        f'<li class="gap-item"><span class="gap-icon">&bull;</span><span>{escape(str(item))}</span></li>'
+        for item in dossier.get("gaps", [])
+    )
+    limitations_html = "".join(
+        f'<li class="limit-item"><span class="limit-icon">&bull;</span><span>{escape(str(item))}</span></li>'
+        for item in dossier.get("limitations", [])
+    )
+    unknowns_html = "".join(
+        f'<li class="unknown-item"><span class="gap-icon">?</span><span>{escape(str(item))}</span></li>'
+        for item in dossier.get("unknowns", [])
+    )
+    next_q_html = "".join(
+        f'<li class="next-q-item"><span class="gap-icon">&rarr;</span><span>{escape(str(item))}</span></li>'
+        for item in dossier.get("next_questions", [])
+    )
 
     contradictions = dossier.get("contradictions", [])
-    contradictions_text = "; ".join(map(str, contradictions)) if contradictions else "No documented contradictions detected across primary sources."
+    contradictions_text = (
+        "; ".join(map(str, contradictions))
+        if contradictions
+        else "No documented contradictions detected across primary sources."
+    )
 
     return f"""<!doctype html>
 <html lang="vi">
@@ -450,10 +486,12 @@ def render_html(dossier: dict) -> str:
 
     <section class="section-card">
       <h2 class="section-title">&#9888; Contradictions & Evidence Gaps</h2>
-      <p style="font-size: 14px; margin-bottom: 12px;"><strong>Contradictions:</strong> {escape(contradictions_text)}</p>
-      {f'<h3 style="font-size: 14px; margin-bottom: 6px;">Identified Gaps:</h3><ul class="info-list">{gaps_html}</ul>' if gaps_html else ''}
-      {f'<h3 style="font-size: 14px; margin-top: 12px; margin-bottom: 6px;">Unknowns & Next Questions:</h3><ul class="info-list">{unknowns_html}{next_q_html}</ul>' if (unknowns_html or next_q_html) else ''}
-      {f'<h3 style="font-size: 14px; margin-top: 12px; margin-bottom: 6px;">Limitations:</h3><ul class="info-list">{limitations_html}</ul>' if limitations_html else ''}
+      <p style="font-size: 14px; margin-bottom: 12px;">
+        <strong>Contradictions:</strong> {escape(contradictions_text)}
+      </p>
+      {f'<h3 style="font-size: 14px; margin-bottom: 6px;">Identified Gaps:</h3><ul class="info-list">{gaps_html}</ul>' if gaps_html else ""}
+      {f'<h3 style="font-size: 14px; margin-top: 12px; margin-bottom: 6px;">Unknowns:</h3><ul class="info-list">{unknowns_html}{next_q_html}</ul>' if (unknowns_html or next_q_html) else ""}
+      {f'<h3 style="font-size: 14px; margin-top: 12px; margin-bottom: 6px;">Limitations:</h3><ul class="info-list">{limitations_html}</ul>' if limitations_html else ""}
     </section>
 
     <footer class="footer-note">
