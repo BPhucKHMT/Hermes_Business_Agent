@@ -2,9 +2,9 @@
 
 ## Harness Status
 
-- Phase: H009 (Gmail Multi-Mailbox Intake & Strict Isolation) is `active`; H008 is `passing`; H006 remains `blocked` by Azure image quota.
+- Phase: H010 (Tavily-First Dynamic Research & Official Site Intelligence) is `active`; H009 and H006 remain `blocked`; H008 is `passing`.
 - Workspace: `C:\Hermes-Business-Agent` on `main`; existing unrelated uncommitted changes remain and must not be reset.
-- WIP limit: 1; H009 is the sole `active` feature.
+- WIP limit: 1; H010 is the sole `active` feature.
 ## Completed
 
 - H001–H005 remain `passing` with recorded evidence.
@@ -308,3 +308,18 @@
 2. Independently exercise a fresh Hermes process and approved personal Gmail DM with a real test mailbox, recording caller binding, read-only access, audit output, and expiry behavior.
 3. Separately implement and verify shared-mailbox runtime access before claiming shared intake.
 4. Add classifier, triage, and draft-preparation behavior only under an approved follow-on scope; keep outbound sending disabled.
+
+## 2026-08-27 H009 MVP Status Transition & WIP Release
+
+- Transitioned H009 to `blocked` in `feature-list.json` and `PROGRESS.md`.
+- Rationale: MVP core implementation and Layer 1/2 verification are complete. Live Layer 3 verification is deferred until real Google Cloud OAuth credentials and live test mailbox are provisioned.
+- The active WIP slot (WIP limit = 1) is now freed up for the next feature.
+
+## 2026-08-27 H010 Tavily-First Dynamic Research Activation
+
+- Transitioned H010 to `active` in `feature-list.json`.
+- Design specification documented at `docs/superpowers/specs/2026-08-27-research-tavily-design.md` (commit `1b995ec`).
+- Implementation plan documented at `docs/superpowers/plans/2026-08-27-research-tavily-first.md` (commit `cd4d16a`).
+- Architecture integrates Tavily as the sole external research provider (`tvly` CLI and native search/extract), Hermes Browser for dynamic public SPAs, first-party data discovery for rich structured APIs (e.g. The Coffee House), and schema-v2 evidence graphs with exact excerpts and structured values.
+- Preserves strict boundary with `hermes-azure-rag` (H006): session research never mutates Azure Blob/Search.
+- Requires operator environment secret `TAVILY_API_KEY` configured in `%LOCALAPPDATA%\hermes\.env`.

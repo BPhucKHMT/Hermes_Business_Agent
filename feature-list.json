@@ -237,10 +237,24 @@
         "layer_2": "uv run --frozen python ../tests/verify_email_intake.py --layer 2",
         "layer_3": "independent verifier must exercise a fresh Hermes process and approved personal Gmail DM with a real test mailbox, proving caller-bound read-only access, audit output, and expiry behavior; shared-mailbox runtime access remains outstanding"
       },
+      "state": "blocked",
+      "evidence": null,
+      "blocked": "MVP core implementation and Layer 1/Layer 2 verification complete. Layer 3 live verification is pending real Google Cloud OAuth credentials and live test mailbox.",
+      "depends_on": ["H008"]
+    },
+    {
+      "id": "H010",
+      "title": "Hermes performs Tavily-first research over dynamic official sites",
+      "behavior": "From Telegram, Hermes performs quick, deep, and official-site public-web research using Tavily plus clean-session browser acquisition, verifies material claims against exact text or structured evidence, produces cited session-scoped reports, and routes only explicit durable website intent to the existing Azure knowledge lifecycle.",
+      "verification": {
+        "layer_1": "uv run --frozen python ../tests/verify_research.py --layer 1",
+        "layer_2": "uv run --frozen python ../tests/verify_research.py --layer 2",
+        "layer_3": "fresh Hermes process and approved Telegram chat complete the Tavily-first research release scenarios"
+      },
       "state": "active",
       "evidence": null,
-      "blocked": "Layer 3 is blocked: configured status smoke fails closed with ClientAuthenticationError because DefaultAzureCredential cannot read Key Vault; no live Gmail OAuth/provider/mailbox evidence exists, and shared-mailbox runtime access remains incomplete.",
-      "depends_on": ["H008"]
+      "blocked": null,
+      "depends_on": ["H005"]
     }
   ]
 }
