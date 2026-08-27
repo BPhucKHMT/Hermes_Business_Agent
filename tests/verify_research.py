@@ -149,6 +149,11 @@ def layer_2() -> None:
         report = renderer.write_report(temporary, temporary.with_name("report.html"))
         html = report.read_text(encoding="utf-8")
         assert data["question"] in html and "https://docs.tavily.com" in html
+        assert "Tavily publishes a web research API." in html
+        assert "tavily-extract" in html
+        assert "unknown" in html
+        assert "2026-08-27T00:00:00Z" in html
+        assert "[e1]" in html
         assert not any(token in html.lower() for token in ("<script", "<iframe", "<form", "onerror="))
 
         # Test legacy v1 archive
@@ -173,10 +178,17 @@ def layer_2() -> None:
         removed = store.cleanup_temporary(workspace, 3600)
         assert data["session_id"] in removed and not old_dir.exists()
 
-    escaped = fixture(); escaped["question"] = "<script>alert(1)</script>"
+    escaped = fixture()
+    escaped["question"] = "<script>alert(1)</script>"
+    escaped_ev_text = "<img src=x onerror=alert(1)>"
+    escaped_fp = store.fingerprint(store.normalize_text(escaped_ev_text))
+    escaped["sources"][0]["fingerprint"] = escaped_fp
+    escaped["evidence"][0]["value"] = escaped_ev_text
+    escaped["evidence"][0]["fingerprint"] = escaped_fp
+    escaped["claims"][0]["text"] = "Safety check: <script>alert(2)</script>"
     html = renderer.render_html(escaped)
     assert "&lt;script&gt;" in html and "<script" not in html.lower()
-
+    assert "&lt;img" in html and "<img" not in html.lower()
     files = [SKILL, *sorted((SKILL.parent / "references").glob("*.md"))]
     contract = "\n".join(path.read_text(encoding="utf-8") for path in files).lower()
     for value in (".runtime/research/temporary", ".runtime/research/saved", "dossier.json", "cleanup", "media:<absolute-path>"):
