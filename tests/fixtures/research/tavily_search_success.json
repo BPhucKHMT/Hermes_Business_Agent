@@ -1,0 +1,18 @@
+{
+  "query": "Tavily Research API official documentation",
+  "response_time": 1.15,
+  "results": [
+    {
+      "title": "Tavily Research API Documentation",
+      "url": "https://docs.tavily.com/documentation/api-reference/endpoint/research",
+      "content": "Tavily Research performs comprehensive research on a given topic by conducting multiple searches, analyzing sources, and generating a detailed research report.",
+      "score": 0.98
+    },
+    {
+      "title": "Tavily Extract API",
+      "url": "https://docs.tavily.com/documentation/api-reference/endpoint/extract",
+      "content": "Tavily Extract retrieves and processes raw content from specified URLs into clean markdown.",
+      "score": 0.89
+    }
+  ]
+}

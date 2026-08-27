@@ -21,6 +21,21 @@
       "name": "coffee_house_menu_expected.json",
       "purpose": "Golden normalized category and pricing projection assertion",
       "capture_date": "2026-08-27"
+    },
+    {
+      "name": "tavily_search_success.json",
+      "purpose": "Sample structured output from tvly search --json",
+      "capture_date": "2026-08-27"
+    },
+    {
+      "name": "tavily_research_candidate.json",
+      "purpose": "Sample candidate synthesis payload from tvly research poll --json",
+      "capture_date": "2026-08-27"
+    },
+    {
+      "name": "tavily_failure.json",
+      "purpose": "Sample exit-4 rate limit payload from tvly CLI",
+      "capture_date": "2026-08-27"
     }
   ]
 }

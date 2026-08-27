@@ -1,0 +1,8 @@
+{
+  "exit_code": 4,
+  "error_type": "api_error",
+  "detail": {
+    "status": 429,
+    "message": "Rate limit exceeded. Please retry after some time or upgrade your plan."
+  }
+}

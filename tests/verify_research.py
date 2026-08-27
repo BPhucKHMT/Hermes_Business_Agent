@@ -232,6 +232,69 @@ def layer_2() -> None:
     ).lower()
     for forbidden_brand in ("api.thecoffeehouse.com", "699eafedbde92e0012ac3304", "pizza tomyum hải sản"):
         assert forbidden_brand.lower() not in skill_corpus, f"found hardcoded brand data in skill: {forbidden_brand}"
+    # Test Tavily Fixtures & Candidate Source Safety Boundary
+    tav_search_path = ROOT / "tests/fixtures/research/tavily_search_success.json"
+    tav_res_path = ROOT / "tests/fixtures/research/tavily_research_candidate.json"
+    tav_fail_path = ROOT / "tests/fixtures/research/tavily_failure.json"
+    assert tav_search_path.is_file() and tav_res_path.is_file() and tav_fail_path.is_file()
+    tav_search = json.loads(tav_search_path.read_text(encoding="utf-8"))
+    tav_res = json.loads(tav_res_path.read_text(encoding="utf-8"))
+    tav_fail = json.loads(tav_fail_path.read_text(encoding="utf-8"))
+    assert tav_search["results"] and tav_res["status"] == "completed" and tav_fail["exit_code"] == 4
+
+    candidate_fp = store.fingerprint(store.normalize_text(tav_res["output"]))
+    cand_dossier = {
+        "schema_version": 2,
+        "dossier_id": "candidate-test-2026",
+        "session_id": "telegram-cand-session",
+        "mode": "temporary",
+        "question": "Candidate synthesis test",
+        "scope": "Candidate testing",
+        "created_at": "2026-08-27T00:00:00Z",
+        "updated_at": "2026-08-27T00:00:00Z",
+        "executive_answer": "Candidate answer.",
+        "sources": [{
+            "id": "cand-s1", "title": "Tavily Candidate", "publisher": "Tavily Research",
+            "retrieved_at": "2026-08-27T00:00:00Z", "url": "https://docs.tavily.com/documentation/api-reference/endpoint/research",
+            "access_status": "read", "classification": "candidate",
+            "independence": "vendor", "acquisition_method": "tavily-research",
+            "freshness": "unknown", "fingerprint": candidate_fp
+        }],
+        "evidence": [{
+            "id": "cand-e1", "source_id": "cand-s1", "kind": "text",
+            "value": tav_res["output"], "fingerprint": candidate_fp
+        }],
+        "claims": [{
+            "id": "c1", "type": "fact", "text": "Factual claim cannot use candidate evidence directly.",
+            "evidence_ids": ["cand-e1"], "counter_evidence_ids": [],
+            "confidence": "low", "confidence_rationale": "Unverified candidate synthesis."
+        }],
+        "contradictions": [], "gaps": [], "unknowns": [], "next_questions": [],
+        "method": "Tavily research run.", "limitations": []
+    }
+    expect_error(lambda: store.validate_dossier(cand_dossier), "candidate")
+
+    # Now add direct verified primary evidence to satisfy factual claim
+    direct_text = "Verified primary documentation text."
+    direct_fp = store.fingerprint(store.normalize_text(direct_text))
+    cand_dossier["sources"].append({
+        "id": "direct-s1", "title": "Official Direct Docs", "publisher": "Docs Publisher",
+        "retrieved_at": "2026-08-27T00:00:00Z", "url": "https://docs.tavily.com/documentation/api-reference/endpoint/research",
+        "access_status": "read", "classification": "primary",
+        "independence": "vendor", "acquisition_method": "tavily-extract",
+        "freshness": "unknown", "fingerprint": direct_fp
+    })
+    cand_dossier["evidence"].append({
+        "id": "direct-e1", "source_id": "direct-s1", "kind": "text",
+        "value": direct_text, "fingerprint": direct_fp
+    })
+    cand_dossier["claims"][0]["evidence_ids"] = ["direct-e1"]
+    store.validate_dossier(cand_dossier)
+
+    # Assert protocol failure taxonomy
+    protocol_text = (SKILL.parent / "references/research-protocol.md").read_text(encoding="utf-8")
+    for fail_tax in ("provider_unavailable", "rate_limited", "waf_interstitial", "authentication_required", "incomplete_extraction", "timeout", "unsafe_url"):
+        assert fail_tax in protocol_text, f"missing failure taxonomy term: {fail_tax}"
     files = [SKILL, *sorted((SKILL.parent / "references").glob("*.md"))]
     contract = "\n".join(path.read_text(encoding="utf-8") for path in files).lower()
     for value in (".runtime/research/temporary", ".runtime/research/saved", "dossier.json", "cleanup", "media:<absolute-path>"):
