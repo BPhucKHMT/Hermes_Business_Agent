@@ -8,17 +8,26 @@ Send a short executive brief containing:
 - three to five key findings with inline citations;
 - main contradiction or uncertainty;
 - confidence score and important limitation;
-- attached HTML report name;
+- attached deliverable name and format;
 - persistence status: session only, saved, tracked, or watch intent.
 
 For Telegram native attachment delivery:
 
-1. Write the complete report under the configured current workspace and verify that the HTML file exists before delivery.
-2. End the final response with `MEDIA:<absolute-path>` on its own line, replacing `<absolute-path>` with the real absolute path to the report.
+1. Write the complete requested deliverable under `.runtime/deliverables/<workspace>/<name>` and verify that the output exists before delivery.
+2. End the final response with `MEDIA:<absolute-path>` on its own line, replacing `<absolute-path>` with the real absolute path to the deliverable.
 3. The actual `MEDIA:` directive must not be wrapped in backticks or a fenced code block.
-4. Mention the attachment only when emitting the valid directive. If report creation or path verification fails, return an actionable partial-result error instead of claiming attachment success.
+4. Mention the attachment only when emitting the valid directive. If creation or path verification fails, return an actionable partial-result error instead of claiming attachment success.
 
-`dossier.json` (schema version 2) is canonical. HTML is derived output. Ordinary output lives under `.runtime/research/temporary/<session-id>/`; explicit durable modes live under `.runtime/research/saved/<dossier-id>/`.
+## Output Format Routing
+
+- Explicit HTML narrative/research deck → compose with `deck-guizang-editorial`.
+- Explicit `.pptx` → use the existing built-in `powerpoint` skill.
+- Explicit `.xlsx` → use the existing built-in `xlsx` skill.
+- No explicit format → render the default cited `report.html`.
+
+All routes consume the same canonical `dossier.json` (schema version 2), preserve evidence IDs, citations, provenance, and persistence rules, and write the final deliverable under `.runtime/deliverables/<workspace>/<name>`.
+
+`dossier.json` remains canonical; the requested deliverable is derived output. Ordinary research persistence remains session-scoped unless the user explicitly requests `save`, `track`, or `watch`.
 
 ## Canonical Report Sections
 

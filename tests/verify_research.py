@@ -105,7 +105,7 @@ def layer_1() -> None:
         path.read_text(encoding="utf-8")
         for path in [SKILL, *sorted((SKILL.parent / "references").glob("*.md"))]
     ).lower()
-    for phrase in ("quick", "deep", "site intelligence", "tvly research", "capture-only", "official_domain", "grounded-citations"):
+    for phrase in ("quick", "deep", "site intelligence", "tvly research", "capture-only", "official_domain", "grounded-citations", "deck-guizang-editorial", "built-in `powerpoint`", "built-in `xlsx`", "report.html"):
         assert phrase in contract, f"missing phrase: {phrase}"
     for forbidden_token in ("camofox", "captcha solver"):
         assert forbidden_token not in contract, f"forbidden token found: {forbidden_token}"
@@ -297,7 +297,7 @@ def layer_2() -> None:
         assert fail_tax in protocol_text, f"missing failure taxonomy term: {fail_tax}"
     files = [SKILL, *sorted((SKILL.parent / "references").glob("*.md"))]
     contract = "\n".join(path.read_text(encoding="utf-8") for path in files).lower()
-    for value in (".runtime/research/temporary", ".runtime/research/saved", "dossier.json", "cleanup", "media:<absolute-path>"):
+    for value in (".runtime/research/temporary", ".runtime/research/saved", ".runtime/deliverables/<workspace>/<name>", "dossier.json", "cleanup", "media:<absolute-path>"):
         assert value in contract, f"research contract missing {value}"
 
 

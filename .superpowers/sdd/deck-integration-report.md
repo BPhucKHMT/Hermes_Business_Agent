@@ -120,3 +120,30 @@ All three comparisons exited successfully with no output.
 ## Commit scope
 
 Scoped changes are limited to the new copied Guizang skill, the two minimal routing/composition edits, this requested report, and the representative generated HTML output. No unrelated files were changed.
+
+## Follow-up format-routing cutover
+
+The remaining composition gap was closed without adding a renderer, script, palette rule, layout rule, or provider call.
+
+### Files changed
+
+- `src/AGENTS.md`: `/research` capability now explicitly routes HTML narrative/research decks to `deck-guizang-editorial`, `.pptx` to built-in `powerpoint`, `.xlsx` to built-in `xlsx`, and unspecified formats to `report.html`. The unsupported-capability wording now excludes supported deck composition.
+- `src/skills/research/SKILL.md`: the Build & Deliver step now applies the same format router, preserves the canonical dossier/evidence contract, and requires final output under `.runtime/deliverables/<workspace>/<name>` with a bare `MEDIA:<absolute-path>` line.
+- `src/skills/research/references/report-contract.md`: attachment naming now accepts any routed deliverable; explicit format routing and the shared deliverable path contract are documented. Citation, provenance, HTML safety, partial-result, and persistence sections remain unchanged.
+- `tests/verify_research.py`: added narrow static assertions for the three skill routes, default `report.html`, and `.runtime/deliverables/<workspace>/<name>`.
+
+### Verification commands and results
+
+```powershell
+python tests/verify_research.py --layer 1
+# research layer 1: pass
+
+python tests/verify_research.py --layer 2
+# research layer 2: pass
+
+Set-Location C:/Hermes-Business-Agent/src
+hermes skills list --source local
+# 24 local — 24 enabled, including deck-guizang-editorial and research
+```
+
+No Hermes generation, web retrieval, vision call, or provider call was used for this composition-only follow-up.
