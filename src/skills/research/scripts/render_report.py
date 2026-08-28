@@ -198,6 +198,8 @@ def render_html(dossier: dict) -> str:
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{escape(dossier.get('question', 'Báo Cáo Nghiên Cứu'))} — Hermes Intelligence Report</title>
   <style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap');
+
     :root {{
       --bg-base: #f8fafc;
       --bg-card: #ffffff;
@@ -225,11 +227,14 @@ def render_html(dossier: dict) -> str:
     }}
     * {{ box-sizing: border-box; margin: 0; padding: 0; }}
     body {{
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       background: var(--bg-base);
       color: var(--text-main);
       line-height: 1.6;
       padding: 32px 16px;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      text-rendering: optimizeLegibility;
     }}
     .container {{
       max-width: 1080px;
@@ -254,9 +259,11 @@ def render_html(dossier: dict) -> str:
       font-weight: 600;
       color: var(--text-sub);
       text-transform: uppercase;
-      letter-spacing: 0.5px;
+      letter-spacing: 0.05em;
+      font-feature-settings: "cv02", "cv03", "cv04", "cv11";
     }}
     .report-title {{
+      font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       font-size: 24px;
       font-weight: 700;
       color: var(--text-main);
@@ -277,7 +284,8 @@ def render_html(dossier: dict) -> str:
       font-size: 14px;
       font-weight: 700;
       text-transform: uppercase;
-      letter-spacing: 0.5px;
+      letter-spacing: 0.05em;
+      font-feature-settings: "cv02", "cv03", "cv04", "cv11";
       color: var(--accent);
       margin-bottom: 8px;
     }}
@@ -294,6 +302,7 @@ def render_html(dossier: dict) -> str:
       box-shadow: var(--shadow-sm);
     }}
     .section-title {{
+      font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       font-size: 18px;
       font-weight: 700;
       margin-bottom: 16px;
@@ -332,6 +341,7 @@ def render_html(dossier: dict) -> str:
     .citation-tag {{
       display: inline-block;
       padding: 2px 6px;
+      font-family: 'JetBrains Mono', monospace;
       font-size: 12px;
       font-weight: 600;
       color: var(--accent);
@@ -351,21 +361,26 @@ def render_html(dossier: dict) -> str:
       font-size: 11px;
       font-weight: 700;
       text-transform: uppercase;
+      letter-spacing: 0.05em;
+      font-feature-settings: "cv02", "cv03", "cv04", "cv11";
     }}
     .badge-fact {{ background: #dcfce7; color: #15803d; }}
     .badge-inference {{ background: #fef9c3; color: #a16207; }}
     .badge-recommendation {{ background: #e0e7ff; color: #4338ca; }}
     .badge-source-assertion {{ background: #f3e8ff; color: #7e22ce; }}
     .confidence-pill {{
+      font-family: 'JetBrains Mono', monospace;
       font-size: 11px;
       font-weight: 600;
       padding: 2px 6px;
       border-radius: 4px;
+      letter-spacing: 0.02em;
     }}
     .conf-high {{ color: #16a34a; }}
     .conf-medium {{ color: #ca8a04; }}
     .conf-low {{ color: #dc2626; }}
     .ev-badge {{
+      font-family: 'JetBrains Mono', monospace;
       font-size: 12px;
       font-weight: 700;
       color: var(--accent);
@@ -373,7 +388,7 @@ def render_html(dossier: dict) -> str:
     .ev-fp {{
       font-size: 11px;
       color: var(--text-sub);
-      font-family: monospace;
+      font-family: 'JetBrains Mono', monospace;
     }}
     .evidence-quote {{
       font-style: italic;
@@ -382,6 +397,9 @@ def render_html(dossier: dict) -> str:
       margin: 8px 0;
       font-size: 14px;
       color: var(--text-main);
+    }}
+    code, pre, .evidence-code {{
+      font-family: 'JetBrains Mono', monospace;
     }}
     .evidence-code {{
       background: rgba(0,0,0,0.04);
@@ -420,14 +438,22 @@ def render_html(dossier: dict) -> str:
       font-weight: 600;
     }}
     .source-id-badge {{
+      font-family: 'JetBrains Mono', monospace;
       font-weight: 700;
       color: var(--accent);
     }}
+    .file-tag {{
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: var(--text-sub);
+    }}
     .freshness-tag {{
+      font-family: 'JetBrains Mono', monospace;
       font-size: 11px;
       color: var(--text-sub);
     }}
     .status-pill {{
+      font-family: 'JetBrains Mono', monospace;
       font-size: 11px;
       padding: 2px 6px;
       border-radius: 4px;
