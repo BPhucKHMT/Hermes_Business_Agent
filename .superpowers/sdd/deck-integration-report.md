@@ -147,3 +147,34 @@ hermes skills list --source local
 ```
 
 No Hermes generation, web retrieval, vision call, or provider call was used for this composition-only follow-up.
+
+## Final bounded Hermes CLI acceptance test
+
+Command (run from the repository root with production Hermes CWD set to `src`):
+
+```powershell
+hermes -z "Run a concise /research-style public-web research request comparing Highlands Coffee, Phúc Long, and The Coffee House using only a small bounded public-web research run. Explicitly use the deck-guizang-editorial skill. Create exactly 4 slides as a single-file HTML deck, choose one built-in skill palette based on the content, use real citations and no invented metrics. Write the final deliverable under .runtime/deliverables/coffee-chain-comparison/coffee-chain-comparison.html and end your response with the bare absolute MEDIA path. Do not use custom renderers, vision calls, or unsupported claims." --in C:/Hermes-Business-Agent/src --accept-hooks --usage-file C:/Hermes-Business-Agent/.runtime/tmp/final-deck-acceptance-usage.json
+```
+
+Result:
+
+- Hermes completed successfully using the configured `gpt-5.6-luna` route; `gpt-5.6-sol` was not used.
+- Elapsed time: **118.70 seconds** (Hermes-reported wall time).
+- Generated output: `C:/Hermes-Business-Agent/src/.runtime/deliverables/coffee-chain-comparison/coffee-chain-comparison.html`
+- Hermes emitted the required bare path: `MEDIA:C:\\Hermes-Business-Agent\\src\\.runtime\\deliverables\\coffee-chain-comparison\\coffee-chain-comparison.html`
+- The deck contains exactly four `<section>` elements and all three requested brands.
+- Selected built-in palette: **Forest Ink** (`#1a2e1f`, `#f5f1e8`, `#ece7da`, `#253d2c`).
+- Structural content includes a title/action headline (`Three chains, three signals.`), a comparison headline (`Positioning is visible; scale is not.`), and nine HTTPS citation links.
+- No `gradient`, `shadow`, `border-radius`, ASCII, or dot-matrix token was present in the generated HTML. The copy is observational and explicitly avoids unsupported scale/metric claims.
+
+Limitation:
+
+- The bounded public-web run hit an exact evidence boundary: Highlands Coffee's official site returned **HTTP 403**, so the deck explicitly makes no menu, footprint, pricing, or scale claim for Highlands.
+- The generated HTML does **not** contain an explicit `aspect-ratio: 16 / 9` or equivalent `16:9` CSS marker. Its `.slide` rule uses `width:100%; height:100%` within a viewport-sized deck. This is a structural acceptance limitation of this generated artifact; source skills were not modified, per the test request.
+
+Structural inspection command:
+
+```powershell
+python -c "from pathlib import Path; import re; p=Path(r'C:/Hermes-Business-Agent/src/.runtime/deliverables/coffee-chain-comparison/coffee-chain-comparison.html'); s=p.read_text(encoding='utf-8'); print({'exists':p.is_file(),'bytes':p.stat().st_size,'sections':len(re.findall(r'<section\\b',s)),'title':re.search(r'<title>(.*?)</title>',s).group(1),'palette':re.findall(r'--(?:ink|paper|tint|accent):#[0-9a-fA-F]{6}',s),'has_16_9':bool(re.search(r'16\\s*[/\\:]\\s*9|aspect-ratio\\s*:\\s*16',s,re.I)),'forbidden':{x:bool(re.search(x,s,re.I)) for x in ['gradient','shadow','border-radius','ascii','dot[- ]matrix']},'headlines':re.findall(r'<h[12]\\b[^>]*>(.*?)</h[12]>',s,re.I)})"
+# {'exists': True, 'bytes': 7711, 'sections': 4, 'title': 'Vietnam Coffee Chain Comparison', 'palette': ['--ink:#1a2e1f', '--paper:#f5f1e8', '--tint:#ece7da', '--accent:#253d2c'], 'has_16_9': False, 'forbidden': {'gradient': False, 'shadow': False, 'border-radius': False, 'ascii': False, 'dot[- ]matrix': False}, 'headlines': ['Three chains,<br>three signals.', 'Positioning is visible;<br>scale is not.']}
+```
