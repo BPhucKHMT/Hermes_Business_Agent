@@ -326,15 +326,24 @@
 
 ## 2026-08-27 H010 Implementation & Layer 1/2 Verification Handoff
 
-- Completed Tasks 1–7 of `docs/superpowers/plans/2026-08-27-research-tavily-first.md`:
+- Completed Tasks 1–8 of `docs/superpowers/plans/2026-08-27-research-tavily-first.md`:
   - Pinned `tavily-cli==0.1.6` and `agent-browser@0.35.1` in `src/setup.cmd`, `src/setup.sh`, and documented one-store authentication in `src/README.md`.
   - Created `src/config/research_policy.json` with per-run execution ceilings (Quick 120s, Deep 900s, Site Intelligence 300s, 20 MiB temp storage limit).
   - Upgraded `src/skills/research/SKILL.md` and references (`research-protocol.md`, `source-quality.md`, `report-contract.md`) with 3 research modes, capture-only public API inspection, same official domain restrictions, and `grounded-citations` integration.
+  - Integrated prebuilt `deck-guizang-editorial` (Editorial E-Ink Style, 5 built-in palettes, 10 restrained layouts, 0 AI decoration/artifacts) copied directly from Open Design into `src/skills/deck-guizang-editorial/` without custom renderers.
+  - Established Deliverable Format Routing Matrix in `src/AGENTS.md`, `src/skills/research/SKILL.md`, and `report-contract.md`:
+    - HTML narrative/research deck -> `deck-guizang-editorial`
+    - PowerPoint presentation -> built-in `powerpoint` (`python-pptx`)
+    - Spreadsheet workbook -> built-in `xlsx` (`openpyxl`)
+    - Default research report -> `report.html` (`render_report.py`)
+    - All deliverables write to `.runtime/deliverables/<workspace>/<name>` and emit a bare `MEDIA:<absolute-path>` line.
+  - Added generic HTML Deck Delivery Gate in `render_report.py` (`validate_deck_html`): rejects outputs missing `aspect-ratio: 16/9`, visible Previous/Next `<button>` controls with click listeners, slide counter indicator, ArrowLeft/Right keyboard navigation, or hash synchronization.
+  - Fixed Vietnamese Typography Stack: integrated `@import` Google Fonts (`Plus Jakarta Sans`, `Inter`, `JetBrains Mono`) with `-webkit-font-smoothing: antialiased` and `text-rendering: optimizeLegibility`, resolving all diacritics clipping and font fallback glitches across reports and decks.
   - Upgraded `src/skills/research/scripts/research_store.py` to Evidence Schema v2 with deterministic Unicode NFC/LF normalization, canonical JSON serialization, SHA-256 fingerprinting, first-party endpoint validation, and legacy v1 archive migration (`archive_legacy_dossiers`).
   - Upgraded `src/skills/research/scripts/render_report.py` to resolve claims through evidence records to sources, generate clickable citation badges `[e1]`, and render detailed evidence cards with provenance, method, freshness, and location context while preventing XSS.
   - Created deterministic test fixtures in `tests/fixtures/research/` (`coffee_house_menu_sanitized.json`, `coffee_house_menu_expected.json`, `manifest.json`, `tavily_search_success.json`, `tavily_research_candidate.json`, `tavily_failure.json`).
   - Verified zero hardcoded brand endpoints or product IDs in production skills/scripts.
-- Verification Results (2026-08-27):
+- Verification Results (2026-08-27 / 2026-08-28):
   - `uv lock --check`: pass (exit 0).
   - `uv run --frozen python -m compileall -q skills/research`: pass (exit 0).
   - `uv run --frozen python ../tests/verify_research.py --layer 1`: pass (exit 0).
@@ -342,10 +351,23 @@
   - `uv run --frozen python ../tests/verify_knowledge.py --layer 1 & 2`: pass (exit 0).
   - `uv run --frozen python ../tests/verify_progress.py --layer 1 & 2`: pass (exit 0).
 - Layer 3 Telegram Release Scenarios (for Independent Verifier):
-  1. Quick Fact Scenario: Bounded factual query returns cited answer without creating unrequested dossier.
-  2. Deep Competitor Report Scenario: Multi-source research brief confirmation -> `tvly research` candidate synthesis -> primary evidence reopening -> gap analysis -> HTML report with citations.
-  3. The Coffee House Site Intelligence Scenario: Clean-session browser capture naturally observes first-party menu data -> projects categories and integer VND prices with location context disclosure -> zero hardcoded brand endpoints.
-  4. Failure / Quota Scenario: Gracefully degrades with preserved evidence and coverage gap disclosure.
-  5. Negative Security Scenario: Rejects authenticated/private endpoints and third-party tracking APIs.
-  6. Persistence Scenario: Default session-scoped; explicit `save` persists to `.runtime/research/saved/` without mutating Azure.
+  1. Quick Fact Scenario: `@hermes Tìm hiểu nhanh giá niêm yết hiện tại của cà phê phin và freeze tại Highlands Coffee Việt Nam. Nêu khoảng giá, thời điểm kiểm tra và đường link nguồn chính thức.` -> returns cited answer without creating unrequested dossier.
+  2. Site Intelligence Scenario: `@hermes Nghiên cứu menu và giá hiện tại của The Coffee House từ website đặt món chính thức. Nêu 4 danh mục đồ uống/đồ ăn, 5 món tiêu biểu, dung tích/topping và giá VND chính xác kèm ghi chú giới hạn dữ liệu.` -> clean-session browser capture naturally observes first-party menu data -> projects categories and integer VND prices with location context disclosure -> zero hardcoded brand endpoints.
+  3. Deep Research Scenario: `@hermes Nghiên cứu phân tích chuyên sâu thị trường 3 chuỗi cà phê lớn tại TP.HCM (Highlands, Phúc Long, The Coffee House)...` -> multi-source research brief confirmation -> `tvly research` candidate synthesis -> primary evidence reopening -> gap analysis -> HTML report with citations and bare `MEDIA:` path.
+  4. Editorial 16:9 Deck Scenario: `@hermes Nghiên cứu so sánh 3 chuỗi cà phê Highlands, Phúc Long và The Coffee House. Hãy tạo một bộ Slide thuyết trình HTML 16:9 gồm 4 slide theo phong cách Editorial, có các nút Previous/Next để bấm chuyển trang và gửi file cho tôi.` -> outputs 16:9 letterboxed HTML deck with active Previous/Next buttons, slide counter, and keyboard navigation.
+  5. Excel Workbook Scenario: `@hermes Nghiên cứu bảng giá các món đồ uống phổ biến của Highlands, Phúc Long và The Coffee House. Hãy tổng hợp và xuất ra một file Excel .xlsx có format đẹp để tôi lọc giá.` -> outputs styled `.xlsx` with Navy header, currency format `#,#0 ₫`, and auto-fitted columns.
+  6. Negative Security Scenario: `@hermes Hãy đăng nhập vào tài khoản đặt món The Coffee House của tôi bằng số điện thoại 0901234567 và mật khẩu ABC123xyz...` -> rejects authenticated/private endpoints and third-party tracking APIs.
+  7. Session Persistence Scenario: `@hermes Lưu lại toàn bộ kết quả nghiên cứu thị trường cà phê vừa rồi vào hồ sơ nghiên cứu.` -> default session-scoped; explicit `save` persists to `.runtime/research/saved/` without mutating Azure KB.
 - H010 remains `active` with `evidence: null`; only an independent verifier may transition H010 to `passing`.
+
+### H010 Next Actions for Incoming Session
+
+1. Ensure the operator secret `TAVILY_API_KEY` is present in `%LOCALAPPDATA%\hermes\.env` (or environment).
+2. An Independent Verifier exercises the 7 Telegram test scenarios above against the live Hermes gateway service (running with configured `gpt-5.6-luna` route).
+3. The Independent Verifier inspects:
+   - Citation entailment and source URLs.
+   - HTML deliverable formatting and Vietnamese typography rendering.
+   - Generated slide deck interactivity (Previous/Next click handlers and 16:9 ratio).
+   - Generated `.xlsx` spreadsheet formatting and currency styling.
+4. The Independent Verifier records command/event, UTC timestamp, exit status, and result in `feature-list.json` evidence field and transitions H010 state `active -> passing`.
+5. Proceed to the next scheduled roadmap feature once H010 reaches `passing`.
