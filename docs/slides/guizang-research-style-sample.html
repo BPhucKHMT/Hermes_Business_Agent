@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Evaluating AI-Looking Presentation Styles</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,700;1,400&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --ink: #0a1f3d;
+    --paper: #f1f3f5;
+    --paper-tint: #e4e8ec;
+    --ink-tint: #152a4a;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--ink); font-family: 'Inter', system-ui, sans-serif; }
+  .deck { display: grid; gap: 24px; padding: 24px; }
+  .slide {
+    width: 100%; aspect-ratio: 16 / 9; max-width: 1280px; margin: 0 auto;
+    position: relative; overflow: hidden;
+  }
+  .paper { background: var(--paper); color: var(--ink); }
+  .ink { background: var(--ink); color: var(--paper); }
+  .display { font-family: 'Playfair Display', Georgia, serif; }
+  .body-serif { font-family: 'Playfair Display', Georgia, serif; font-style: italic; }
+  .kicker { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; font-weight: 500; }
+  .hairline { border: 0; border-top: 1px solid currentColor; opacity: .3; }
+  .folio { font-variant-numeric: tabular-nums; }
+  .frame { position: absolute; inset: 0; padding: 48px; display: flex; flex-direction: column; justify-content: space-between; }
+  .masthead, .footer { display: flex; align-items: baseline; justify-content: space-between; }
+  .quote { border-left: 1px solid currentColor; padding-left: 18px; max-width: 540px; }
+  .split { display: grid; grid-template-columns: 1fr 1fr; gap: 0; height: 56%; }
+  .panel { padding: 26px 30px; border-top: 1px solid var(--ink); }
+  .panel + .panel { border-left: 1px solid var(--ink); }
+  .panel.before { opacity: .55; }
+  .panel h3 { margin: 8px 0 18px; font: 500 30px/1.05 'Playfair Display', Georgia, serif; }
+  .panel p { max-width: 390px; font-size: 15px; line-height: 1.45; margin: 0; }
+  .signal { margin-top: 24px; padding-top: 12px; border-top: 1px solid currentColor; font-size: 12px; line-height: 1.4; }
+</style>
+</head>
+<body>
+<div class="deck">
+  <!-- L07 Hero Question -->
+  <section class="slide ink">
+    <div class="frame">
+      <header class="masthead kicker" style="opacity:.72">
+        <span>STYLE RESEARCH — EDITORIAL STUDY</span>
+        <span>Question</span>
+        <span class="folio">01 / 02</span>
+      </header>
+      <hr class="hairline" />
+      <main style="display:flex; flex:1; flex-direction:column; justify-content:center;">
+        <div class="kicker" style="opacity:.72">Evaluating AI-looking presentation styles</div>
+        <h1 class="display" style="font-size:clamp(58px, 8vw, 132px); line-height:.94; font-weight:500; margin:18px 0 26px; max-width:1080px;">
+          When does<br /><span class="body-serif">efficient</span> start<br />to look generic?
+        </h1>
+        <div class="quote">
+          <p class="body-serif" style="font-size:21px; line-height:1.25; margin:0;">A visual review of the signals that make a presentation feel machine-made — and the editorial choices that restore intent.</p>
+        </div>
+      </main>
+      <footer class="footer kicker" style="opacity:.62">
+        <span>Research sample · qualitative lens</span>
+        <span>Evidence boundary: visual inspection only</span>
+      </footer>
+    </div>
+  </section>
+
+  <!-- L09 Before / After -->
+  <section class="slide paper">
+    <div class="frame">
+      <header class="masthead kicker" style="color:var(--ink-tint)">
+        <span>STYLE RESEARCH — EDITORIAL STUDY</span>
+        <span>Comparison</span>
+        <span class="folio">02 / 02</span>
+      </header>
+      <div>
+        <div class="kicker" style="color:var(--ink-tint)">A practical reading of the page</div>
+        <h2 class="display" style="font-size:clamp(36px, 5vw, 70px); line-height:1; font-weight:500; margin:10px 0 26px;">The difference is not <span class="body-serif">more decoration.</span></h2>
+        <div class="split">
+          <article class="panel before">
+            <div class="kicker">Before · AI-looking signal</div>
+            <h3>Everything is polished. Nothing is situated.</h3>
+            <p>Uniform cards, default hierarchy, and interchangeable emphasis can make a page feel assembled rather than authored.</p>
+            <div class="signal"><strong>Read for:</strong> repetition, weightless claims, and visual certainty without a point of view.</div>
+          </article>
+          <article class="panel">
+            <div class="kicker">After · editorial signal</div>
+            <h3>Structure carries an argument.</h3>
+            <p>Fewer elements, deliberate pacing, and visible source boundaries let the reader understand what the page is choosing to say.</p>
+            <div class="signal"><strong>Read for:</strong> hierarchy, restraint, and a clear relationship between evidence and interpretation.</div>
+          </article>
+        </div>
+      </div>
+      <footer class="footer kicker" style="color:var(--ink-tint); opacity:.72">
+        <span>Conclusion: evaluate intent before ornament.</span>
+        <span class="body-serif" style="text-transform:none; letter-spacing:0">No performance metrics asserted in this sample.</span>
+      </footer>
+    </div>
+  </section>
+</div>
+</body>
+</html>

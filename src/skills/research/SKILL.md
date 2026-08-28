@@ -9,7 +9,7 @@ metadata:
   hermes:
     category: research
     tags: [research, web, evidence, citations, competitors]
-    related_skills: [hermes-project, grounded-citations]
+    related_skills: [hermes-project, grounded-citations, deck-guizang-editorial]
 ---
 
 # Evidence-Grounded Research

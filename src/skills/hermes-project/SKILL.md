@@ -57,9 +57,9 @@ When routing retained-knowledge queries to `hermes-azure-rag`, map user intent t
 | **Client Projects** | Client commitments, TWJ app, client invoices, milestone deliverables, external client contracts | `client-projects` | `--workspace client-projects` |
 | **TITAN AI** | Agency operations, AI automations, internal workflows, brand assets, team operations | `titan-ai` | `--workspace titan-ai` |
 
-**Ask-Don't-Guess Rule:** If a query is ambiguous across workspaces (e.g. "Check monthly budget" without specifying which business), ask one clarifying question before executing retrieval.
+**Deck / research deliverables** — Use `deck-guizang-editorial` for narrative or research decks needing flexible palette selection and stable editorial structure. Compose with `research` when the deck is built from public-web evidence; retain source citations and provenance.
 
-Decks, lead qualification, invoices, Slack, payments, scheduled research, and outbound Gmail sending are not supported yet. Read-only Gmail search is available via the `/email` capability in DM.
+Lead qualification, invoices, Slack, payments, scheduled research, and outbound Gmail sending are not supported yet. Read-only Gmail search is available via the `/email` capability in DM.
 
 ## Procedure
 
