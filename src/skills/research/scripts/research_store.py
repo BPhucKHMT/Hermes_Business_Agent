@@ -252,7 +252,10 @@ def archive_legacy_dossiers(workspace: Path) -> list:
 
 def main() -> None:
     parser = ArgumentParser()
-    parser.add_argument("command", choices=("temporary", "save", "track", "watch", "load", "delete", "cleanup", "migrate-v1"))
+    parser.add_argument(
+        "command",
+        choices=("temporary", "save", "track", "watch", "load", "delete", "cleanup", "migrate-v1"),
+    )
     parser.add_argument("--workspace", type=Path, default=Path.cwd())
     parser.add_argument("--id")
     parser.add_argument("--input", type=Path)
