@@ -114,6 +114,26 @@ def layer_1() -> None:
 def layer_2() -> None:
     store = load_module("research_store", SCRIPTS / "research_store.py")
     renderer = load_module("render_report", SCRIPTS / "render_report.py")
+    good_deck = """<style>.slide{aspect-ratio:16/9}</style>
+    <section class="slide"></section><section class="slide"></section>
+    <div id="current-slide" aria-live="polite">1 / 2</div>
+    <button id="prev" aria-label="Previous slide"></button>
+    <button id="next" aria-label="Next slide"></button>
+    <script>
+    prev.addEventListener('click', () => show(-1));
+    next.addEventListener('click', () => show(1));
+    addEventListener('hashchange', () => show(location.hash));
+    addEventListener('keydown', e => { if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') show(1); });
+    </script>"""
+    renderer.validate_deck_html(good_deck)
+    for missing in (
+        good_deck.replace("    <button id=\"next\" aria-label=\"Next slide\"></button>\n", ""),
+        good_deck.replace("aspect-ratio:16/9", "width:100%"),
+        good_deck.replace("id=\"current-slide\" aria-live=\"polite\"", "id=\"not-an-indicator\""),
+        good_deck.replace("addEventListener('hashchange'", "addEventListener('load'").replace("location.hash", "location.href"),
+        good_deck.replace("prev.addEventListener('click'", "prev.addEventListener('change'").replace("next.addEventListener('click'", "next.addEventListener('change'"),
+    ):
+        expect_error(lambda value=missing: renderer.validate_deck_html(value), "deck")
     data = fixture()
     store.validate_dossier(data)
     renderer.validate_dossier(data)

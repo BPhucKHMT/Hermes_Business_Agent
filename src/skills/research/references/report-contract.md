@@ -27,7 +27,7 @@ For Telegram native attachment delivery:
 
 ### HTML deck delivery gate
 
-Before emitting `MEDIA` for an HTML deck, verify that the output follows the selected prebuilt skill's required 16:9 slide structure and keyboard navigation. If either check fails, generation is failed: do not emit `MEDIA` or claim attachment success; report the exact failed check instead.
+Before emitting `MEDIA` for an HTML deck, run the generic deck validator. It MUST reject output missing visible accessible Previous and Next `<button>` controls with actual click handlers, an explicit current-slide indicator, keyboard `ArrowLeft`/`ArrowRight` navigation, hash synchronization, or a 16:9 structure on every slide. If any check fails, generation is failed: do not emit `MEDIA` or claim attachment success; report the exact failed check instead.
 
 All routes consume the same canonical `dossier.json` (schema version 2), preserve evidence IDs, citations, provenance, and persistence rules, and write the final deliverable under `.runtime/deliverables/<workspace>/<name>`.
 

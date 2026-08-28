@@ -2,6 +2,7 @@ from argparse import ArgumentParser
 from html import escape
 import json
 import os
+import re
 from pathlib import Path
 import tempfile
 
@@ -9,6 +10,25 @@ try:
     from research_store import validate_dossier
 except ImportError:
     from skills.research.scripts.research_store import validate_dossier
+ 
+def validate_deck_html(html: str) -> None:
+    """Reject HTML decks that cannot be navigated or do not preserve 16:9 slides."""
+    slide_count = len(re.findall(r'class=["\'][^"\']*\bslide\b', html, re.IGNORECASE))
+    if slide_count == 0:
+        raise ValueError("deck must contain slides")
+    if not re.search(r'\.slide\b[^{}]*\{[^}]*aspect-ratio\s*:\s*16\s*/\s*9', html, re.IGNORECASE | re.DOTALL):
+        raise ValueError("deck slides must declare 16:9 structure")
+    controls = re.findall(r'<button\b[^>]*>', html, re.IGNORECASE)
+    if len(controls) < 2 or not re.search(r'aria-label=["\'][^"\']*(?:previous|next)', html, re.IGNORECASE):
+        raise ValueError("deck must include visible Previous/Next controls")
+    if not re.search(r'addEventListener\s*\(\s*["\']click|onclick\s*=', html, re.IGNORECASE):
+        raise ValueError("deck controls must have click handlers")
+    if not re.search(r'(?:current[-_ ]?slide|slide[-_ ]?indicator|aria-live)', html, re.IGNORECASE):
+        raise ValueError("deck must include an explicit current-slide indicator")
+    if not re.search(r'(?:ArrowLeft|ArrowRight)', html):
+        raise ValueError("deck must include keyboard left/right navigation")
+    if not re.search(r'location\.hash|hashchange', html, re.IGNORECASE):
+        raise ValueError("deck must synchronize slide hash")
 
 
 def render_html(dossier: dict) -> str:

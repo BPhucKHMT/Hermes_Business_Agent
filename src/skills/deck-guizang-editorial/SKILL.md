@@ -63,4 +63,4 @@ od:
 - **字体**: Display 用 `Playfair Display` (英) / `Noto Serif SC` (中); Body 用 `Inter` / `Noto Sans SC`; 编号 / 数字偶尔可用 italic 衬线。
 - **杂志感细节**: kicker 用 11px uppercase letterspacing 0.12em; folio 右下角 `01 / 12`; 顶部细 hairline rule + 期刊 logo / topic。
 - **不许**: 数据捏造、Lorem ipsum、占位图片 URL。所有图请用纯 CSS / SVG 内联描绘 (色块 + 简笔)。
-- 键盘 ← / → 切换; hash 同步; 单文件 HTML。
+- Every generated HTML deck MUST include visible accessible Previous and Next `<button>` controls with actual click handlers, an explicit current-slide indicator, keyboard `ArrowLeft`/`ArrowRight` navigation, hash synchronization, and a 16:9 structure on every slide; reject delivery if any requirement is missing.
