@@ -105,7 +105,7 @@ def layer_1() -> None:
         path.read_text(encoding="utf-8")
         for path in [SKILL, *sorted((SKILL.parent / "references").glob("*.md"))]
     ).lower()
-    for phrase in ("quick", "deep", "site intelligence", "tvly research", "capture-only", "official_domain", "grounded-citations", "deck-guizang-editorial", "built-in `powerpoint`", "built-in `xlsx`", "report.html"):
+    for phrase in ("quick", "deep", "site intelligence", "tvly research", "capture-only", "official_domain", "grounded-citations", "deck-guizang-editorial", "built-in `powerpoint`", "built-in `xlsx`", "report.html", "16:9 structure", "keyboard navigation", "do not send `media`"):
         assert phrase in contract, f"missing phrase: {phrase}"
     for forbidden_token in ("camofox", "captcha solver"):
         assert forbidden_token not in contract, f"forbidden token found: {forbidden_token}"

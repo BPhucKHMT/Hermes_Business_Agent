@@ -69,7 +69,7 @@ Tavily is the sole hosted provider for search, extract, map, crawl, and deep res
 4. **Map Evidence to Claims:** Every material fact must link to verified text or structured evidence records.
 5. **Gap & Contradiction Analysis:** Run at least one iteration to resolve missing facets or conflicting claims.
 6. **Verify with Grounded Citations:** Validate source URLs, exact text quotes, and structured JSON pointers.
-7. **Build & Deliver:** Generate canonical `dossier.json` (schema v2), then route the requested deliverable format: HTML narrative/research deck → `deck-guizang-editorial`; `.pptx` → built-in `powerpoint`; `.xlsx` → built-in `xlsx`; unspecified format → `report.html`. Preserve the evidence/citation contract in every format. Write the final output under `.runtime/deliverables/<workspace>/<name>` and deliver the executive brief with a trailing bare `MEDIA:<absolute-path>` line.
+7. **Build & Deliver:** Generate canonical `dossier.json` (schema v2), then route the requested deliverable format: HTML narrative/research deck → `deck-guizang-editorial`; `.pptx` → built-in `powerpoint`; `.xlsx` → built-in `xlsx`; unspecified format → `report.html`. Preserve the evidence/citation contract in every format. For HTML decks, verify the selected prebuilt skill's required 16:9 structure and keyboard navigation before emitting `MEDIA`; if either check fails, state generation failed and do not send `MEDIA`. Write successful final output under `.runtime/deliverables/<workspace>/<name>` and deliver the executive brief with a trailing bare `MEDIA:<absolute-path>` line.
 
 ## Persistence
 

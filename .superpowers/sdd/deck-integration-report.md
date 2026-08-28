@@ -178,3 +178,25 @@ Structural inspection command:
 python -c "from pathlib import Path; import re; p=Path(r'C:/Hermes-Business-Agent/src/.runtime/deliverables/coffee-chain-comparison/coffee-chain-comparison.html'); s=p.read_text(encoding='utf-8'); print({'exists':p.is_file(),'bytes':p.stat().st_size,'sections':len(re.findall(r'<section\\b',s)),'title':re.search(r'<title>(.*?)</title>',s).group(1),'palette':re.findall(r'--(?:ink|paper|tint|accent):#[0-9a-fA-F]{6}',s),'has_16_9':bool(re.search(r'16\\s*[/\\:]\\s*9|aspect-ratio\\s*:\\s*16',s,re.I)),'forbidden':{x:bool(re.search(x,s,re.I)) for x in ['gradient','shadow','border-radius','ascii','dot[- ]matrix']},'headlines':re.findall(r'<h[12]\\b[^>]*>(.*?)</h[12]>',s,re.I)})"
 # {'exists': True, 'bytes': 7711, 'sections': 4, 'title': 'Vietnam Coffee Chain Comparison', 'palette': ['--ink:#1a2e1f', '--paper:#f5f1e8', '--tint:#ece7da', '--accent:#253d2c'], 'has_16_9': False, 'forbidden': {'gradient': False, 'shadow': False, 'border-radius': False, 'ascii': False, 'dot[- ]matrix': False}, 'headlines': ['Three chains,<br>three signals.', 'Positioning is visible;<br>scale is not.']}
 ```
+
+## Final scoped correction: HTML deck delivery gate
+
+The acceptance limitation was addressed at the generic research composition contract level; the prebuilt Guizang skill and generated deck were not modified.
+
+### Files changed
+
+- `src/skills/research/references/report-contract.md`: added an HTML deck delivery gate requiring verification of the selected prebuilt skill's 16:9 slide structure and keyboard navigation before `MEDIA`. If either check fails, generation must be reported as failed and `MEDIA` must not be emitted.
+- `src/skills/research/SKILL.md`: mirrored the same gate in the Build & Deliver step so the routing workflow cannot claim a successful attachment when the structural checks fail.
+- `tests/verify_research.py`: added narrow static assertions for `16:9 structure`, `keyboard navigation`, and the no-`MEDIA` failure instruction.
+
+### Verification
+
+```powershell
+python tests/verify_research.py --layer 1
+# research layer 1: pass
+
+python tests/verify_research.py --layer 2
+# research layer 2: pass
+```
+
+No provider, web, Hermes generation, or vision call was made for this correction.

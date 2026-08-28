@@ -25,6 +25,10 @@ For Telegram native attachment delivery:
 - Explicit `.xlsx` → use the existing built-in `xlsx` skill.
 - No explicit format → render the default cited `report.html`.
 
+### HTML deck delivery gate
+
+Before emitting `MEDIA` for an HTML deck, verify that the output follows the selected prebuilt skill's required 16:9 slide structure and keyboard navigation. If either check fails, generation is failed: do not emit `MEDIA` or claim attachment success; report the exact failed check instead.
+
 All routes consume the same canonical `dossier.json` (schema version 2), preserve evidence IDs, citations, provenance, and persistence rules, and write the final deliverable under `.runtime/deliverables/<workspace>/<name>`.
 
 `dossier.json` remains canonical; the requested deliverable is derived output. Ordinary research persistence remains session-scoped unless the user explicitly requests `save`, `track`, or `watch`.
