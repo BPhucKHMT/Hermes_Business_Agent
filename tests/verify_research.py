@@ -131,6 +131,14 @@ def layer_1() -> None:
         "agent-browser trace start",
         "agent-browser trace stop",
         "do not add another browser runtime",
+        "--session <research-run-id>",
+        "--pin-tab",
+        "--allowed-domains",
+        "--content-boundaries",
+        "--max-output 50000",
+        "do not use `--profile`",
+        "`--state`, `--restore`, `--auto-connect`",
+        "cloud browser provider",
     )
     for phrase in required_phrases:
         assert phrase in contract, f"missing phrase: {phrase}"
