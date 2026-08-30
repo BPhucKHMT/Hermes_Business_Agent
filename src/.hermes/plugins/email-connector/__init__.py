@@ -1,4 +1,5 @@
 """Generic multi-user email connector plugin for Hermes Agent."""
+
 from __future__ import annotations
 
 from functools import partial
@@ -11,15 +12,33 @@ _PLUGIN_DIR = Path(__file__).resolve().parent
 if str(_PLUGIN_DIR) not in sys.path:
     sys.path.insert(0, str(_PLUGIN_DIR))
 
-import tools
+import os
 
-for _project_tools in (
-    _PLUGIN_DIR.parents[2] / "tools",
-    Path.cwd() / "src" / "tools",
+for candidate in (
+    Path(os.environ.get("HERMES_PROJECT_SRC", "")),
+    Path(os.environ.get("HERMES_SRC_DIR", "")),
+    _PLUGIN_DIR.parents[2],
+    Path("C:/Hermes-Business-Agent/src"),
+    Path.cwd() / "src",
+    Path.cwd(),
 ):
-    if (_project_tools / "email").is_dir() and str(_project_tools) not in tools.__path__:
-        tools.__path__.insert(0, str(_project_tools))
-        break
+    try:
+        if (
+            candidate
+            and candidate.is_dir()
+            and (candidate / "tools" / "email").is_dir()
+        ):
+            cand_str = str(candidate.resolve())
+            if cand_str not in sys.path:
+                sys.path.insert(0, cand_str)
+            import tools
+
+            tools_path_str = str((candidate / "tools").resolve())
+            if tools_path_str not in tools.__path__:
+                tools.__path__.insert(0, tools_path_str)
+            break
+    except Exception:
+        continue
 
 from client import get_default_client
 from commands import (
@@ -42,6 +61,7 @@ from plugin_tools import (
 )
 
 logger = logging.getLogger(__name__)
+
 
 def register(ctx: Any) -> PersonalGmailTools:
     guard = PersonalGmailTools()
@@ -66,24 +86,38 @@ def register(ctx: Any) -> PersonalGmailTools:
         name="email_connection_status",
         toolset="email_connector",
         schema=EMAIL_CONNECTION_STATUS_SCHEMA,
-        handler=partial(handle_email_connection_status, client=client, registry=registry),
+        handler=partial(
+            handle_email_connection_status, client=client, registry=registry
+        ),
         description="Check status of connected Gmail mailboxes.",
     )
 
-    # 2. Register commands (both underscored and hyphenated so Telegram and Gateway match)
-    for cmd_name in ("connect_gmail", "connect-gmail"):
+    # 2. Register commands (support both gmail and email/mail aliases)
+    for cmd_name in (
+        "connect_gmail",
+        "connect-gmail",
+        "connect_email",
+        "connect-email",
+        "connect_mail",
+        "connect-mail",
+    ):
         ctx.register_command(
             cmd_name,
             partial(handle_connect_gmail, client=client, registry=registry),
             description="Connect a private Gmail account",
         )
-    for cmd_name in ("mail_status", "mail-status"):
+    for cmd_name in ("mail_status", "mail-status", "email_status", "email-status"):
         ctx.register_command(
             cmd_name,
             partial(handle_mail_status, client=client, registry=registry),
             description="Check email connection status",
         )
-    for cmd_name in ("disconnect_gmail", "disconnect-gmail"):
+    for cmd_name in (
+        "disconnect_gmail",
+        "disconnect-gmail",
+        "disconnect_email",
+        "disconnect-email",
+    ):
         ctx.register_command(
             cmd_name,
             partial(handle_disconnect_gmail, client=client, registry=registry),

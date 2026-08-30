@@ -36,7 +36,11 @@ def policy(store):
     return MailPolicy(store=store, operator_allowlist=("telegram:bot:999",))
 
 
-def connection_factory(connection_id: str, owner: str = "telegram:bot:111", mailbox_type=MailboxType.PERSONAL) -> MailConnection:
+def connection_factory(
+    connection_id: str,
+    owner: str = "telegram:bot:111",
+    mailbox_type=MailboxType.PERSONAL,
+) -> MailConnection:
     return MailConnection(
         connection_id=connection_id,
         owner_principal_id=owner,
@@ -89,7 +93,9 @@ def test_personal_group_request_redirects_to_dm(store, policy):
 
 
 def test_shared_result_requires_exact_destination(store, policy):
-    conn = connection_factory("conn-shared", owner="telegram:bot:alice", mailbox_type=MailboxType.SHARED)
+    conn = connection_factory(
+        "conn-shared", owner="telegram:bot:alice", mailbox_type=MailboxType.SHARED
+    )
     store.add_connection(conn)
 
     dest = Destination(platform="telegram", chat_id="-1003835812097", thread_id="11")
@@ -102,7 +108,9 @@ def test_shared_result_requires_exact_destination(store, policy):
         expires_at="2099-01-01T00:00:00Z",
     )
     store.create_grant_request(req)
-    store.decide_grant_request("grant-1", "telegram:bot:999", ("telegram:bot:999",), approve=True)
+    store.decide_grant_request(
+        "grant-1", "telegram:bot:999", ("telegram:bot:999",), approve=True
+    )
 
     caller_group_topic_11 = PolicyCaller(
         principal_id="telegram:bot:anyone",

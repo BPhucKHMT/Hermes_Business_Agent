@@ -4,6 +4,37 @@ import json
 from threading import Lock
 from typing import Any
 
+import os
+import sys
+from pathlib import Path
+
+_PLUGIN_DIR = Path(__file__).resolve().parent
+for candidate in (
+    Path(os.environ.get("HERMES_PROJECT_SRC", "")),
+    Path(os.environ.get("HERMES_SRC_DIR", "")),
+    _PLUGIN_DIR.parents[2],
+    Path("C:/Hermes-Business-Agent/src"),
+    Path.cwd() / "src",
+    Path.cwd(),
+):
+    try:
+        if (
+            candidate
+            and candidate.is_dir()
+            and (candidate / "tools" / "email").is_dir()
+        ):
+            cand_str = str(candidate.resolve())
+            if cand_str not in sys.path:
+                sys.path.insert(0, cand_str)
+            import tools
+
+            tools_path_str = str((candidate / "tools").resolve())
+            if tools_path_str not in tools.__path__:
+                tools.__path__.insert(0, tools_path_str)
+            break
+    except Exception:
+        continue
+
 from tools.email.service import (
     EmailConnectorService,
     build_service_from_env,
@@ -29,7 +60,9 @@ class EmailConnectorClient:
         self._service = service
         self._shared_secret = shared_secret
 
-    def _request(self, method: str, path: str, payload: dict[str, Any]) -> dict[str, Any]:
+    def _request(
+        self, method: str, path: str, payload: dict[str, Any]
+    ) -> dict[str, Any]:
         body = json.dumps(payload, separators=(",", ":")).encode("utf-8")
         response = self._service.handle_internal_request(
             method,
@@ -57,6 +90,19 @@ class EmailConnectorClient:
             "POST",
             "/v1/thread",
             {"caller": _caller_payload(caller), "thread_id": thread_id},
+        )
+
+    def get_attachment(
+        self, caller: Any, message_id: str, attachment_id: str
+    ) -> dict[str, Any]:
+        return self._request(
+            "POST",
+            "/v1/attachment",
+            {
+                "caller": _caller_payload(caller),
+                "message_id": message_id,
+                "attachment_id": attachment_id,
+            },
         )
 
     def connections(self, caller: Any) -> dict[str, Any]:
@@ -117,6 +163,7 @@ class EmailConnectorClient:
             },
         )
 
+
 class UnavailableConnectorClient:
     def __init__(self, code: str = "connector_unavailable") -> None:
         self._response = {"ok": False, "error": {"code": code}}
@@ -125,6 +172,11 @@ class UnavailableConnectorClient:
         return self._response
 
     def get_thread(self, caller: Any, thread_id: str) -> dict[str, Any]:
+        return self._response
+
+    def get_attachment(
+        self, caller: Any, message_id: str, attachment_id: str
+    ) -> dict[str, Any]:
         return self._response
 
     def connections(self, caller: Any) -> dict[str, Any]:

@@ -33,7 +33,11 @@ def handle_connect_gmail(
         return _unavailable("missing_caller_context")
 
     response = client.start_oauth(caller)
-    url = response.get("result", {}).get("authorization_url") if response.get("ok") else None
+    url = (
+        response.get("result", {}).get("authorization_url")
+        if response.get("ok")
+        else None
+    )
     if not url:
         return _unavailable(response.get("error", {}).get("code", "oauth_start_failed"))
     return f"Mở liên kết này để kết nối Gmail chỉ-đọc: {url}"
@@ -113,7 +117,9 @@ def handle_share_mailbox(
         parts[2] if len(parts) == 3 else None,
     )
     if not response.get("ok"):
-        return _unavailable(response.get("error", {}).get("code", "grant_proposal_failed"))
+        return _unavailable(
+            response.get("error", {}).get("code", "grant_proposal_failed")
+        )
     result = response.get("result", {})
     if result.get("status") != "pending" or not result.get("request_id"):
         return _unavailable("grant_proposal_not_confirmed")
@@ -140,7 +146,9 @@ def handle_email_grant(
 
     response = client.decide_grant(caller, parts[0], parts[1])
     if not response.get("ok"):
-        return _unavailable(response.get("error", {}).get("code", "grant_decision_failed"))
+        return _unavailable(
+            response.get("error", {}).get("code", "grant_decision_failed")
+        )
     result = response.get("result", {})
     expected = "approved" if parts[1] == "approve" else "denied"
     if result.get("status") != expected:

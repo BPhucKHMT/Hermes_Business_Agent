@@ -10,6 +10,7 @@ if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
 import tools
+
 if str(SRC / "tools") not in tools.__path__:
     tools.__path__.insert(0, str(SRC / "tools"))
 
@@ -25,7 +26,9 @@ REQUIRED = (
 )
 
 
-def test_project_email_env_is_loaded_without_overriding_process_values(tmp_path, monkeypatch):
+def test_project_email_env_is_loaded_without_overriding_process_values(
+    tmp_path, monkeypatch
+):
     env_file = tmp_path / ".env"
     env_file.write_text(
         "# H009\n"
@@ -53,8 +56,7 @@ def test_project_email_env_is_loaded_without_overriding_process_values(tmp_path,
 def test_malformed_project_env_fails_atomically(tmp_path, monkeypatch):
     env_file = tmp_path / ".env"
     env_file.write_text(
-        "AZURE_KEY_VAULT_URL=vault-value\n"
-        'EMAIL_GOOGLE_CLIENT_ID="unterminated\n',
+        "AZURE_KEY_VAULT_URL=vault-value\n" 'EMAIL_GOOGLE_CLIENT_ID="unterminated\n',
         encoding="utf-8",
     )
     monkeypatch.setattr(email_env, "_PROJECT_ENV", env_file)

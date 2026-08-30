@@ -15,7 +15,9 @@ class PrivateDelivery:
 
         issued = self._registry.get_issued_dm(caller.session_key)
         if issued is None or issued is not caller:
-            raise PermissionError("delivery caller does not match the issued host identity")
+            raise PermissionError(
+                "delivery caller does not match the issued host identity"
+            )
 
         adapter = self._gateway.adapters[Platform.TELEGRAM]
         result = await adapter.send(caller.chat_id, text)

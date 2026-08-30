@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+
 try:
     from enum import StrEnum
 except ImportError:
@@ -8,6 +9,8 @@ except ImportError:
 
     class StrEnum(str, Enum):
         pass
+
+
 from typing import Optional
 
 
@@ -82,7 +85,6 @@ class SharedGrant:
     revoked_at: Optional[str] = None
 
 
-
 @dataclass(frozen=True)
 class AuditEvent:
     event_id: str
@@ -94,6 +96,15 @@ class AuditEvent:
     occurred_at: str
     outcome: str
 
+
+@dataclass(frozen=True)
+class AttachmentInfo:
+    attachment_id: str
+    filename: str
+    mime_type: str
+    size_bytes: int = 0
+
+
 @dataclass(frozen=True)
 class SearchHit:
     thread_id: str
@@ -101,6 +112,7 @@ class SearchHit:
     snippet: str
     last_message_date: str
     from_address: str
+    attachments: tuple[AttachmentInfo, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -109,6 +121,19 @@ class ThreadResult:
     subject: str
     text: str
     truncated: bool = False
+    attachments: tuple[AttachmentInfo, ...] = ()
+
+
+@dataclass(frozen=True)
+class EmailMessage:
+    message_id: str
+    thread_id: str = ""
+    subject: str = ""
+    from_address: str = ""
+    to_address: str = ""
+    date: str = ""
+    body_text: str = ""
+    attachments: tuple[AttachmentInfo, ...] = ()
 
 
 @dataclass(frozen=True)

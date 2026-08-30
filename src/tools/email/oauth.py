@@ -8,7 +8,7 @@ import secrets
 import urllib.parse
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from typing import Any, Callable, Dict, Optional, Tuple
+from typing import Any, Dict, Tuple
 
 from tools.email.contracts import (
     GMAIL_READONLY_SCOPE,
@@ -82,8 +82,12 @@ class GmailOAuthManager:
         self.store.create_link_request(req)
 
         # State encodes request_id and state_nonce
-        state_payload = json.dumps({"req": request_id, "nonce": state_nonce}, separators=(",", ":"))
-        state_b64 = base64.urlsafe_b64encode(state_payload.encode("utf-8")).decode("utf-8")
+        state_payload = json.dumps(
+            {"req": request_id, "nonce": state_nonce}, separators=(",", ":")
+        )
+        state_b64 = base64.urlsafe_b64encode(state_payload.encode("utf-8")).decode(
+            "utf-8"
+        )
 
         params = {
             "client_id": self.client_id,
@@ -99,7 +103,9 @@ class GmailOAuthManager:
         auth_url = f"https://accounts.google.com/o/oauth2/v2/auth?{urllib.parse.urlencode(params)}"
         return AuthorizationStart(url=auth_url, state=state_b64, request_id=request_id)
 
-    def _exchange_code(self, code: str, verifier: str) -> Tuple[Dict[str, Any], str, str]:
+    def _exchange_code(
+        self, code: str, verifier: str
+    ) -> Tuple[Dict[str, Any], str, str]:
         # Production exchange using google_auth_oauthlib / requests
         from google_auth_oauthlib.flow import Flow
         from googleapiclient.discovery import build

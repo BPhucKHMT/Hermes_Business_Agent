@@ -1,8 +1,10 @@
-from typing import Any, Dict
-
 EMAIL_SEARCH_SCHEMA = {
     "name": "email_search",
-    "description": "Search accessible Gmail threads for the authenticated user using Gmail search syntax (e.g. 'from:supplier@example.com newer_than:7d'). Personal mail results in group chats will be redirected to DM.",
+    "description": (
+        "Search accessible Gmail threads for the authenticated user using Gmail search "
+        "syntax (e.g. 'from:supplier@example.com newer_than:7d'). Personal mail results "
+        "in group chats will be redirected to DM."
+    ),
     "parameters": {
         "type": "object",
         "properties": {
@@ -22,7 +24,10 @@ EMAIL_SEARCH_SCHEMA = {
 
 EMAIL_GET_THREAD_SCHEMA = {
     "name": "email_get_thread",
-    "description": "Retrieve full plain-text message contents of a specific Gmail thread ID returned by email_search.",
+    "description": (
+        "Retrieve full plain-text message contents of a specific Gmail thread ID "
+        "returned by email_search."
+    ),
     "parameters": {
         "type": "object",
         "properties": {

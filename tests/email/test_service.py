@@ -18,6 +18,7 @@ for p in (PLUGIN, SRC, UPSTREAM):
         sys.path.insert(0, str(p))
 
 import tools
+
 if str(SRC / "tools") not in tools.__path__:
     tools.__path__.insert(0, str(SRC / "tools"))
 
@@ -28,13 +29,15 @@ from tools.email.service import (
 )
 from tools.email.store import MailStore
 from tools.email.policy import MailPolicy
+from google.auth.exceptions import RefreshError
 from tools.email.contracts import (
     GMAIL_READONLY_SCOPE,
-    MailboxType,
+    ConnectionStatus,
+    Destination,
     MailConnection,
+    MailboxType,
     SearchHit,
     ThreadResult,
-    Destination,
 )
 
 
@@ -72,8 +75,13 @@ class FakeGmailReader:
 
     def get_thread(self, token_data, thread_id, text_bytes_max):
         self.calls.append(("thread", token_data, thread_id, text_bytes_max))
-        return ThreadResult(thread_id=thread_id, subject="Báo giá", text="Nội dung báo giá 50tr")
+        return ThreadResult(
+            thread_id=thread_id, subject="Báo giá", text="Nội dung báo giá 50tr"
+        )
 
+    def get_attachment(self, token_data, message_id, attachment_id):
+        self.calls.append(("attachment", token_data, message_id, attachment_id))
+        return b"mock-pdf-bytes"
 
 
 class FakeOAuthManager:
@@ -100,6 +108,7 @@ class FakeOAuthManager:
             granted_scopes=(GMAIL_READONLY_SCOPE,),
             status="connected",
         )
+
 
 @pytest.fixture
 def service_env(tmp_path):
@@ -131,12 +140,16 @@ def service_env(tmp_path):
         oauth_manager=oauth,
         shared_secret="test-hmac-secret-123",
     )
-    return SimpleNamespace(service=service, store=store, secrets=secrets, oauth=oauth, gmail=gmail)
+    return SimpleNamespace(
+        service=service, store=store, secrets=secrets, oauth=oauth, gmail=gmail
+    )
 
 
 def test_unsigned_request_rejected(service_env):
     payload = {"caller": {"principal_id": "telegram:bot:alice", "chat_type": "dm"}}
-    res = service_env.service.handle_internal_request("POST", "/v1/search", json.dumps(payload).encode("utf-8"), headers={})
+    res = service_env.service.handle_internal_request(
+        "POST", "/v1/search", json.dumps(payload).encode("utf-8"), headers={}
+    )
     assert res.status == 401
 
 
@@ -154,7 +167,9 @@ def test_signed_dm_search_succeeds(service_env):
     }
     body = json.dumps(payload).encode("utf-8")
     headers = make_signed_headers("POST", "/v1/search", body, "test-hmac-secret-123")
-    res = service_env.service.handle_internal_request("POST", "/v1/search", body, headers=headers)
+    res = service_env.service.handle_internal_request(
+        "POST", "/v1/search", body, headers=headers
+    )
     assert res.status == 200
     data = json.loads(res.body.decode("utf-8"))
     assert data["ok"] is True
@@ -164,9 +179,7 @@ def test_signed_dm_search_succeeds(service_env):
         ("search", {"token": "fake-token"}, "newer_than:7d", 10)
     ]
     audit = service_env.store.list_audit_events()
-    assert [(event.event_type, event.outcome) for event in audit] == [
-        ("search", "ok")
-    ]
+    assert [(event.event_type, event.outcome) for event in audit] == [("search", "ok")]
     assert audit[0].query_hash != "newer_than:7d"
     assert b"newer_than:7d" not in service_env.store.db_path.read_bytes()
 
@@ -185,7 +198,9 @@ def test_signed_group_search_redirects_to_dm(service_env):
     }
     body = json.dumps(payload).encode("utf-8")
     headers = make_signed_headers("POST", "/v1/search", body, "test-hmac-secret-123")
-    res = service_env.service.handle_internal_request("POST", "/v1/search", body, headers=headers)
+    res = service_env.service.handle_internal_request(
+        "POST", "/v1/search", body, headers=headers
+    )
     assert res.status == 200
     data = json.loads(res.body.decode("utf-8"))
     assert data["ok"] is True
@@ -208,7 +223,9 @@ def test_oauth_start_and_disconnect_use_real_composed_dependencies(service_env):
         "POST",
         "/v1/oauth/start",
         start_body,
-        make_signed_headers("POST", "/v1/oauth/start", start_body, "test-hmac-secret-123"),
+        make_signed_headers(
+            "POST", "/v1/oauth/start", start_body, "test-hmac-secret-123"
+        ),
     )
     start_data = json.loads(start.body)
 
@@ -219,11 +236,15 @@ def test_oauth_start_and_disconnect_use_real_composed_dependencies(service_env):
         "POST",
         "/v1/disconnect",
         disconnect_body,
-        make_signed_headers("POST", "/v1/disconnect", disconnect_body, "test-hmac-secret-123"),
+        make_signed_headers(
+            "POST", "/v1/disconnect", disconnect_body, "test-hmac-secret-123"
+        ),
     )
     disconnect_data = json.loads(disconnect.body)
 
-    assert start_data["result"]["authorization_url"].startswith("https://accounts.google.com/")
+    assert start_data["result"]["authorization_url"].startswith(
+        "https://accounts.google.com/"
+    )
     assert service_env.oauth.calls == ["telegram:bot:alice"]
     assert disconnect_data["result"]["status"] == "revoked"
     assert service_env.store.list_connections("telegram:bot:alice") == ()
@@ -276,7 +297,6 @@ def test_thread_and_status_calls_are_audited(service_env):
         "thread",
         "status",
     ]
-
 
 
 def _signed_request(service, method, path, payload):
@@ -351,10 +371,13 @@ def test_owner_proposes_and_numeric_operator_approves_shared_grant(service_env):
 
     assert proposed.status == 200
     assert json.loads(decided.body)["result"]["status"] == "approved"
-    assert service_env.store.destination_grant(
-        "conn-alice",
-        Destination("telegram", "-1001", "11"),
-    ) is not None
+    assert (
+        service_env.store.destination_grant(
+            "conn-alice",
+            Destination("telegram", "-1001", "11"),
+        )
+        is not None
+    )
     assert [event.event_type for event in service_env.store.list_audit_events()] == [
         "grant",
         "grant",
@@ -398,8 +421,181 @@ def test_operator_denial_is_audited_without_creating_grant(service_env):
     )
 
     assert json.loads(denied.body)["result"]["status"] == "denied"
-    assert service_env.store.destination_grant(
-        "conn-alice",
-        Destination("telegram", "-1001"),
-    ) is None
+    assert (
+        service_env.store.destination_grant(
+            "conn-alice",
+            Destination("telegram", "-1001"),
+        )
+        is None
+    )
     assert service_env.store.list_audit_events()[-1].outcome == "denied"
+
+
+def test_search_refresh_error_transitions_status_to_reconnect_required(service_env):
+    def failing_search(token_data, query, limit):
+        raise RefreshError("invalid_grant: Bad Request")
+
+    service_env.gmail.search_threads = failing_search
+    caller = {
+        "principal_id": "telegram:bot:alice",
+        "platform": "telegram",
+        "user_id": "alice",
+        "chat_id": "alice",
+        "chat_type": "dm",
+    }
+    res = _signed_request(
+        service_env.service,
+        "POST",
+        "/v1/search",
+        {"caller": caller, "query": "newer_than:7d"},
+    )
+    assert res.status == 401
+    data = json.loads(res.body)
+    assert data["ok"] is False
+    assert data["error"]["code"] == "reconnect_required"
+
+    conns = service_env.store.list_connections("telegram:bot:alice")
+    assert conns[0].status == ConnectionStatus.RECONNECT_REQUIRED
+
+    last_audit = service_env.store.list_audit_events()[-1]
+    assert last_audit.event_type == "token_refresh_failed"
+    assert last_audit.outcome == "failed"
+    assert last_audit.connection_id == "conn-alice"
+
+
+def test_thread_refresh_error_transitions_status_to_reconnect_required(service_env):
+    def failing_thread(token_data, thread_id, text_bytes_max):
+        raise RefreshError("invalid_grant: Bad Request")
+
+    service_env.gmail.get_thread = failing_thread
+    caller = {
+        "principal_id": "telegram:bot:alice",
+        "platform": "telegram",
+        "user_id": "alice",
+        "chat_id": "alice",
+        "chat_type": "dm",
+    }
+    res = _signed_request(
+        service_env.service,
+        "POST",
+        "/v1/thread",
+        {"caller": caller, "thread_id": "t-123"},
+    )
+    assert res.status == 401
+    data = json.loads(res.body)
+    assert data["ok"] is False
+    assert data["error"]["code"] == "reconnect_required"
+
+    conns = service_env.store.list_connections("telegram:bot:alice")
+    assert conns[0].status == ConnectionStatus.RECONNECT_REQUIRED
+
+
+def test_attachment_happy_path_and_security(service_env):
+    # 1. Missing params
+    caller = {
+        "principal_id": "telegram:bot:alice",
+        "platform": "telegram",
+        "user_id": "alice",
+        "chat_id": "alice",
+        "chat_type": "dm",
+    }
+    res_bad = _signed_request(
+        service_env.service,
+        "POST",
+        "/v1/attachment",
+        {"caller": caller, "message_id": "m-1"},
+    )
+    assert res_bad.status == 400
+    assert json.loads(res_bad.body)["error"]["code"] == "missing_attachment_params"
+
+    # 2. Unauthorized caller
+    res_unauth = _signed_request(
+        service_env.service,
+        "POST",
+        "/v1/attachment",
+        {
+            "caller": {
+                "principal_id": "telegram:bot:stranger",
+                "platform": "telegram",
+                "user_id": "stranger",
+                "chat_id": "stranger",
+                "chat_type": "dm",
+            },
+            "message_id": "m-1",
+            "attachment_id": "att-1",
+        },
+    )
+    assert res_unauth.status == 404
+    assert json.loads(res_unauth.body)["error"]["code"] == "not_authorized"
+
+    # 3. Group caller redirects to DM for personal mailbox
+    res_group = _signed_request(
+        service_env.service,
+        "POST",
+        "/v1/attachment",
+        {
+            "caller": {
+                "principal_id": "telegram:bot:alice",
+                "platform": "telegram",
+                "user_id": "alice",
+                "chat_id": "-100group",
+                "chat_type": "group",
+            },
+            "message_id": "m-1",
+            "attachment_id": "att-1",
+        },
+    )
+    assert res_group.status == 200
+    assert json.loads(res_group.body)["result"]["delivery"] == "redirect_to_dm"
+
+    # 4. Valid DM caller succeeds
+    res_ok = _signed_request(
+        service_env.service,
+        "POST",
+        "/v1/attachment",
+        {"caller": caller, "message_id": "m-1", "attachment_id": "att-1"},
+    )
+    assert res_ok.status == 200
+    res_data = json.loads(res_ok.body)["result"]
+    assert res_data["delivery"] == "dm"
+    assert res_data["message_id"] == "m-1"
+    assert res_data["attachment_id"] == "att-1"
+    assert res_data["size"] == len(b"mock-pdf-bytes")
+    import base64
+    assert base64.b64decode(res_data["data"]) == b"mock-pdf-bytes"
+
+    last_audit = service_env.store.list_audit_events()[-1]
+    assert last_audit.event_type == "attachment"
+    assert last_audit.outcome == "ok"
+    assert last_audit.connection_id == "conn-alice"
+
+
+def test_attachment_refresh_error_transitions_status(service_env):
+    def failing_attachment(token_data, message_id, attachment_id):
+        raise RefreshError("invalid_grant: Bad Request")
+
+    service_env.gmail.get_attachment = failing_attachment
+    caller = {
+        "principal_id": "telegram:bot:alice",
+        "platform": "telegram",
+        "user_id": "alice",
+        "chat_id": "alice",
+        "chat_type": "dm",
+    }
+    res = _signed_request(
+        service_env.service,
+        "POST",
+        "/v1/attachment",
+        {"caller": caller, "message_id": "m-1", "attachment_id": "att-1"},
+    )
+    assert res.status == 401
+    data = json.loads(res.body)
+    assert data["ok"] is False
+    assert data["error"]["code"] == "reconnect_required"
+
+    conns = service_env.store.list_connections("telegram:bot:alice")
+    assert conns[0].status == ConnectionStatus.RECONNECT_REQUIRED
+
+    last_audit = service_env.store.list_audit_events()[-1]
+    assert last_audit.event_type == "token_refresh_failed"
+    assert last_audit.outcome == "failed"

@@ -1,4 +1,3 @@
-import os
 import sys
 from pathlib import Path
 from types import SimpleNamespace
@@ -43,8 +42,10 @@ def test_key_vault_store_json_put_and_get():
 
 def test_secret_value_never_appears_in_exception_on_error():
     client = FakeSecretClient()
+
     def failing_set(*args, **kwargs):
         raise RuntimeError("failed with internal secret_token_xyz")
+
     client.set_secret = failing_set
 
     store = AzureKeyVaultSecretStore("https://fake.vault.azure.net/", client=client)

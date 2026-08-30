@@ -75,7 +75,9 @@ class CallerContextRegistry:
             platform=platform,
             user_id=str(source.user_id),
             chat_id=str(source.chat_id),
-            thread_id=str(source.thread_id) if getattr(source, "thread_id", None) else None,
+            thread_id=(
+                str(source.thread_id) if getattr(source, "thread_id", None) else None
+            ),
             chat_type="dm",
             profile=profile or "default",
             session_key=effective_key,
@@ -92,7 +94,9 @@ class CallerContextRegistry:
         self._current_redirect.set(False)
         return caller
 
-    def resolve_dm_tool(self, *, task_id: str = "", session_id: str = "") -> CallerContext:
+    def resolve_dm_tool(
+        self, *, task_id: str = "", session_id: str = ""
+    ) -> CallerContext:
         if task_id and session_id and task_id != session_id:
             raise LookupError("conflicting runtime identifiers")
 

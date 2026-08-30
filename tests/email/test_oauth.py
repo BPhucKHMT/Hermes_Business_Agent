@@ -1,7 +1,6 @@
-import os
 import sys
 from pathlib import Path
-from types import SimpleNamespace
+
 import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -10,15 +9,11 @@ if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
 import tools
+
 if str(SRC / "tools") not in tools.__path__:
     tools.__path__.insert(0, str(SRC / "tools"))
 
-from tools.email.contracts import (
-    GMAIL_READONLY_SCOPE,
-    MailboxType,
-    MailConnection,
-    OAuthLinkRequest,
-)
+from tools.email.contracts import GMAIL_READONLY_SCOPE
 from tools.email.store import MailStore
 from tools.email.oauth import GmailOAuthManager
 

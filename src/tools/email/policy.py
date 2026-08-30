@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 import secrets
 from dataclasses import dataclass
-from typing import Any, Optional, Tuple
+from typing import Any, Optional
 
 from tools.email.contracts import (
     DeliveryDecision,
@@ -33,7 +33,9 @@ class PolicyCaller:
 
 
 class MailPolicy:
-    def __init__(self, store: MailStore, operator_allowlist: tuple[str, ...] = ()) -> None:
+    def __init__(
+        self, store: MailStore, operator_allowlist: tuple[str, ...] = ()
+    ) -> None:
         self.store = store
         self.operator_allowlist = operator_allowlist
 
@@ -50,26 +52,42 @@ class MailPolicy:
         elif conn.mailbox_type == MailboxType.SHARED:
             # Check destination grant if in group
             if caller.chat_type != "dm":
-                dest = Destination(platform=caller.platform, chat_id=caller.chat_id, thread_id=caller.thread_id)
+                dest = Destination(
+                    platform=caller.platform,
+                    chat_id=caller.chat_id,
+                    thread_id=caller.thread_id,
+                )
                 grant = self.store.destination_grant(connection_id, dest)
                 if grant is None:
-                    raise PermissionError("not_authorized: shared mailbox not allowed in this destination")
+                    raise PermissionError(
+                        "not_authorized: shared mailbox not allowed in this destination"
+                    )
         return conn
 
-    def decide_delivery(self, caller: Any, connection: MailConnection) -> DeliveryDecision:
+    def decide_delivery(
+        self, caller: Any, connection: MailConnection
+    ) -> DeliveryDecision:
         if connection.mailbox_type == MailboxType.PERSONAL:
             if caller.chat_type == "dm":
                 return DeliveryDecision(mode="dm")
             else:
-                return DeliveryDecision(mode="redirect_to_dm", public_text=DM_REDIRECT_TEXT)
+                return DeliveryDecision(
+                    mode="redirect_to_dm", public_text=DM_REDIRECT_TEXT
+                )
 
         if connection.mailbox_type == MailboxType.SHARED:
             if caller.chat_type == "dm":
                 return DeliveryDecision(mode="dm")
-            dest = Destination(platform=caller.platform, chat_id=caller.chat_id, thread_id=caller.thread_id)
+            dest = Destination(
+                platform=caller.platform,
+                chat_id=caller.chat_id,
+                thread_id=caller.thread_id,
+            )
             grant = self.store.destination_grant(connection.connection_id, dest)
             if grant is None:
-                raise PermissionError("not_authorized: destination is not in allowed destinations")
+                raise PermissionError(
+                    "not_authorized: destination is not in allowed destinations"
+                )
             return DeliveryDecision(mode="group")
 
         raise ValueError(f"unknown_mailbox_type: {connection.mailbox_type}")

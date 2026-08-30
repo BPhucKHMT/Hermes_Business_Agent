@@ -1,4 +1,4 @@
-from caller import CallerContextRegistry, DM_REDIRECT_TEXT, DmOnlyError
+from caller import CallerContextRegistry, DmOnlyError
 
 
 PERSONAL_GMAIL_TOOL_NAMES = frozenset(
@@ -12,6 +12,7 @@ PERSONAL_GMAIL_TOOL_NAMES = frozenset(
 
 class PersonalGmailTools:
     """Production PersonalGmailTools entrypoint and guard."""
+
     def __init__(self, registry: CallerContextRegistry | None = None) -> None:
         if isinstance(registry, CallerContextRegistry):
             self.registry = registry

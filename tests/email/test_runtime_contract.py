@@ -18,10 +18,11 @@ for p in (SRC, PLUGIN, UPSTREAM):
         sys.path.insert(0, str(p))
 
 import tools
+
 if str(SRC / "tools") not in tools.__path__:
     tools.__path__.insert(0, str(SRC / "tools"))
 
-from caller import CallerContext, CallerContextRegistry, DM_REDIRECT_TEXT, DmOnlyError
+from caller import DM_REDIRECT_TEXT, DmOnlyError
 from delivery import PrivateDelivery
 from gateway.config import GatewayConfig, Platform
 from gateway.platforms.base import MessageEvent, SendResult
@@ -41,8 +42,6 @@ class ProbeSessionStore:
 
     def lookup_by_session_id(self, session_id):
         return self._by_id.get(session_id)
-
-
 
 
 class ProbeTelegramAdapter:
@@ -236,7 +235,6 @@ def test_model_fields_cannot_override_resolved_dm_principal(runtime_probe):
     assert caller.principal_id == "telegram:hermes-business:111"
 
 
-
 def test_command_caller_comes_from_trusted_gateway_hook(runtime_probe):
     runtime_probe.capture(runtime_probe.dm_event(user_id="111", chat_id="111"))
 
@@ -250,6 +248,7 @@ def test_group_command_context_is_dm_redirect_only(runtime_probe):
 
     with pytest.raises(DmOnlyError, match="Mở chat riêng"):
         runtime_probe.registry.resolve_command()
+
 
 def test_conflicting_runtime_session_identifiers_are_rejected(runtime_probe):
     session_id = runtime_probe.capture(
@@ -290,7 +289,9 @@ def test_private_delivery_rejects_identity_clone_of_issued_caller(runtime_probe)
         runtime_probe.registry,
     )
 
-    with pytest.raises(PermissionError, match="does not match the issued host identity"):
+    with pytest.raises(
+        PermissionError, match="does not match the issued host identity"
+    ):
         asyncio.run(delivery.send_dm(forged_clone, "Nội dung giả mạo"))
 
     assert adapter.calls == []
@@ -301,7 +302,9 @@ def test_session_finalize_forgets_issued_caller(runtime_probe):
     session_id = runtime_probe.capture(event)
     runtime_probe.registry.resolve_dm_tool(task_id=session_id, session_id=session_id)
 
-    session_key = build_session_key(event.source, profile=getattr(event.source, "profile", None))
+    session_key = build_session_key(
+        event.source, profile=getattr(event.source, "profile", None)
+    )
     runtime_probe.session_store.remove(session_id)
     runtime_probe.tools.on_session_finalize(session_id=session_id)
 

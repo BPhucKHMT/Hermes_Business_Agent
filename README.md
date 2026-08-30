@@ -347,6 +347,31 @@ Azure boundaries:
 
 Feature state remains `active` until independent evidence permits `passing`.
 
+## 11. Gmail & Email Intake (Feature H009)
+
+Hermes supports multi-user private and shared Gmail inspection with zero-trust privacy isolation, PKCE OAuth2 flow, and host-bound Telegram authorization.
+
+### Email Slash Commands (Telegram DM)
+
+| Command | Aliases | Description |
+| :--- | :--- | :--- |
+| `/connect_gmail` | `/connect_email`, `/connect_mail`, `/connect-gmail` | Generate a secure Google OAuth2 link to connect a private Gmail account (DM only). |
+| `/mail_status` | `/email_status`, `/mail-status`, `/email-status` | View connected mailboxes (masked addresses like `u***@gmail.com`), status, and connection IDs. |
+| `/disconnect_gmail <id>` | `/disconnect_email <id>`, `/disconnect-gmail` | Disconnect and revoke an authenticated Gmail account. |
+| `/share_mailbox <id> <chat_id>` | `/share-mailbox` | Propose sharing a personal or business mailbox with a Telegram group/topic. |
+| `/email_grant <req_id> approve\|deny` | `/email-grant` | Operator command to approve or reject a mailbox sharing request. |
+
+### Natural Language Email Queries (No Slash Required)
+
+Once connected, you can chat with Hermes using standard natural language (Vietnamese / English):
+
+- *"Hôm nay có email nào mới không bot?"*
+- *"Tìm email từ đối tác gửi báo giá hợp đồng trong tuần này"*
+- *"Tóm tắt nội dung chuỗi email gần nhất về dự án"*
+- *"Kiểm tra trạng thái kết nối hòm thư của tôi"*
+
+Hermes autonomously invokes the underlying tools (`email_search`, `email_get_thread`, `email_connection_status`) with strict privacy boundaries.
+
 ## Troubleshooting
 
 ### Bot replies without mention

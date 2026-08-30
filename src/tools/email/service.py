@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import hashlib
 import hmac
 import json
@@ -12,7 +13,18 @@ from datetime import datetime, timedelta, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any, Dict, Optional
 
-from tools.email.contracts import AuditEvent, Destination
+try:
+    from google.auth.exceptions import RefreshError
+except ImportError:
+    class RefreshError(Exception):
+        pass
+
+from tools.email.contracts import (
+    AuditEvent,
+    ConnectionStatus,
+    Destination,
+    MailConnection,
+)
 from tools.email.env import load_project_email_env
 from tools.email.gmail import GmailReader
 from tools.email.policy import MailPolicy, PolicyCaller
@@ -29,13 +41,17 @@ class ServiceResponse:
     content_type: str = "application/json"
 
 
-def make_signed_headers(method: str, path: str, body: bytes, secret: str) -> Dict[str, str]:
+def make_signed_headers(
+    method: str, path: str, body: bytes, secret: str
+) -> Dict[str, str]:
     now = str(int(time.time()))
     nonce = hashlib.sha256(f"{now}:{time.monotonic()}".encode("utf-8")).hexdigest()[:16]
     body_sha = hashlib.sha256(body).hexdigest()
 
     sig_payload = f"{method.upper()}\n{path}\n{now}\n{nonce}\n{body_sha}"
-    signature = hmac.new(secret.encode("utf-8"), sig_payload.encode("utf-8"), hashlib.sha256).hexdigest()
+    signature = hmac.new(
+        secret.encode("utf-8"), sig_payload.encode("utf-8"), hashlib.sha256
+    ).hexdigest()
 
     return {
         "X-Email-Timestamp": now,
@@ -61,7 +77,9 @@ class EmailConnectorService:
         self.oauth_manager = oauth_manager
         self.shared_secret = shared_secret
 
-    def _verify_hmac(self, method: str, path: str, body: bytes, headers: Dict[str, str]) -> bool:
+    def _verify_hmac(
+        self, method: str, path: str, body: bytes, headers: Dict[str, str]
+    ) -> bool:
         ts = headers.get("X-Email-Timestamp") or headers.get("x-email-timestamp")
         nonce = headers.get("X-Email-Nonce") or headers.get("x-email-nonce")
         signature = headers.get("X-Email-Signature") or headers.get("x-email-signature")
@@ -95,7 +113,9 @@ class EmailConnectorService:
         if not self._verify_hmac(method, path, body, headers):
             return ServiceResponse(
                 status=401,
-                body=json.dumps({"ok": False, "error": {"code": "unauthorized"}}).encode("utf-8"),
+                body=json.dumps(
+                    {"ok": False, "error": {"code": "unauthorized"}}
+                ).encode("utf-8"),
             )
 
         try:
@@ -103,7 +123,9 @@ class EmailConnectorService:
         except Exception:
             return ServiceResponse(
                 status=400,
-                body=json.dumps({"ok": False, "error": {"code": "malformed_json"}}).encode("utf-8"),
+                body=json.dumps(
+                    {"ok": False, "error": {"code": "malformed_json"}}
+                ).encode("utf-8"),
             )
 
         try:
@@ -113,6 +135,8 @@ class EmailConnectorService:
                 return self._handle_search(data)
             if path == "/v1/thread" and method == "POST":
                 return self._handle_thread(data)
+            if path == "/v1/attachment" and method == "POST":
+                return self._handle_attachment(data)
             if path == "/v1/connections" and method == "GET":
                 return self._handle_list_connections(data)
             if path == "/v1/disconnect" and method == "POST":
@@ -123,6 +147,13 @@ class EmailConnectorService:
                 return self._handle_grant_decide(data)
         except (FileNotFoundError, PermissionError, ValueError) as error:
             return self._error_response(403, str(error).split(":", 1)[0])
+        except RefreshError:
+            return ServiceResponse(
+                status=401,
+                body=json.dumps(
+                    {"ok": False, "error": {"code": "reconnect_required"}}
+                ).encode("utf-8"),
+            )
         except Exception:
             logger.error("Email connector request failed for %s", path)
             return self._error_response(503, "connector_unavailable")
@@ -161,7 +192,10 @@ class EmailConnectorService:
         destination_hash = None
         if destination is not None:
             destination_hash = hashlib.sha256(
-                f"{destination.platform}:{destination.chat_id}:{destination.thread_id or ''}".encode("utf-8")
+                (
+                    f"{destination.platform}:{destination.chat_id}:"
+                    f"{destination.thread_id or ''}"
+                ).encode("utf-8")
             ).hexdigest()
         query_hash = (
             hashlib.sha256(query.encode("utf-8")).hexdigest()
@@ -209,11 +243,22 @@ class EmailConnectorService:
                 "connected",
                 connection_id=connection.connection_id,
             )
-        except Exception:
-            logger.error("Gmail OAuth callback failed")
+        except Exception as exc:
+            logger.exception("Gmail OAuth callback failed")
+            err_str = str(exc)
+            if (
+                "accessNotConfigured" in err_str
+                or "Gmail API has not been used" in err_str
+            ):
+                body_msg = (
+                    b"Gmail API is disabled on your Google Cloud project. "
+                    b"Please enable Gmail API in Google Cloud Console and try again."
+                )
+            else:
+                body_msg = f"Gmail connection failed: {exc}".encode("utf-8")
             return ServiceResponse(
                 status=400,
-                body=b"Gmail connection failed.",
+                body=body_msg,
                 content_type="text/plain; charset=utf-8",
             )
         return ServiceResponse(
@@ -348,6 +393,32 @@ class EmailConnectorService:
             ).encode("utf-8"),
         )
 
+    def _handle_token_refresh_failed(
+        self,
+        caller: PolicyCaller,
+        connection: MailConnection,
+        destination: Optional[Destination] = None,
+        query: Optional[str] = None,
+    ) -> ServiceResponse:
+        self.store.update_connection_status(
+            connection.connection_id,
+            ConnectionStatus.RECONNECT_REQUIRED,
+        )
+        self._audit(
+            "token_refresh_failed",
+            caller,
+            "failed",
+            connection_id=connection.connection_id,
+            destination=destination,
+            query=query,
+        )
+        return ServiceResponse(
+            status=401,
+            body=json.dumps(
+                {"ok": False, "error": {"code": "reconnect_required"}}
+            ).encode("utf-8"),
+        )
+
     def _handle_search(self, data: Dict[str, Any]) -> ServiceResponse:
         caller = self._caller(data.get("caller", {}))
         query = data.get("query", "")
@@ -396,7 +467,15 @@ class EmailConnectorService:
             )
 
         token_data = self.secret_store.get_json(connection.secret_ref)
-        hits = self.gmail_reader.search_threads(token_data, query, limit=limit)
+        try:
+            hits = self.gmail_reader.search_threads(token_data, query, limit=limit)
+        except (RefreshError, Exception) as exc:
+            if isinstance(exc, RefreshError) or "invalid_grant" in str(exc).lower():
+                return self._handle_token_refresh_failed(
+                    caller, connection, destination=destination, query=query
+                )
+            raise
+
         self._audit(
             "search",
             caller,
@@ -461,11 +540,19 @@ class EmailConnectorService:
             )
 
         token_data = self.secret_store.get_json(connection.secret_ref)
-        result = self.gmail_reader.get_thread(
-            token_data,
-            thread_id,
-            text_bytes_max=text_bytes_max,
-        )
+        try:
+            result = self.gmail_reader.get_thread(
+                token_data,
+                thread_id,
+                text_bytes_max=text_bytes_max,
+            )
+        except (RefreshError, Exception) as exc:
+            if isinstance(exc, RefreshError) or "invalid_grant" in str(exc).lower():
+                return self._handle_token_refresh_failed(
+                    caller, connection, destination=destination
+                )
+            raise
+
         self._audit(
             "thread",
             caller,
@@ -481,6 +568,103 @@ class EmailConnectorService:
                     "result": {
                         "delivery": delivery.mode,
                         "thread": asdict(result),
+                    },
+                }
+            ).encode("utf-8"),
+        )
+
+    def _handle_attachment(self, data: Dict[str, Any]) -> ServiceResponse:
+        caller = self._caller(data.get("caller", {}))
+        message_id = data.get("message_id", "")
+        attachment_id = data.get("attachment_id", "")
+        destination = Destination(
+            caller.platform,
+            caller.chat_id,
+            caller.thread_id,
+        )
+
+        if not message_id or not attachment_id:
+            return self._error_response(400, "missing_attachment_params")
+
+        connection_id = data.get("connection_id")
+        if connection_id:
+            try:
+                connection = self.policy.authorize_source(caller, connection_id)
+            except Exception:
+                self._audit(
+                    "attachment",
+                    caller,
+                    "not_authorized",
+                    destination=destination,
+                )
+                return self._error_response(403, "not_authorized")
+        else:
+            connections = self.policy.readable_connections(caller)
+            if not connections:
+                self._audit(
+                    "attachment",
+                    caller,
+                    "not_authorized",
+                    destination=destination,
+                )
+                return self._error_response(404, "not_authorized")
+            connection = connections[0]
+
+        delivery = self.policy.decide_delivery(caller, connection)
+        if delivery.mode == "redirect_to_dm":
+            self._audit(
+                "attachment",
+                caller,
+                "redirect_to_dm",
+                connection_id=connection.connection_id,
+                destination=destination,
+            )
+            return ServiceResponse(
+                status=200,
+                body=json.dumps(
+                    {
+                        "ok": True,
+                        "result": {
+                            "delivery": "redirect_to_dm",
+                            "public_text": delivery.public_text,
+                        },
+                    }
+                ).encode("utf-8"),
+            )
+
+        token_data = self.secret_store.get_json(connection.secret_ref)
+        try:
+            raw_bytes = self.gmail_reader.get_attachment(
+                token_data,
+                message_id=message_id,
+                attachment_id=attachment_id,
+            )
+        except (RefreshError, Exception) as exc:
+            if isinstance(exc, RefreshError) or "invalid_grant" in str(exc).lower():
+                return self._handle_token_refresh_failed(
+                    caller, connection, destination=destination
+                )
+            raise
+
+        self._audit(
+            "attachment",
+            caller,
+            "ok",
+            connection_id=connection.connection_id,
+            destination=destination,
+        )
+        b64_data = base64.b64encode(raw_bytes).decode("utf-8")
+        return ServiceResponse(
+            status=200,
+            body=json.dumps(
+                {
+                    "ok": True,
+                    "result": {
+                        "delivery": delivery.mode,
+                        "message_id": message_id,
+                        "attachment_id": attachment_id,
+                        "data": b64_data,
+                        "size": len(raw_bytes),
                     },
                 }
             ).encode("utf-8"),
@@ -534,7 +718,9 @@ def create_http_server(
         def _internal(self, method: str) -> None:
             length = int(self.headers.get("Content-Length", "0"))
             if length > 1_048_576:
-                self._write(EmailConnectorService._error_response(413, "request_too_large"))
+                self._write(
+                    EmailConnectorService._error_response(413, "request_too_large")
+                )
                 return
             body = self.rfile.read(length) if length else b""
             headers = {key: value for key, value in self.headers.items()}
@@ -583,6 +769,7 @@ def build_service_from_env() -> EmailConnectorService:
 
     from tools.email.oauth import GmailOAuthManager
     from tools.email.secrets import AzureKeyVaultSecretStore, LocalEncryptedSecretStore
+
     load_project_email_env()
 
     client_id = os.environ.get("EMAIL_GOOGLE_CLIENT_ID", "").strip()
@@ -592,7 +779,7 @@ def build_service_from_env() -> EmailConnectorService:
     if not client_id or not redirect_uri or not shared_secret:
         raise RuntimeError("connector_unavailable")
 
-    # 1. Resolve SecretStore: try Key Vault if URL provided and accessible, otherwise fallback to local store
+    # Resolve SecretStore: try Key Vault when configured, then fall back locally.
     vault_url = os.environ.get("AZURE_KEY_VAULT_URL", "").strip()
     prefer_local = os.environ.get("EMAIL_SECRET_STORE", "").strip().lower() == "local"
     secret_store = None
@@ -600,10 +787,14 @@ def build_service_from_env() -> EmailConnectorService:
     if vault_url and not prefer_local:
         try:
             kv_store = AzureKeyVaultSecretStore(vault_url)
-            # Simple probe / verify if client can authenticate
+            # Active probe / verify if client can authenticate
+            if hasattr(kv_store, "_client") and hasattr(kv_store._client, "get_secret"):
+                kv_store._client.get_secret("probe-auth-check")
             secret_store = kv_store
         except Exception:
-            logger.warning("Azure Key Vault unavailable or unauthenticated. Falling back to LocalEncryptedSecretStore.")
+            logger.info(
+                "Azure Key Vault unauthenticated or unavailable. Using LocalEncryptedSecretStore."
+            )
             secret_store = LocalEncryptedSecretStore()
     else:
         secret_store = LocalEncryptedSecretStore()
@@ -616,7 +807,9 @@ def build_service_from_env() -> EmailConnectorService:
             "keyvault://email-google-client-secret",
         )
         try:
-            client_secret = secret_store.get_json(client_secret_ref).get("client_secret", "")
+            client_secret = secret_store.get_json(client_secret_ref).get(
+                "client_secret", ""
+            )
         except Exception:
             pass
 

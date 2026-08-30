@@ -1,4 +1,3 @@
-import os
 import sys
 from pathlib import Path
 import pytest
@@ -9,18 +8,20 @@ if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
 import tools
+
 if str(SRC / "tools") not in tools.__path__:
     tools.__path__.insert(0, str(SRC / "tools"))
 
 from tools.email.contracts import (
     GMAIL_READONLY_SCOPE,
+    AuditEvent,
+    ConnectionStatus,
+    Destination,
+    GrantRequestStatus,
     MailboxType,
     MailConnection,
-    Destination,
     OAuthLinkRequest,
     SharedGrantRequest,
-    GrantRequestStatus,
-    AuditEvent,
 )
 from tools.email.store import MailStore
 
@@ -31,7 +32,9 @@ def store(tmp_path):
     return MailStore(db_path)
 
 
-def connection_factory(connection_id: str, owner: str = "telegram:bot:111") -> MailConnection:
+def connection_factory(
+    connection_id: str, owner: str = "telegram:bot:111"
+) -> MailConnection:
     return MailConnection(
         connection_id=connection_id,
         owner_principal_id=owner,
@@ -116,8 +119,11 @@ def test_shared_grant_request_lifecycle_and_operator_approval(store):
     assert grant.connection_id == "conn-shared"
 
     # Changed destination has no grant
-    wrong_dest = Destination(platform="telegram", chat_id="-1003835812097", thread_id="12")
+    wrong_dest = Destination(
+        platform="telegram", chat_id="-1003835812097", thread_id="12"
+    )
     assert store.destination_grant("conn-shared", wrong_dest) is None
+
 
 def test_expired_oauth_request_is_rejected(store):
     req = OAuthLinkRequest(
@@ -158,10 +164,13 @@ def test_expired_grant_request_cannot_be_approved(store):
             approve=True,
         )
 
-    assert store.destination_grant(
-        "conn-expired",
-        Destination("telegram", "-1001", None),
-    ) is None
+    assert (
+        store.destination_grant(
+            "conn-expired",
+            Destination("telegram", "-1001", None),
+        )
+        is None
+    )
 
 
 def test_audit_store_contains_only_opaque_metadata(store):
@@ -186,3 +195,15 @@ def test_audit_store_contains_only_opaque_metadata(store):
         b"message body",
     ):
         assert forbidden not in schema
+
+
+def test_update_connection_status(store):
+    conn = connection_factory("conn-status-test", "telegram:bot:111")
+    store.add_connection(conn)
+
+    conns = store.list_connections("telegram:bot:111")
+    assert conns[0].status == ConnectionStatus.CONNECTED
+
+    store.update_connection_status("conn-status-test", ConnectionStatus.RECONNECT_REQUIRED)
+    conns = store.list_connections("telegram:bot:111")
+    assert conns[0].status == ConnectionStatus.RECONNECT_REQUIRED
