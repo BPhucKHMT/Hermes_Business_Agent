@@ -93,6 +93,10 @@ Persist only when the user explicitly requests `save`, `track`, or `watch`. A fr
 - Never send customer PII to third-party tools.
 - Never store secrets, tokens, cookies, or API keys in this workspace or reports. Operator key `TAVILY_API_KEY` stays in `%LOCALAPPDATA%\hermes\.env`.
 - Use only public sources and user-supplied files; do not bypass authentication, paywalls, robots controls, or access restrictions.
+- For rendered public pages, enforce a fresh pinned `agent-browser` session with
+  `--pin-tab`, exact/direct-subdomain `--allowed-domains`,
+  `--content-boundaries`, and bounded output. Never load a profile, restored
+  state, authentication, auto-connected user browser, or cloud provider.
 - Escape untrusted content in HTML; never emit active script.
 - Keep sensitive data out of logs, checkpoints, citations, and approval messages.
 - Capture-only for public API inspection: no request replay, no parameter mutation, no cart/order/mutation endpoints.

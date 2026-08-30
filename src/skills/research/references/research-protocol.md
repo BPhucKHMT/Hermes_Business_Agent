@@ -34,6 +34,12 @@ A timeout, silence, or unrelated reply is not confirmation.
 Use the pinned `agent-browser@0.35.1`; do not add a second CDP/browser runtime.
 Every browser run is a clean, unauthenticated, public-only session constrained to
 the confirmed official domain.
+Every `agent-browser` invocation carries the same fresh
+`--session <research-run-id> --pin-tab --allowed-domains
+"<official_domain>,*.<official_domain>" --content-boundaries --max-output 50000`
+boundary. Close that session explicitly at the end. Do not use `--profile`,
+`--state`, `--restore`, `--auto-connect`, authentication commands, or a cloud
+browser provider; those can import user state or bypass the clean public session.
 
 1. Start with `agent-browser read <url>` or Tavily extraction. Escalate only when
    the required evidence depends on rendered JavaScript or interaction.
