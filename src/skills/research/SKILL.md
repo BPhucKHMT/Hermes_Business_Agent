@@ -64,6 +64,10 @@ Tavily is the sole hosted provider for search, extract, map, crawl, and deep res
    - Tavily Map/Crawl for bounded multi-page acquisition on public sites.
    - Clean-session Hermes Browser snapshot for rendered JS applications.
    - First-party public-data discovery (`agent-browser network requests --type xhr,fetch` and `agent-browser network request <requestId>`) for structured JSON data (capture-only, same official domain, unauthenticated).
+   - Follow the rendered-browser contract in `research-protocol.md`: deterministic
+     waits, accessibility snapshot first, tab reuse and cleanup, post-action
+     verification, bounded temporary trace, and one evidence-backed retry.
+     Use the pinned `agent-browser`; do not add another browser runtime.
    - Alternative direct sources (newsrooms, filings, public feeds).
    - Inaccessible or incomplete marking if unresolvable.
 4. **Map Evidence to Claims:** Every material fact must link to verified text or structured evidence records.

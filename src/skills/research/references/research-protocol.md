@@ -29,6 +29,37 @@ A timeout, silence, or unrelated reply is not confirmation.
 6. **Alternative Direct Sources:** Query official press releases, regulatory filings, public RSS feeds, or public PDF documents.
 7. **Access Limitation:** If sources remain inaccessible or incomplete, record `access_status: "inaccessible"` or `"incomplete"` and proceed with gap analysis.
 
+## Rendered Browser Interaction Contract
+
+Use the pinned `agent-browser@0.35.1`; do not add a second CDP/browser runtime.
+Every browser run is a clean, unauthenticated, public-only session constrained to
+the confirmed official domain.
+
+1. Start with `agent-browser read <url>` or Tavily extraction. Escalate only when
+   the required evidence depends on rendered JavaScript or interaction.
+2. After navigation, run `agent-browser wait --load networkidle`; for a required
+   late-rendered control, run `agent-browser wait <selector>`. These are the
+   pinned tool's equivalents of `wait_for_network_idle` and `wait_for_element`.
+3. Use `agent-browser snapshot -i --json` as the accessibility tree and select
+   elements by accessible ref. Use a screenshot only as a fallback when layout,
+   imagery, canvas, or a missing accessibility node makes structure insufficient.
+4. Use `agent-browser tab list --json` before opening a tab. Reuse a matching tab,
+   label any tab created for the run, and close it with `agent-browser tab close`
+   during cleanup. This supplies `current_tab`, `list_tabs`, and `switch_tab`
+   lifecycle semantics without another browser dependency.
+5. After each browser action that changes page state, verify it with a targeted
+   observation (`snapshot`, `get`, URL, or network request detail) before using
+   the result as evidence. Re-snapshot after clicking before reusing element refs.
+6. For multi-step browser acquisition, bound the step trace with
+   `agent-browser trace start` and `agent-browser trace stop <temporary-path>`.
+   The run ledger records action, result, duration, error, and retained evidence
+   artifact. Delete raw traces, HAR, screenshots, and network logs after permitted
+   evidence is normalized and fingerprinted.
+7. On timeout or stale refs, take one fresh targeted observation and retry the
+   same action once. Then stop with the failure taxonomy below; do not switch to
+   login, replay captured requests, weaken the domain boundary, or improvise a
+   second browser controller.
+
 ## Evidence Model (Schema v2)
 
 For each source retain:
