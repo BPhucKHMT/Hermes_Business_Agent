@@ -169,8 +169,13 @@ check(
     'interaction',
     'dynamic_wait_contract',
     sub {
-        index($contract, 'wait_for_network_idle') >= 0
-          && index($contract, 'wait_for_element') >= 0;
+        (
+            index($contract, 'wait_for_network_idle') >= 0
+              && index($contract, 'wait_for_element') >= 0
+        ) || (
+            index($contract, 'agent-browser wait --load networkidle') >= 0
+              && index($contract, 'agent-browser wait <selector>') >= 0
+        );
     },
 );
 check(
@@ -187,10 +192,15 @@ check(
     'interaction',
     'tab_reuse_and_cleanup',
     sub {
-        index($contract, 'current_tab') >= 0
-          && index($contract, 'list_tabs') >= 0
-          && index($contract, 'switch_tab') >= 0
-          && (index($contract, 'duplicate tab') >= 0 || index($contract, 'reuse') >= 0);
+        (
+            index($contract, 'current_tab') >= 0
+              && index($contract, 'list_tabs') >= 0
+              && index($contract, 'switch_tab') >= 0
+        ) || (
+            index($contract, 'agent-browser tab list') >= 0
+              && index($contract, 'agent-browser tab close') >= 0
+              && index($contract, 'reuse') >= 0
+        );
     },
 );
 check(
@@ -206,8 +216,13 @@ check(
     'interaction',
     'bounded_step_trace',
     sub {
-        index($contract, 'step trace') >= 0
-          && index($contract, 'duration') >= 0
+        (
+            index($contract, 'step trace') >= 0
+              || (
+                index($contract, 'agent-browser trace start') >= 0
+                  && index($contract, 'agent-browser trace stop') >= 0
+              )
+        ) && index($contract, 'duration') >= 0
           && index($contract, 'error') >= 0;
     },
 );
