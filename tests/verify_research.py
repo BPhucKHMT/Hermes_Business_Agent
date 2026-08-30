@@ -106,6 +106,7 @@ def layer_1() -> None:
         path.read_text(encoding="utf-8")
         for path in [SKILL, *sorted((SKILL.parent / "references").glob("*.md"))]
     ).lower()
+    contract = re.sub(r"\s+", " ", contract)
     required_phrases = (
         "quick",
         "deep",
