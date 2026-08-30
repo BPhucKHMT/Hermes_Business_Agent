@@ -84,9 +84,10 @@ def layer_1() -> None:
     setup_cmd = (ROOT / "src/setup.cmd").read_text(encoding="utf-8")
     setup_sh = (ROOT / "src/setup.sh").read_text(encoding="utf-8")
     readme = (ROOT / "src/README.md").read_text(encoding="utf-8")
-    for text in (setup_cmd, setup_sh):
-        assert "tavily-cli==0.1.6" in text
-        assert "agent-browser@0.35.1" in text
+    for setup_text in (setup_cmd, setup_sh):
+        assert "tavily-cli==0.1.6" in setup_text
+        assert "agent-browser@0.35.1" in setup_text
+        assert "browser-harness" not in setup_text
     assert "%LOCALAPPDATA%\\hermes\\.env" in readme
     assert "TAVILY_API_KEY" in readme
     assert "tvly login --api-key" not in readme
@@ -105,9 +106,40 @@ def layer_1() -> None:
         path.read_text(encoding="utf-8")
         for path in [SKILL, *sorted((SKILL.parent / "references").glob("*.md"))]
     ).lower()
-    for phrase in ("quick", "deep", "site intelligence", "tvly research", "capture-only", "official_domain", "grounded-citations", "deck-guizang-editorial", "built-in `powerpoint`", "built-in `xlsx`", "report.html", "16:9 structure", "keyboard navigation", "do not send `media`"):
+    required_phrases = (
+        "quick",
+        "deep",
+        "site intelligence",
+        "tvly research",
+        "capture-only",
+        "official_domain",
+        "grounded-citations",
+        "deck-guizang-editorial",
+        "built-in `powerpoint`",
+        "built-in `xlsx`",
+        "report.html",
+        "16:9 structure",
+        "keyboard navigation",
+        "do not send `media`",
+        "agent-browser wait --load networkidle",
+        "agent-browser wait <selector>",
+        "accessibility tree",
+        "screenshot only as a fallback",
+        "agent-browser tab list --json",
+        "agent-browser tab close",
+        "after each browser action",
+        "agent-browser trace start",
+        "agent-browser trace stop",
+        "do not add another browser runtime",
+    )
+    for phrase in required_phrases:
         assert phrase in contract, f"missing phrase: {phrase}"
-    for forbidden_token in ("camofox", "captcha solver"):
+    for forbidden_token in (
+        "camofox",
+        "captcha solver",
+        "browser use cloud",
+        "posthog",
+    ):
         assert forbidden_token not in contract, f"forbidden token found: {forbidden_token}"
 
 
