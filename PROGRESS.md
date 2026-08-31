@@ -3,7 +3,7 @@
 ## Harness Status
 
 - Phase: H009, H010, and H006 are `blocked`; H008 is `passing`.
-- Workspace: `C:\Hermes-Business-Agent` on `main`; existing unrelated uncommitted changes remain and must not be reset.
+- Workspace: `C:\Hermes-Business-Agent` on `autoresearch/https-github-com-browser-use-browser-harness-xem-20260830`; existing unrelated uncommitted changes remain and must not be reset.
 - WIP limit: 1; 0 active features.
 ## Completed
 
@@ -369,7 +369,7 @@
    - HTML deliverable formatting and Vietnamese typography rendering.
    - Generated slide deck interactivity (Previous/Next click handlers and 16:9 ratio).
    - Generated `.xlsx` spreadsheet formatting and currency styling.
-4. The Independent Verifier records command/event, UTC timestamp, exit status, and result in `feature-list.json` evidence field and transitions H010 state `active -> passing`.
+4. The Independent Verifier records command/event, UTC timestamp, exit status, and result in `feature-list.json` evidence field and transitions H010 state `blocked -> active -> passing`.
  
 ## 2026-08-31 H010 Operator Setup and Layer 3 Blocker
 
