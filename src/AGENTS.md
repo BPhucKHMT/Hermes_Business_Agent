@@ -30,6 +30,7 @@ and other runtime-owned files belong in this workspace.
 - Workspace & Document Access: Agent runs with root at `src` and is authorized to inspect, read, and update business documents directly inside `docs/` (or `workspaces/`), including spreadsheets (`.xlsx`) and project plans (`.docx`). Agent must search `docs/` automatically for domain documents without requiring user filesystem paths.
 - Cross-platform uploaded files: Any file received or delivered through Telegram, WhatsApp, or other connected platforms must be saved into the project workspace (`docs/`, `workspaces/`, or Hermes cache) and, where applicable, ingested into the Azure knowledge base so that skills such as `hermes-azure-rag`, `progress-report`, and document search can access them.
 - `/email` defines multi-user read-only Gmail thread search and inspection in DM with host-owned caller authorization.
+- `/social-browser-assist` prepares an approved caller's Facebook personal-profile text or single-image post in a dedicated logged-in browser, hands the visible tab to the human, and never clicks Publish. YouTube and TikTok are unsupported.
 - No project-owned deep-research provider, web UI, Slack, sales, invoice, cron-research, or outbound Gmail sending integration exists yet. Deck composition delegates to the existing prebuilt deck/productivity skills; do not claim unsupported integrations.
 
 ## Operating Rules
@@ -54,6 +55,10 @@ and other runtime-owned files belong in this workspace.
 ## Source Routing
 
 Evaluate in order; the first matching route wins. A fresh session does not lower retained-knowledge priority.
+Explicit Facebook post-preparation intent routes to `/social-browser-assist`
+before evaluating information-source routes. Public social research still uses
+`/research`; retained company knowledge still uses `/hermes-azure-rag`.
+
 
 0. **Current Protein Bar progress, spreadsheets & operational tasks** — Questions about current supplier/thread/task/blocker/owner/due-date state use `/progress-report` and native Hermes Kanban. Hermes Kanban owns operational task state; registered business documents own business narratives; conversation history and session logs supply multi-turn conversational context; exact scoped Azure evidence (`--workspace protein-bar`) supplies searchable document knowledge and history. Agent has direct Python & file access to read `docs/protein-bar/` (`protein_bar_budget_plan.xlsx`, `Protein Cafe.xlsx`, `protein_bar_master_plan.docx`) and parse rows, cells, calculate VAT/totals, and track operational progress seamlessly like ChatGPT Code Interpreter without claiming files are missing. In a cold session without explicit Kanban/files, agent may utilize past session history and chat history to maintain continuity. If a required owner or progress field is unclear, ask one question and perform zero mutation, task creation, Cron creation, draft, outbound action, or KB sync.
 1. **Explicit source request** — Honor knowledge base, live web, or current-response-only as stated.

@@ -1,0 +1,18 @@
+name: social-browser-assist
+label: Human-Publish Facebook Browser Assist
+kind: standalone
+version: 0.1.0
+description: Prepare Facebook personal-profile posts and stop before human Publish.
+author: Hermes project team
+platforms:
+  - linux
+  - macos
+  - windows
+provides_tools:
+  - social_prepare_facebook_post
+  - social_browser_status
+  - social_verify_facebook_post
+provides_hooks:
+  - pre_gateway_dispatch
+  - pre_tool_call
+  - on_session_finalize
