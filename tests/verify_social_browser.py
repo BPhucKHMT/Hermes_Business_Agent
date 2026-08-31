@@ -25,15 +25,6 @@ def load_module(name: str, path: Path):
 
 def layer_1() -> None:
     required = (
-        SRC / "config/social_browser_policy.json",
-        SRC / "tools/social_browser/contracts.py",
-        SRC / "tools/social_browser/policy.py",
-        SRC / "tools/social_browser/store.py",
-        SRC / "tools/social_browser/harness.py",
-        SRC / "tools/social_browser/gateway.py",
-        SRC / "tools/social_browser/facebook.py",
-        SRC / "tools/social_browser/service.py",
-        SRC / "tools/social_browser/cli.py",
         PLUGIN / "plugin.yaml",
         PLUGIN / "social_schemas.py",
         PLUGIN / "social_plugin_tools.py",
@@ -42,77 +33,43 @@ def layer_1() -> None:
         PLUGIN / "social_client.py",
         PLUGIN / "__init__.py",
         SRC / "skills/social-browser-assist/SKILL.md",
-        SRC / ".hermes/browser-harness-workspace/agent_helpers.py",
     )
     missing = [str(path.relative_to(ROOT)) for path in required if not path.is_file()]
     assert not missing, f"missing social browser files: {missing}"
 
-    policy = json.loads(required[0].read_text(encoding="utf-8"))
-    assert policy["schema_version"] == 1
-    assert policy["browser_harness_version"] == "0.1.10"
-    assert policy["telemetry"] is False and policy["cloud"] is False
-    platform = policy["platforms"]["facebook-personal"]
-    assert platform["origins"] == ["https://www.facebook.com"]
-    assert "handoff" in platform["allowed_operations"]
-    assert not set(("post", "publish", "schedule", "send")) & set(
-        platform["allowed_operations"]
-    )
-
-    setup_cmd = (SRC / "setup.cmd").read_text(encoding="utf-8")
-    setup_sh = (SRC / "setup.sh").read_text(encoding="utf-8")
-    for setup in (setup_cmd, setup_sh):
-        assert "browser-harness==0.1.10" in setup
+    manifest = required[0].read_text(encoding="utf-8")
+    assert "social_connection_status" in manifest
+    assert "social_prepare_facebook_post" not in manifest
+    assert "social_browser_status" not in manifest
+    assert "social_verify_facebook_post" not in manifest
     env_example = (SRC / ".env.example").read_text(encoding="utf-8")
     for value in (
-        "BH_TELEMETRY=0",
-        "BH_AGENT_WORKSPACE=",
-        "SOCIAL_BROWSER_HARNESS_EXECUTABLE=",
-        "SOCIAL_BROWSER_CDP_URL=http://127.0.0.1:9222",
-        "SOCIAL_BROWSER_ALLOWED_TELEGRAM_USERS=",
+        "SOCIAL_BROWSER_FACEBOOK_ACCOUNT_LABEL",
+        "SOCIAL_BROWSER_ALLOWED_TELEGRAM_USERS",
+        "SOCIAL_BROWSER_CDP_URL",
     ):
-        assert value in env_example, f"missing env contract: {value}"
+        assert value not in env_example
 
-    features = json.loads((ROOT / "feature-list.json").read_text(encoding="utf-8"))
-    active = [item["id"] for item in features["features"] if item["state"] == "active"]
-    assert active in ([], ["H012"]), active
-    h012 = next(item for item in features["features"] if item["id"] == "H012")
-    assert h012["state"] in {"active", "blocked"}
-    assert h012["evidence"] is None
-
-    schemas = load_module("hermes_social_browser_assist.social_schemas", PLUGIN / "social_schemas.py")
-    schemas_by_name = {
-        schema["name"]: schema
-        for schema in (
-            schemas.SOCIAL_PREPARE_SCHEMA,
-            schemas.SOCIAL_STATUS_SCHEMA,
-            schemas.SOCIAL_VERIFY_SCHEMA,
-        )
-    }
-    assert set(schemas_by_name) == {
-        "social_prepare_facebook_post",
-        "social_browser_status",
-        "social_verify_facebook_post",
-    }
-    properties = schemas.SOCIAL_PREPARE_SCHEMA["parameters"]["properties"]
-    assert set(properties) == {"account_label", "text", "media_paths", "audience"}
-    forbidden_fields = {"publish", "auto_publish", "url", "selector", "code", "coordinates"}
-    assert forbidden_fields.isdisjoint(properties)
-
-    manifest = (PLUGIN / "plugin.yaml").read_text(encoding="utf-8")
-    for tool_name in schemas_by_name:
-        assert f"  - {tool_name}" in manifest
+    schemas = load_module(
+        "hermes_social_browser_assist.social_schemas",
+        PLUGIN / "social_schemas.py",
+    )
+    assert schemas.SOCIAL_CONNECTION_STATUS_SCHEMA["name"] == (
+        "social_connection_status"
+    )
+    assert schemas.SOCIAL_CONNECTION_STATUS_SCHEMA["parameters"]["properties"] == {}
     skill = (SRC / "skills/social-browser-assist/SKILL.md").read_text(
         encoding="utf-8"
     ).lower()
     for phrase in (
-        "never click",
-        "user must",
-        "ready_for_human",
-        "youtube or tiktok",
-        "only completion evidence",
+        "telegram is the customer gateway",
+        "personal-profile publishing is disabled",
+        "passwords",
+        "future scope",
     ):
         assert phrase in skill, f"missing skill boundary: {phrase}"
     print("social browser layer 1: pass")
+
 
 
 def layer_2() -> None:

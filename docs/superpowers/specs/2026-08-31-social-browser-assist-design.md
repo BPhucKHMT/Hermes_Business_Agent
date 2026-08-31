@@ -277,5 +277,24 @@ Only independent Layer 3 evidence may mark the feature `passing`.
 4. Add YouTube as a separate approved slice after Facebook is `passing`.
 5. Add TikTok as a separate approved slice after YouTube is `passing`.
 
+
+## Architecture Decision Update (2026-08-31)
+
+Telegram is the only customer gateway. Host-captured Telegram DM identity is
+the caller identity; static Telegram allowlists and caller-supplied account
+labels are not authorization.
+
+The personal-profile browser approach is incompatible with customer
+production: it is grey automation, requires a separate local login surface, and
+does not satisfy the official-API requirement. Facebook personal-profile
+preparation is therefore disabled and its customer-facing tools/configuration
+are removed. Hermes may still deliver post drafts through Telegram.
+
+An eligible Facebook Page/Business connector may be added later through a
+separate secure OAuth flow that returns an authorization URL in Telegram and
+persists the caller-to-connection mapping. Hermes must not request passwords,
+MFA codes, cookies, tokens, or profile exports in Telegram. Until that
+connector exists, `social_connection_status` reports the unsupported state and
+does not fabricate an authorization URL.
 The implementation plan must not combine all three live integrations into one
 unverifiable release.

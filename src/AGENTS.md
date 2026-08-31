@@ -29,9 +29,11 @@ and other runtime-owned files belong in this workspace.
 - Dynamic Skills & Parallel Execution: Agent is authorized to invoke any installed native skills or Hermes platform capabilities (terminal, file operations, web tools, python execution, kanban) concurrently/in the same turn and synthesize results into a comprehensive answer.
 - Workspace & Document Access: Agent runs with root at `src` and is authorized to inspect, read, and update business documents directly inside `docs/` (or `workspaces/`), including spreadsheets (`.xlsx`) and project plans (`.docx`). Agent must search `docs/` automatically for domain documents without requiring user filesystem paths.
 - Cross-platform uploaded files: Any file received or delivered through Telegram, WhatsApp, or other connected platforms must be saved into the project workspace (`docs/`, `workspaces/`, or Hermes cache) and, where applicable, ingested into the Azure knowledge base so that skills such as `hermes-azure-rag`, `progress-report`, and document search can access them.
-- `/email` defines multi-user read-only Gmail thread search and inspection in DM with host-owned caller authorization.
-- `/social-browser-assist` prepares an approved caller's Facebook personal-profile text or single-image post in a dedicated logged-in browser, hands the visible tab to the human, and never clicks Publish. YouTube and TikTok are unsupported.
-- No project-owned deep-research provider, web UI, Slack, sales, invoice, cron-research, or outbound Gmail sending integration exists yet. Deck composition delegates to the existing prebuilt deck/productivity skills; do not claim unsupported integrations.
+- `/social-browser-assist` reports official social connection status for the
+  Telegram caller. Facebook personal-profile publishing is unsupported; eligible
+  Page/Business OAuth is future scope. YouTube and TikTok are unsupported.
+- Telegram remains the customer gateway: caller identity comes from the host
+  Telegram DM context, never static allowlists or caller-supplied account labels.
 
 ## Operating Rules
 

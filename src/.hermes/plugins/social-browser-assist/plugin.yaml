@@ -1,17 +1,15 @@
 name: social-browser-assist
-label: Human-Publish Facebook Browser Assist
+label: Social connection status
 kind: standalone
-version: 0.1.0
-description: Prepare Facebook personal-profile posts and stop before human Publish.
+version: 0.2.0
+description: Report official social connection status; personal Facebook publishing is unsupported.
 author: Hermes project team
 platforms:
   - linux
   - macos
   - windows
 provides_tools:
-  - social_prepare_facebook_post
-  - social_browser_status
-  - social_verify_facebook_post
+  - social_connection_status
 provides_hooks:
   - pre_gateway_dispatch
   - pre_tool_call

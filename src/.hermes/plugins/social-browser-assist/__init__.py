@@ -52,12 +52,8 @@ _schemas = _load_plugin_module("social_schemas")
 
 get_default_client = _client.get_default_client
 SocialBrowserTools = _guard.SocialBrowserTools
-handle_prepare = _tools.handle_prepare
-handle_status = _tools.handle_status
-handle_verify = _tools.handle_verify
-SOCIAL_PREPARE_SCHEMA = _schemas.SOCIAL_PREPARE_SCHEMA
-SOCIAL_STATUS_SCHEMA = _schemas.SOCIAL_STATUS_SCHEMA
-SOCIAL_VERIFY_SCHEMA = _schemas.SOCIAL_VERIFY_SCHEMA
+handle_connection_status = _tools.handle_connection_status
+SOCIAL_CONNECTION_STATUS_SCHEMA = _schemas.SOCIAL_CONNECTION_STATUS_SCHEMA
 
 
 def register(ctx: Any) -> SocialBrowserTools:
@@ -65,25 +61,16 @@ def register(ctx: Any) -> SocialBrowserTools:
     client = get_default_client()
     registry = guard.registry
     ctx.register_tool(
-        name="social_prepare_facebook_post",
+        name="social_connection_status",
         toolset="social_browser_assist",
-        schema=SOCIAL_PREPARE_SCHEMA,
-        handler=partial(handle_prepare, client=client, registry=registry),
-        description="Prepare a Facebook post and stop before human Publish.",
-    )
-    ctx.register_tool(
-        name="social_browser_status",
-        toolset="social_browser_assist",
-        schema=SOCIAL_STATUS_SCHEMA,
-        handler=partial(handle_status, client=client, registry=registry),
-        description="Read durable status for a social-browser preparation run.",
-    )
-    ctx.register_tool(
-        name="social_verify_facebook_post",
-        toolset="social_browser_assist",
-        schema=SOCIAL_VERIFY_SCHEMA,
-        handler=partial(handle_verify, client=client, registry=registry),
-        description="Verify a Facebook post only after the human publishes it.",
+        schema=SOCIAL_CONNECTION_STATUS_SCHEMA,
+        handler=partial(
+            handle_connection_status, client=client, registry=registry
+        ),
+        description=(
+            "Check official social connection status for this Telegram caller; "
+            "personal Facebook publishing is unsupported."
+        ),
     )
     ctx.register_hook("pre_gateway_dispatch", guard.pre_gateway_dispatch)
     ctx.register_hook("pre_tool_call", guard.pre_tool_call)

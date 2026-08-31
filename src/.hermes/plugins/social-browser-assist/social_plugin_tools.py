@@ -28,7 +28,7 @@ def _caller_error(exc: Exception) -> str:
     return _error("missing_caller_context")
 
 
-def handle_prepare(
+def handle_connection_status(
     params: dict[str, Any],
     *,
     client: Any = None,
@@ -37,55 +37,11 @@ def handle_prepare(
     session_id: str = "",
     **kwargs: Any,
 ) -> str:
-    del kwargs
+    del params, kwargs
     if client is None:
         return _error("social_browser_unavailable")
     try:
         caller = _resolve(registry, task_id, session_id)
-        return _json(client.prepare(caller, params))
+        return _json(client.connection_status(caller))
     except (DmOnlyError, LookupError) as exc:
         return _caller_error(exc)
-    except PermissionError as exc:
-        return _error(str(exc))
-
-
-def handle_status(
-    params: dict[str, Any],
-    *,
-    client: Any = None,
-    registry: Any = None,
-    task_id: str = "",
-    session_id: str = "",
-    **kwargs: Any,
-) -> str:
-    del kwargs
-    if client is None:
-        return _error("social_browser_unavailable")
-    try:
-        caller = _resolve(registry, task_id, session_id)
-        return _json(client.status(caller, str(params.get("run_id", ""))))
-    except (DmOnlyError, LookupError) as exc:
-        return _caller_error(exc)
-    except PermissionError as exc:
-        return _error(str(exc))
-
-
-def handle_verify(
-    params: dict[str, Any],
-    *,
-    client: Any = None,
-    registry: Any = None,
-    task_id: str = "",
-    session_id: str = "",
-    **kwargs: Any,
-) -> str:
-    del kwargs
-    if client is None:
-        return _error("social_browser_unavailable")
-    try:
-        caller = _resolve(registry, task_id, session_id)
-        return _json(client.verify(caller, str(params.get("run_id", ""))))
-    except (DmOnlyError, LookupError) as exc:
-        return _caller_error(exc)
-    except PermissionError as exc:
-        return _error(str(exc))

@@ -258,16 +258,16 @@
     },
     {
       "id": "H012",
-      "title": "Hermes prepares personal Facebook posts for human publication",
-      "behavior": "From an approved Telegram caller, Hermes prepares a text or single-image post in a dedicated logged-in Facebook browser profile, verifies account/content/media/audience, stops before Publish, and records a post URL only after the human publishes.",
+      "title": "Truthful Telegram-first social connection status",
+      "behavior": "A Telegram DM caller can query durable social connection status without operator allowlists or caller-supplied account labels. Facebook personal-profile publishing remains disabled because no supported official Meta publishing path exists; eligible Page/Business OAuth is future scope.",
       "verification": {
         "layer_1": "python tests/verify_social_browser.py --layer 1",
         "layer_2": "uv run --frozen python ../tests/verify_social_browser.py --layer 2",
-        "layer_3": "independent verifier uses a dedicated personal Facebook test account to prove prepare-only handoff, human Publish, read-back evidence, idempotency, and blocker paths"
+        "layer_3": "blocked until an official Meta Page/Business connector and secure OAuth callback exist"
       },
       "state": "blocked",
       "evidence": null,
-      "blocked": "Implementation and Layer 1/2 verification are complete. Owner: user/operator plus independent verifier. Unblock when a dedicated Facebook personal test profile is manually logged in, SOCIAL_BROWSER_FACEBOOK_ACCOUNT_LABEL and SOCIAL_BROWSER_ALLOWED_TELEGRAM_USERS are configured, the user is available to click Publish in the visible browser, and the live Layer 3 prepare/verify scenarios are approved.",
+      "blocked": "Personal Facebook browser automation was rejected as grey automation and requires a separate login surface. Owner: project operator. Unblock only when an official Meta Page/Business OAuth connector is implemented with durable caller-to-connection mapping and independently verified.",
       "depends_on": ["H008"]
     }
   ]

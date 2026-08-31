@@ -408,3 +408,22 @@
   the human-only Publish click, and approving the live Layer 3 scenarios.
 - No Facebook content was prepared or published during implementation. H012 is
   not `passing`.
+
+## 2026-08-31 H012 contract correction
+
+- Root cause: the implementation treated operator browser configuration
+  (`SOCIAL_BROWSER_FACEBOOK_ACCOUNT_LABEL`, `SOCIAL_BROWSER_ALLOWED_TELEGRAM_USERS`,
+  and a local CDP profile) as customer authorization. This contradicts
+  Telegram-primary identity and NFR-SEC-04's official-API-only requirement.
+- Personal Facebook browser preparation, verification, browser-harness setup,
+  and related customer-facing tool claims are disabled. Draft text can still be
+  delivered through Telegram.
+- Added `social_connection_status`, which derives caller identity from the
+  host-captured Telegram DM and reads durable connection state without operator
+  environment variables. It returns `unsupported` for Facebook personal
+  profiles and no fabricated authorization URL.
+- H012 remains `blocked`. Unblock only after an official Facebook Page/Business
+  OAuth connector exists with durable caller-to-connection mapping and an
+  independently verified callback. Passwords, MFA, cookies, tokens, and profile
+  exports remain forbidden in Telegram.
+- `python tests/verify_social_browser.py --layer 1` — pass, exit 0.

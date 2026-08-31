@@ -1,13 +1,7 @@
 from hermes_social_browser_assist.social_caller import CallerContextRegistry, DmOnlyError
 
 
-SOCIAL_TOOL_NAMES = frozenset(
-    {
-        "social_prepare_facebook_post",
-        "social_browser_status",
-        "social_verify_facebook_post",
-    }
-)
+SOCIAL_TOOL_NAMES = frozenset({"social_connection_status"})
 
 
 class SocialBrowserTools:

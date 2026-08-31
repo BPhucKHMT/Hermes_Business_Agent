@@ -83,90 +83,57 @@ class FakeService:
 
 
 class FakeClient:
-    def prepare(self, caller, params):
-        return {"ok": True, "result": {"status": "ready_for_human"}}
-
-    def status(self, caller, run_id):
-        return {"ok": True, "result": {"run_id": run_id}}
-
-    def verify(self, caller, run_id):
-        return {"ok": True, "result": {"run_id": run_id}}
+    def connection_status(self, caller):
+        return {
+            "ok": True,
+            "result": {"principal_id": caller.principal_id, "status": "not_connected"},
+        }
 
 
-def test_plugin_exposes_only_narrow_tools(monkeypatch) -> None:
+
+def test_plugin_exposes_truthful_customer_tools(monkeypatch) -> None:
     context = FakeContext()
     monkeypatch.setattr(plugin_module, "get_default_client", lambda: FakeClient())
 
     plugin_module.register(context)
 
-    assert set(context.tools) == {
+    assert set(context.tools) == {"social_connection_status"}
+    forbidden = {
         "social_prepare_facebook_post",
         "social_browser_status",
         "social_verify_facebook_post",
+        "browser_cdp",
+        "browser_js",
+        "browser_click",
+        "social_publish",
     }
-    forbidden = {"browser_cdp", "browser_js", "browser_click", "social_publish"}
     assert forbidden.isdisjoint(context.tools)
 
 
-def test_prepare_requires_dm() -> None:
-    registry = FakeRegistry(error=plugin_tools.DmOnlyError("dm required"))
-
-    raw = plugin_tools.handle_prepare(
-        {"account_label": "test", "text": "hello", "audience": "friends"},
-        client=FakeClient(),
-        registry=registry,
-        session_id="session-1",
-    )
-
-    assert json.loads(raw)["error"]["code"] == "dm_required"
-
-
-def test_prepare_passes_bound_caller() -> None:
-    caller = SimpleNamespace(user_id="123", principal_id="telegram:default:123")
-    registry = FakeRegistry(caller=caller)
-
-    raw = plugin_tools.handle_prepare(
-        {"account_label": "test", "text": "hello", "audience": "friends"},
-        client=FakeClient(),
-        registry=registry,
-        session_id="session-1",
-    )
-
-    assert json.loads(raw)["result"]["status"] == "ready_for_human"
-
-
-def test_client_fails_closed_without_caller_allowlist(monkeypatch) -> None:
+def test_new_telegram_dm_can_query_connection_status_without_operator_env(
+    monkeypatch,
+) -> None:
     monkeypatch.delenv("SOCIAL_BROWSER_ALLOWED_TELEGRAM_USERS", raising=False)
-    client = plugin_client.SocialBrowserClient(lambda: FakeService())
-    caller = SimpleNamespace(user_id="123")
-
-    try:
-        client.prepare(
-            caller,
-            {
-                "account_label": "test",
-                "text": "hello",
-                "audience": "friends",
-            },
+    registry = FakeRegistry(
+        caller=SimpleNamespace(
+            user_id="new-customer",
+            principal_id="telegram:default:new-customer",
         )
-    except PermissionError as exc:
-        assert str(exc) == "social_browser_caller_allowlist_required"
-    else:
-        raise AssertionError("empty caller allowlist was accepted")
-
-
-def test_client_accepts_explicitly_allowed_caller(monkeypatch) -> None:
-    monkeypatch.setenv("SOCIAL_BROWSER_ALLOWED_TELEGRAM_USERS", "123")
-    client = plugin_client.SocialBrowserClient(lambda: FakeService())
-    caller = SimpleNamespace(user_id="123")
-
-    result = client.prepare(
-        caller,
-        {
-            "account_label": "test",
-            "text": "hello",
-            "audience": "friends",
-        },
     )
 
-    assert result["result"]["status"] == "ready_for_human"
+    raw = plugin_tools.handle_connection_status(
+        {},
+        client=FakeClient(),
+        registry=registry,
+        session_id="session-1",
+    )
+
+    payload = json.loads(raw)
+    assert payload["ok"] is True
+    assert payload["result"]["status"] == "not_connected"
+    assert payload["result"]["principal_id"] == "telegram:default:new-customer"
+
+
+def test_personal_facebook_prepare_is_not_publicly_available() -> None:
+    assert not hasattr(plugin_tools, "handle_prepare")
+    assert not hasattr(plugin_module, "SOCIAL_PREPARE_SCHEMA")
