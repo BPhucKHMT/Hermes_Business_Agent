@@ -370,4 +370,23 @@
    - Generated slide deck interactivity (Previous/Next click handlers and 16:9 ratio).
    - Generated `.xlsx` spreadsheet formatting and currency styling.
 4. The Independent Verifier records command/event, UTC timestamp, exit status, and result in `feature-list.json` evidence field and transitions H010 state `active -> passing`.
+ 
+## 2026-08-31 H010 Operator Setup and Layer 3 Blocker
+
+- Operator setup was performed without printing or copying secrets.
+- Backup created before changes: `C:\Users\ADMIN\AppData\Local\hermes\backups\h010-operator-20260831T130816Z\` (`config.yaml`, default `.env`, and `protein-bar.env` when present).
+- Exact operator commands and results at `2026-08-31T13:11:21Z`:
+  - `C:/Users/ADMIN/AppData/Local/hermes/bin/uv.exe tool install tavily-cli==0.1.6` -> exit 0; installed `tvly`.
+  - `C:/Users/ADMIN/AppData/Local/hermes/node/npm.cmd install -g agent-browser@0.35.1` -> exit 0; npm emitted an engine warning because bundled Node is v22.23.2 while the package declares Node >=24.
+  - `hermes plugins enable web-tavily` -> exit 0; bundled `web-tavily` enabled for the next session.
+  - `hermes config set web.backend tavily` -> exit 0; redacted delta: `web.backend firecrawl -> tavily`.
+  - `C:/Users/ADMIN/.local/bin/tvly.exe --version` -> exit 0; `tavily-cli 0.1.6`.
+  - `C:/Users/ADMIN/AppData/Local/hermes/node/agent-browser.cmd --version` -> exit 0; `agent-browser 0.35.1`.
+  - `tvly auth --json` (captured and discarded without displaying payload) -> exit 0; `authenticated=false`.
+  - `hermes gateway start` -> exit 0; fresh default gateway PID `54172`.
+  - `hermes gateway status && hermes gateway list` -> exit 0; default PID `54172`, Scheduled Task `Hermes_Gateway` Ready, `protein-bar` not running.
+- Gateway log evidence: fresh process started at `2026-08-31 20:09:45` local time; Telegram connected in polling mode at `2026-08-31 20:10:05` and gateway reported `telegram connected` at `20:10:11`. WhatsApp remained failed with an existing `WinError 5`; unrelated to H010.
+- Layer 1 and Layer 2 research checks remain passing from the prior handoff. No Telegram prompts were sent and no H010 scenario was executed.
+- Default operator environment contains a nonempty `TAVILY_API_KEY`; `protein-bar` profile environment does not. No profile secret was changed.
+- H010 is now `blocked` with `evidence: null`. Owner: operator plus independent verifier. Blockers: `tvly auth --json` is not authenticated despite the default environment key; the configured default route `-1004420788744/topic 1` is not present in `channel_directory.json`; Telegram `allowed_users` remains wildcard because recent logs provide no unambiguous operator numeric user ID. Unblock by operator confirmation/reconciliation of the approved default chat/topic and user ID, and Tavily auth/API-key resolution; then an independent verifier must execute all seven scenarios sequentially and record exact event/command, UTC timestamp, exit status, citations, deliverables, and negative/lifecycle results.
 5. Proceed to the next scheduled roadmap feature once H010 reaches `passing`.
