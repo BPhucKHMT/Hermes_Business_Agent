@@ -251,10 +251,24 @@
         "layer_2": "uv run --frozen python ../tests/verify_research.py --layer 2",
         "layer_3": "fresh Hermes process and approved Telegram chat complete the Tavily-first research release scenarios"
       },
+      "state": "blocked",
+      "evidence": null,
+      "blocked": "Implementation and Layer 1/2 are complete. Owner: operator plus independent verifier. Unblock when the seven approved Telegram research scenarios are run against a fresh Hermes process and evidence is recorded.",
+      "depends_on": ["H005"]
+    },
+    {
+      "id": "H012",
+      "title": "Hermes prepares personal Facebook posts for human publication",
+      "behavior": "From an approved Telegram caller, Hermes prepares a text or single-image post in a dedicated logged-in Facebook browser profile, verifies account/content/media/audience, stops before Publish, and records a post URL only after the human publishes.",
+      "verification": {
+        "layer_1": "python tests/verify_social_browser.py --layer 1",
+        "layer_2": "uv run --frozen python ../tests/verify_social_browser.py --layer 2",
+        "layer_3": "independent verifier uses a dedicated personal Facebook test account to prove prepare-only handoff, human Publish, read-back evidence, idempotency, and blocker paths"
+      },
       "state": "active",
       "evidence": null,
       "blocked": null,
-      "depends_on": ["H005"]
+      "depends_on": ["H008"]
     }
   ]
 }

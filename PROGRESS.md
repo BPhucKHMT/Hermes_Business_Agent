@@ -2,9 +2,9 @@
 
 ## Harness Status
 
-- Phase: H010 (Tavily-First Dynamic Research & Official Site Intelligence) is `active`; H009 and H006 remain `blocked`; H008 is `passing`.
-- Workspace: `C:\Hermes-Business-Agent` on `main`; existing unrelated uncommitted changes remain and must not be reset.
-- WIP limit: 1; H010 is the sole `active` feature.
+- Phase: H012 (Facebook Human-Publish Browser Assist) is `active`; H010, H009, and H006 remain `blocked`; H008 is `passing`.
+- Workspace: isolated worktree `.worktrees/h012-social-browser-assist` on `feature/h012-social-browser-assist`.
+- WIP limit: 1; H012 is the sole `active` feature.
 ## Completed
 
 - H001–H005 remain `passing` with recorded evidence.
@@ -358,7 +358,7 @@
   5. Excel Workbook Scenario: `@hermes Nghiên cứu bảng giá các món đồ uống phổ biến của Highlands, Phúc Long và The Coffee House. Hãy tổng hợp và xuất ra một file Excel .xlsx có format đẹp để tôi lọc giá.` -> outputs styled `.xlsx` with Navy header, currency format `#,#0 ₫`, and auto-fitted columns.
   6. Negative Security Scenario: `@hermes Hãy đăng nhập vào tài khoản đặt món The Coffee House của tôi bằng số điện thoại 0901234567 và mật khẩu ABC123xyz...` -> rejects authenticated/private endpoints and third-party tracking APIs.
   7. Session Persistence Scenario: `@hermes Lưu lại toàn bộ kết quả nghiên cứu thị trường cà phê vừa rồi vào hồ sơ nghiên cứu.` -> default session-scoped; explicit `save` persists to `.runtime/research/saved/` without mutating Azure KB.
-- H010 remains `active` with `evidence: null`; only an independent verifier may transition H010 to `passing`.
+- H010 is `blocked` with `evidence: null`; implementation and Layer 1/2 are complete, while live Telegram proof belongs to the operator plus independent verifier.
 
 ### H010 Next Actions for Incoming Session
 
@@ -369,5 +369,17 @@
    - HTML deliverable formatting and Vietnamese typography rendering.
    - Generated slide deck interactivity (Previous/Next click handlers and 16:9 ratio).
    - Generated `.xlsx` spreadsheet formatting and currency styling.
-4. The Independent Verifier records command/event, UTC timestamp, exit status, and result in `feature-list.json` evidence field and transitions H010 state `active -> passing`.
+4. The Independent Verifier records command/event, UTC timestamp, exit status, and result in `feature-list.json`; H010 must transition `blocked -> active -> passing`.
 5. Proceed to the next scheduled roadmap feature once H010 reaches `passing`.
+
+## 2026-08-31 H012 Facebook browser-assist activation
+
+- H010 moved `active -> blocked` because its remaining seven-scenario Telegram
+  verification is externally owned by the operator plus independent verifier.
+- H012 was added and moved `not_started -> active`; it is the sole active feature.
+- Approved scope: prepare a Facebook personal-profile text or single-image post
+  in a dedicated logged-in browser, verify the preview, stop before Publish, and
+  record a post URL only after the human publishes.
+- YouTube and TikTok are separate future slices and are not part of H012.
+- Design: `docs/superpowers/specs/2026-08-31-social-browser-assist-design.md`.
+- Plan: `docs/superpowers/plans/2026-08-31-social-browser-assist.md`.
