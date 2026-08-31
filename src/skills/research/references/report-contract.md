@@ -35,16 +35,28 @@ All routes consume the same canonical `dossier.json` (schema version 2), preserv
 
 ## Canonical Report Sections
 
+The rendered report is reader-first: put the answer before details, use the
+language declared by `language` (`en` or `vi`), and use `title` for the H1.
+If `title` is absent, derive a short title from the question; never use a raw
+chat prompt as the visible heading. Keep conclusions and recommendations in
+their own sections. Put evidence excerpts and citations in a readable
+evidence section. Put IDs, fingerprints, confidence rationale, acquisition
+method, freshness, retrieval timestamps, source tables, contradictions, gaps,
+and limitations in a collapsible **Evidence Appendix**. This preserves the
+complete audit trail without making internal labels the main narrative.
+When `language` is `vi`, `executive_answer` and reader-facing claim `text`
+must already be Vietnamese. An optional generic `localized_text` may provide
+alternate-language claim text; the renderer never machine-translates content.
+Source excerpts may retain their original language in **Evidence & Sources**
+and the Evidence Appendix.
+
 1. **Research Question & Confirmed Scope** (including confirmed `official_domain` if applicable).
 2. **Executive Answer**.
-3. **Key Findings & Evidence Cards** (showing exact excerpts or structured field/value, acquisition method, freshness, retrieval timestamp, location context).
-4. **Grounded Analysis**.
-5. **Competitor / Entity Comparison** (when applicable).
-6. **Contradictions & Confidence Rationale**.
-7. **Inferences & Recommendations** (labeled explicitly as inference).
-8. **Evidence Gaps & Inaccessible Sources**.
-9. **Verified Sources & Provenance** (ID, Title, Publisher, URL/File, Method, Freshness, Fingerprint).
-10. **Methodology & Stop Reason** (search window, models, budget ceiling reached, provider limitations).
+3. **Key Findings** (plain-language claims with direct citations).
+4. **Interpretation** (when applicable).
+5. **Recommendations** (when applicable).
+6. **Evidence & Sources** (readable excerpts and clickable citations).
+7. **Evidence Appendix** (complete evidence, provenance, contradictions, gaps, limitations, and methodology).
 
 ## Citation & Evidence Rules
 

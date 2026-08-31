@@ -414,3 +414,12 @@
   - CLI status: `uv run --frozen python -m tools.email.cli status` -> pass `{"ok": true, "service": "email_connector"}` (exit 0).
   - Plugin discovery: `hermes plugins list` -> `email-connector` v0.1.0 discovered and enabled (exit 0).
 - Transitioned H009 `active -> blocked` with `evidence: null`. Blockers: public HTTPS reverse proxy/domain, Google Cloud registered redirect URI, approved Telegram DM caller binding, human OAuth consent on test mailbox, independent Layer 3 verifier evidence.
+
+## 2026-08-31 Research report reader-clarity root fix
+
+- Root cause: `render_report.py` hardcoded English labels and `lang="vi"`, used raw chat questions as H1, exposed audit IDs/hashes/method metadata in the main narrative, and emitted malformed CSS variables.
+- Reader fix: canonical `dossier.language`, polished `title`, Vietnamese scope/method/claims, answer-first sections, localized brand label, and audit metadata retained in the Evidence Appendix. Original source excerpts remain evidence.
+- Before: `Lưu kết quả research full menu...` as H1; `Full menu/SKU`; English claim paragraphs; footer `Method: Bounded first-party...`.
+- After: `Bảng giá chuỗi cà phê tại TP.HCM`; `Danh mục món và giá VND...`; Vietnamese findings/recommendation; footer `Hermes`; method only in `Phụ lục bằng chứng`.
+- `python tests/verify_research.py --layer 1`, `--layer 2`, `python -m py_compile src/skills/research/scripts/render_report.py`, and `git diff --check` — pass at `2026-08-31T16:26:12Z` UTC.
+- Full `python -m pytest --basetemp=.pytest-tmp-safe` was attempted; collection is blocked by the existing Python 3.9-incompatible `ContextVar[str | object]` in external Hermes gateway code (`TypeError`), unrelated to this change.

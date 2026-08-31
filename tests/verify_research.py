@@ -209,13 +209,62 @@ def layer_2() -> None:
         assert temporary.name == "dossier.json" and json.loads(temporary.read_text(encoding="utf-8"))["question"] == data["question"]
         report = renderer.write_report(temporary, temporary.with_name("report.html"))
         html = report.read_text(encoding="utf-8")
-        assert data["question"] in html and "https://docs.tavily.com" in html
+        assert data["question"] not in html and "https://docs.tavily.com" in html
         assert "Tavily publishes a web research API." in html
         assert "tavily-extract" in html
         assert "unknown" in html
         assert "2026-08-27T00:00:00Z" in html
         assert "[e1]" in html
         assert not any(token in html.lower() for token in ("<script", "<iframe", "<form", "onerror="))
+        # Reader-facing contract: answer first, plain-language labels, and audit metadata in appendix.
+        assert html.index("Executive Answer") < html.index("Key Findings")
+        assert html.index("Evidence Appendix") > html.index("Key Findings")
+        assert "Fingerprint:" not in html.split("Evidence Appendix", 1)[0]
+        assert "SOURCE-ASSERTION" not in html
+        assert "Confidence:" not in html.split("Evidence Appendix", 1)[0]
+
+        vietnamese = fixture()
+        vietnamese["language"] = "vi"
+        vietnamese["executive_answer"] = "Dùng Tavily và kiểm tra trực tiếp bằng chứng."
+        vietnamese["claims"][0]["localized_text"] = "Tavily công bố API nghiên cứu web."
+        vietnamese_html = renderer.render_html(vietnamese)
+        assert '<html lang="vi">' in vietnamese_html
+        assert "Trả lời ngắn gọn" in vietnamese_html
+        assert "Phát hiện chính" in vietnamese_html
+        assert "Bằng chứng & nguồn" in vietnamese_html
+        english = fixture()
+        english["language"] = "en"
+        english_html = renderer.render_html(english)
+        assert '<html lang="en">' in english_html
+        assert "Executive Answer" in english_html
+        assert "Key Findings" in english_html
+        assert "Evidence & sources" in english_html
+        mixed = fixture()
+        mixed["language"] = "vi"
+        mixed["title"] = "Bảng giá chuỗi cà phê tại TP.HCM"
+        mixed["executive_answer"] = "Highlands có bảng giá đầy đủ nhất trong phạm vi đã kiểm tra."
+        mixed["claims"][0]["text"] = "Highlands has 20 products with published prices."
+        mixed["claims"][0]["localized_text"] = "Highlands có 20 sản phẩm với giá được công bố."
+        mixed["claims"][0]["type"] = "fact"
+        mixed["claims"].append({
+            "id": "c2", "type": "recommendation",
+            "text": "The next step is to check each store.",
+            "localized_text": "Nên kiểm tra thêm giá tại từng cửa hàng.",
+            "evidence_ids": ["e1"], "counter_evidence_ids": [],
+            "confidence": "medium", "confidence_rationale": "Cần xác nhận theo cửa hàng.",
+        })
+        mixed_html = renderer.render_html(mixed)
+        reader = mixed_html.split("Bằng chứng & nguồn", 1)[0]
+        assert "Highlands có bảng giá đầy đủ nhất" in reader
+        assert "Highlands has" not in reader and "For a truly" not in reader
+        assert "Bảng giá chuỗi cà phê tại TP.HCM" in reader
+        assert "Báo cáo nghiên cứu Hermes" in mixed_html
+        assert "Full menu/SKU" not in reader
+        assert "Method:" not in reader
+        assert ":root {" in mixed_html and re.search(r"--radius:\s*[^;]+;\s*}", mixed_html)
+        assert re.search(r":root\s*\{[^}]*--radius:", mixed_html, re.DOTALL)
+        assert re.search(r":root\s*\{[^}]*\}\s*@media", mixed_html, re.DOTALL)
+
 
         # Test legacy v1 archive
         legacy_dir = workspace / ".runtime/research/saved/legacy-item"

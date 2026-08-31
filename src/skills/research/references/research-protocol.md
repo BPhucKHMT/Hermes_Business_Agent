@@ -75,8 +75,14 @@ For each evidence record retain:
 - `id`, `source_id`, `kind` (`text` or `structured`), `value`, and `fingerprint`.
 - Optional: `visible_page_url`, `data_endpoint`, `location_context`, `observed_at`.
 
-For each claim retain:
-- `id`, `type` (`fact`, `source-assertion`, `inference`, `recommendation`, `unknown`), `text`, `confidence`, `confidence_rationale`, `evidence_ids`, `counter_evidence_ids`.
+For each dossier retain:
+- optional `language` (`en` or `vi`) and optional reader-facing `title`; the renderer
+  derives a short title from `question` when `title` is absent and never displays
+  the raw chat prompt as the report heading.
+- For optional alternate-language output, provide generic per-claim
+  `localized_text` rather than asking the renderer to translate. Original-language
+  evidence remains unchanged in the evidence section and appendix.
+- For each claim retain `id`, `type` (`fact`, `source-assertion`, `inference`, `recommendation`, `unknown`), `text`, `confidence`, `confidence_rationale`, `evidence_ids`, `counter_evidence_ids`.
 - Every factual material claim requires at least one verified evidence ID.
 
 ## Grounded Citation Verification

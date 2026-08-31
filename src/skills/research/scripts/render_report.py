@@ -31,65 +31,82 @@ def validate_deck_html(html: str) -> None:
         raise ValueError("deck must synchronize slide hash")
 
 
+def _report_language(dossier: dict) -> str:
+    language = str(dossier.get("language", "")).lower()
+    if language in {"vi", "en"}:
+        return language
+    return "vi" if re.search(r"[ăâđêôơưĂÂĐÊÔƠƯ]", str(dossier.get("question", ""))) else "en"
+
+
+def _labels(language: str) -> dict[str, str]:
+    if language == "vi":
+        return {
+            "lang": "vi", "answer": "Trả lời ngắn gọn", "findings": "Phát hiện chính",
+            "interpretation": "Diễn giải", "recommendations": "Khuyến nghị",
+            "open_questions": "Điểm còn bỏ ngỏ", "evidence": "Bằng chứng & nguồn",
+            "question": "Câu hỏi nghiên cứu", "scope": "Phạm vi", "source_note": "Ghi chú nguồn",
+            "confidence": "Độ tin cậy", "method": "Phương pháp", "retrieved": "Thu thập lúc",
+            "freshness": "Độ mới", "audit": "Phụ lục bằng chứng", "contradictions": "Mâu thuẫn",
+            "gaps": "Khoảng trống bằng chứng", "limitations": "Giới hạn",
+        }
+    return {
+        "lang": "en", "answer": "Executive Answer", "findings": "Key Findings",
+        "interpretation": "Interpretation", "recommendations": "Recommendations",
+        "open_questions": "Open questions", "evidence": "Evidence & sources",
+        "question": "Research question", "scope": "Scope", "source_note": "Source note",
+        "confidence": "Confidence", "method": "Method", "retrieved": "Retrieved",
+        "freshness": "Freshness", "audit": "Evidence Appendix", "contradictions": "Contradictions",
+        "gaps": "Evidence gaps", "limitations": "Limitations",
+    }
+
+
 def render_html(dossier: dict) -> str:
     validate_dossier(dossier)
+    language = _report_language(dossier)
+    labels = _labels(language)
     sources = {source["id"]: source for source in dossier["sources"]}
     evidence_map = {ev["id"]: ev for ev in dossier["evidence"]}
 
-    # Render Claims
-    claims_html = []
-    valid_types = {"fact", "inference", "recommendation", "source-assertion"}
-    for claim in dossier["claims"]:
-        c_type = str(claim.get("type", "fact")).lower()
-        badge_class = f"badge-{c_type}" if c_type in valid_types else "badge-fact"
-
+    def citation_links(claim: dict) -> str:
         links = []
         for e_id in claim.get("evidence_ids", []):
             ev = evidence_map.get(e_id)
-            if ev:
-                src = sources.get(ev.get("source_id"), {})
-                url = src.get("url") or "#"
-                title = f"{src.get('title', 'Source')} (Evidence {e_id})"
-                esc_url = escape(url, quote=True)
-                esc_title = escape(title)
-                esc_eid = escape(e_id)
-                links.append(f'<a class="citation-tag" href="{esc_url}" title="{esc_title}">[{esc_eid}]</a>')
-            else:
+            if not ev:
                 links.append(f'<span class="citation-tag">[{escape(e_id)}]</span>')
+                continue
+            src = sources.get(ev.get("source_id"), {})
+            links.append(
+                f'<a class="citation-tag" href="{escape(src.get("url") or "#", quote=True)}" '
+                f'title="{escape(src.get("title", "Source"))}">[{escape(e_id)}]</a>'
+            )
+        return " ".join(links)
 
-        counter_links = []
-        for e_id in claim.get("counter_evidence_ids", []):
-            ev = evidence_map.get(e_id)
-            if ev:
-                src = sources.get(ev.get("source_id"), {})
-                url = src.get("url") or "#"
-                title = f"Counter-evidence: {src.get('title', 'Source')} ({e_id})"
-                esc_url = escape(url, quote=True)
-                esc_title = escape(title)
-                esc_eid = escape(e_id)
-                counter_links.append(
-                    f'<a class="citation-tag counter-tag" href="{esc_url}" title="{esc_title}">[counter: {esc_eid}]</a>'
-                )
+    grouped_claims = {"fact": [], "inference": [], "recommendation": [], "unknown": [], "source-assertion": []}
+    for claim in dossier["claims"]:
+        grouped_claims.setdefault(str(claim.get("type", "fact")).lower(), []).append(claim)
 
-        rationale = escape(claim.get("confidence_rationale", ""))
-        conf_level = str(claim.get("confidence", "medium")).lower()
-        formatted_claim = f'{escape(claim.get("text", ""))} {" ".join(links)} {" ".join(counter_links)}'
-        rationale_html = f'<p class="claim-rationale"><em>Rationale:</em> {rationale}</p>' if rationale else ""
+    def claim_cards(claims: list[dict]) -> str:
+        return "".join(
+            f'<div class="claim-card"><p class="claim-text">'
+            f'{escape(claim.get("localized_text") or claim.get("text", ""))} {citation_links(claim)}</p></div>'
+            for claim in claims
+        )
+    claim_audit_html = "".join(
+        f'<li>{escape(claim.get("id", ""))}: {labels["confidence"]} '
+        f'{escape(str(claim.get("confidence", "medium")).lower())}. '
+        f'{escape(claim.get("confidence_rationale", ""))}</li>'
+        for claim in dossier["claims"] if claim.get("confidence_rationale")
+    )
 
-        claims_html.append(f"""
-        <div class="claim-card">
-          <div class="claim-header">
-            <span class="badge {badge_class}">{escape(claim.get("type", "Claim").upper())}</span>
-            <span class="confidence-pill conf-{escape(conf_level)}">Confidence: {escape(conf_level.upper())}</span>
-          </div>
-          <div class="claim-body">
-            <p class="claim-text">{formatted_claim}</p>
-            {rationale_html}
-          </div>
-        </div>""")
+    findings_html = claim_cards(grouped_claims["fact"])
+    interpretation_html = claim_cards(grouped_claims["inference"])
+    recommendations_html = claim_cards(grouped_claims["recommendation"])
+    open_questions_html = claim_cards(grouped_claims["unknown"])
+    source_notes_html = claim_cards(grouped_claims["source-assertion"])
 
-    # Render Evidence Cards
+    # Keep excerpts readable; retain IDs, hashes, and acquisition metadata in the appendix.
     evidence_cards = []
+    audit_evidence_cards = []
     for ev in dossier["evidence"]:
         e_id = escape(ev.get("id", ""))
         src_id = escape(ev.get("source_id", ""))
@@ -102,38 +119,17 @@ def render_html(dossier: dict) -> str:
         loc = escape(ev.get("location_context", ""))
         endpoint = escape(ev.get("data_endpoint", ""))
         page_url = escape(ev.get("visible_page_url", src.get("url", "")))
-
         val = ev.get("value")
-        if isinstance(val, (dict, list)):
-            val_str = json.dumps(val, ensure_ascii=False, indent=2)
-            val_html = f'<pre class="evidence-code"><code>{escape(val_str)}</code></pre>'
-        else:
-            val_html = f'<blockquote class="evidence-quote">"{escape(str(val))}"</blockquote>'
-
-        meta_items = [
-            f'<span class="ev-tag">Source: <strong>{src_id}</strong></span>',
-            f'<span class="ev-tag">Method: <strong>{method}</strong></span>',
-            f'<span class="ev-tag">Freshness: <strong>{freshness}</strong></span>',
-            f'<span class="ev-tag">Retrieved: {retrieved}</span>',
-        ]
-        if loc:
-            meta_items.append(f'<span class="ev-tag">Location/Context: <strong>{loc}</strong></span>')
-        if endpoint:
-            meta_items.append(f'<span class="ev-tag">Endpoint: <code>{endpoint}</code></span>')
-        if page_url and page_url != "#":
-            esc_purl = escape(page_url, quote=True)
-            link_html = f'<a href="{esc_purl}" target="_blank" rel="noopener">Visible Page &nearr;</a>'
-            meta_items.append(f'<span class="ev-tag">{link_html}</span>')
-
-        evidence_cards.append(f"""
-        <div class="evidence-card" id="ev-{e_id}">
-          <div class="ev-header">
-            <span class="ev-badge">[{e_id}] ({kind})</span>
-            <span class="ev-fp" title="Fingerprint: {fp}">FP: {fp[:16]}...</span>
-          </div>
-          <div class="ev-content">{val_html}</div>
-          <div class="ev-meta">{" ".join(meta_items)}</div>
-        </div>""")
+        val_str = json.dumps(val, ensure_ascii=False, indent=2) if isinstance(val, (dict, list)) else str(val)
+        val_html = f'<pre class="evidence-code"><code>{escape(val_str)}</code></pre>' if isinstance(val, (dict, list)) else f'<blockquote class="evidence-quote">"{escape(val_str)}"</blockquote>'
+        source_title = escape(src.get("title", src_id))
+        evidence_cards.append(f'<div class="evidence-card"><strong>{source_title}</strong>{val_html}</div>')
+        audit_evidence_cards.append(
+            f'<div class="evidence-card" id="ev-{e_id}"><div class="ev-header">'
+            f'<span class="ev-badge">[{e_id}] ({kind})</span><span class="ev-fp">Fingerprint: {fp}</span></div>'
+            f'{val_html}<div class="ev-meta">Source: {src_id} · Method: {method} · '
+            f'Freshness: {freshness} · Retrieved: {retrieved} · {loc} · {endpoint} · {page_url}</div></div>'
+        )
 
     # Render Sources
     source_rows = []
@@ -190,15 +186,22 @@ def render_html(dossier: dict) -> str:
         if contradictions
         else "No documented contradictions detected across primary sources."
     )
+    title = str(dossier.get("title") or dossier.get("question", "")).strip()
+    if not dossier.get("title"):
+        title = re.sub(
+            r"^(lưu kết quả research|please research|research|how should|what is|what are|can you)\s*",
+            "", title, flags=re.IGNORECASE,
+        )
+    title = title.rstrip(". ?")[:120]
+
 
     return f"""<!doctype html>
-<html lang="vi">
+<html lang="{labels['lang']}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{escape(dossier.get('question', 'Báo Cáo Nghiên Cứu'))} — Hermes Intelligence Report</title>
+  <title>{escape(title)} — Hermes Research Report</title>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap');
 
     :root {{
       --bg-base: #f8fafc;
@@ -483,66 +486,38 @@ def render_html(dossier: dict) -> str:
 <body>
   <div class="container">
     <header class="header-card">
-      <div class="brand-meta">
-        <span>Hermes Evidence Research Report</span>
-        <span>ID: {escape(dossier.get('dossier_id', ''))}</span>
-      </div>
-      <h1 class="report-title">{escape(dossier.get('question', ''))}</h1>
-      <p class="report-scope"><strong>Scope:</strong> {escape(dossier.get('scope', 'N/A'))}</p>
+      <div class="brand-meta"><span>{'Báo cáo nghiên cứu Hermes' if language == 'vi' else 'Hermes Research Report'}</span></div>
+      <h1 class="report-title">{escape(title)}</h1>
+      <p class="report-scope"><strong>{labels["scope"]}:</strong> {escape(dossier.get("scope", "N/A"))}</p>
     </header>
 
     <div class="answer-card">
-      <div class="answer-title">Executive Summary</div>
-      <p class="answer-text">{escape(dossier.get('executive_answer', ''))}</p>
+      <div class="answer-title">{labels["answer"]}</div>
+      <p class="answer-text">{escape(dossier.get("executive_answer", ""))}</p>
     </div>
 
-    <section class="section-card">
-      <h2 class="section-title">&#128202; Key Findings & Claims</h2>
-      <div class="claims-grid">
-        {''.join(claims_html)}
-      </div>
-    </section>
+    {f'<section class="section-card"><h2 class="section-title">{labels["findings"]}</h2><div class="claims-grid">{findings_html}</div></section>' if findings_html else ""}
+    {f'<section class="section-card"><h2 class="section-title">{labels["interpretation"]}</h2><div class="claims-grid">{interpretation_html}</div></section>' if interpretation_html else ""}
+    {f'<section class="section-card"><h2 class="section-title">{labels["recommendations"]}</h2><div class="claims-grid">{recommendations_html}</div></section>' if recommendations_html else ""}
+    {f'<section class="section-card"><h2 class="section-title">{labels["open_questions"]}</h2><div class="claims-grid">{open_questions_html}</div></section>' if open_questions_html else ""}
 
     <section class="section-card">
-      <h2 class="section-title">&#128269; Evidence Records & Provenance</h2>
-      <div class="evidence-grid">
-        {''.join(evidence_cards)}
-      </div>
+      <h2 class="section-title">{labels["evidence"]}</h2>
+      <div class="evidence-grid">{''.join(evidence_cards)}</div>
+      {f'<h3 style="font-size: 14px; margin-top: 12px;">{labels["source_note"]}</h3><div class="claims-grid">{source_notes_html}</div>' if source_notes_html else ""}
     </section>
 
-    <section class="section-card">
-      <h2 class="section-title">&#128279; Verified Sources</h2>
-      <table class="sources-table">
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>Title</th>
-            <th>Publisher</th>
-            <th>Method</th>
-            <th>Freshness</th>
-            <th>Retrieved</th>
-            <th>Status</th>
-          </tr>
-        </thead>
-        <tbody>
-          {''.join(source_rows)}
-        </tbody>
-      </table>
-    </section>
+    <details class="section-card audit-appendix">
+      <summary class="section-title">{labels["audit"]}</summary>
+      <p><strong>{labels["method"]}:</strong> {escape(dossier.get("method", ""))}</p>
+      {f'<h3>{labels["confidence"]}</h3><ul class="info-list">{claim_audit_html}</ul>' if claim_audit_html else ""}
+      <p><strong>{labels["contradictions"]}:</strong> {escape(contradictions_text)}</p>
+      {f'<h3>{labels["gaps"]}</h3><ul class="info-list">{gaps_html}</ul>' if gaps_html else ""}
+      {f'<h3>{labels["limitations"]}</h3><ul class="info-list">{limitations_html}</ul>' if limitations_html else ""}
+      <div class="evidence-grid">{''.join(audit_evidence_cards)}</div>
+    </details>
 
-    <section class="section-card">
-      <h2 class="section-title">&#9888; Contradictions & Evidence Gaps</h2>
-      <p style="font-size: 14px; margin-bottom: 12px;">
-        <strong>Contradictions:</strong> {escape(contradictions_text)}
-      </p>
-      {f'<h3 style="font-size: 14px; margin-bottom: 6px;">Identified Gaps:</h3><ul class="info-list">{gaps_html}</ul>' if gaps_html else ""}
-      {f'<h3 style="font-size: 14px; margin-top: 12px; margin-bottom: 6px;">Unknowns:</h3><ul class="info-list">{unknowns_html}{next_q_html}</ul>' if (unknowns_html or next_q_html) else ""}
-      {f'<h3 style="font-size: 14px; margin-top: 12px; margin-bottom: 6px;">Limitations:</h3><ul class="info-list">{limitations_html}</ul>' if limitations_html else ""}
-    </section>
-
-    <footer class="footer-note">
-      Hermes AI Chief of Staff &bull; Evidence-Grounded Research &bull; Method: {escape(dossier.get('method', ''))}
-    </footer>
+    <footer class="footer-note">Hermes</footer>
   </div>
 </body>
 </html>"""
