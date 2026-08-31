@@ -5,6 +5,7 @@ from dataclasses import asdict
 import json
 import os
 from pathlib import Path
+import shutil
 
 from tools.social_browser.gateway import SafeBrowserGateway
 from tools.social_browser.harness import BrowserHarnessRunner
@@ -15,6 +16,27 @@ from tools.social_browser.store import SocialBrowserStore
 
 SRC = Path(__file__).resolve().parents[2]
 RUNTIME = SRC / ".runtime" / "social-browser"
+
+
+def _resolve_browser_harness() -> str:
+    configured = os.environ.get(
+        "SOCIAL_BROWSER_HARNESS_EXECUTABLE", ""
+    ).strip()
+    if configured:
+        path = Path(configured).expanduser().resolve()
+        if not path.is_file():
+            raise RuntimeError("SOCIAL_BROWSER_HARNESS_EXECUTABLE is invalid")
+        return str(path)
+    discovered = shutil.which("browser-harness")
+    if discovered:
+        return discovered
+    executable_name = (
+        "browser-harness.exe" if os.name == "nt" else "browser-harness"
+    )
+    fallback = Path.home() / ".local" / "bin" / executable_name
+    if fallback.is_file():
+        return str(fallback)
+    raise RuntimeError("browser-harness executable not found")
 
 
 def build_service() -> SocialBrowserService:
@@ -28,10 +50,13 @@ def build_service() -> SocialBrowserService:
     if not workspace.is_relative_to(SRC.resolve()):
         raise RuntimeError("BH_AGENT_WORKSPACE must be inside deployed src")
     policy = load_policy(SRC / "config" / "social_browser_policy.json")
+    harness_executable = _resolve_browser_harness()
     store = SocialBrowserStore(RUNTIME / "social_browser.sqlite3")
 
     def gateway_factory(run_id: str) -> SafeBrowserGateway:
-        runner = BrowserHarnessRunner(workspace, cdp_url)
+        runner = BrowserHarnessRunner(
+            workspace, cdp_url, executable=harness_executable
+        )
         return SafeBrowserGateway(policy, "facebook-personal", runner, run_id)
 
     return SocialBrowserService(policy, store, gateway_factory)

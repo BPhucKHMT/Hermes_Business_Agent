@@ -87,7 +87,6 @@ def layer_1() -> None:
     for setup_text in (setup_cmd, setup_sh):
         assert "tavily-cli==0.1.6" in setup_text
         assert "agent-browser@0.35.1" in setup_text
-        assert "browser-harness" not in setup_text
     assert "%LOCALAPPDATA%\\hermes\\.env" in readme
     assert "TAVILY_API_KEY" in readme
     assert "tvly login --api-key" not in readme
@@ -148,6 +147,7 @@ def layer_1() -> None:
         "captcha solver",
         "browser use cloud",
         "posthog",
+        "browser-harness",
     ):
         assert forbidden_token not in contract, f"forbidden token found: {forbidden_token}"
 

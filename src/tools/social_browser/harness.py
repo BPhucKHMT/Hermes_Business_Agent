@@ -93,6 +93,7 @@ class BrowserHarnessRunner:
         workspace: Path,
         cdp_url: str,
         process: Callable[..., Any] = subprocess.run,
+        executable: str = "browser-harness",
         timeout_seconds: int = 30,
         max_output_chars: int = 50_000,
     ):
@@ -101,6 +102,7 @@ class BrowserHarnessRunner:
         self.workspace = Path(workspace).resolve()
         self.cdp_url = cdp_url
         self.process = process
+        self.executable = executable
         self.timeout_seconds = timeout_seconds
         self.max_output_chars = max_output_chars
 
@@ -110,7 +112,7 @@ class BrowserHarnessRunner:
         script = _SCRIPTS[operation]
         environment = self._environment(payload["session"], payload)
         completed = self.process(
-            ["browser-harness"],
+            [self.executable],
             input=script,
             text=True,
             encoding="utf-8",

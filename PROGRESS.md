@@ -2,9 +2,9 @@
 
 ## Harness Status
 
-- Phase: H012 (Facebook Human-Publish Browser Assist) is `active`; H010, H009, and H006 remain `blocked`; H008 is `passing`.
+- Phase: H012, H010, H009, and H006 are `blocked`; H008 is `passing`.
 - Workspace: isolated worktree `.worktrees/h012-social-browser-assist` on `feature/h012-social-browser-assist`.
-- WIP limit: 1; H012 is the sole `active` feature.
+- WIP limit: 1; no feature is currently `active`.
 ## Completed
 
 - H001–H005 remain `passing` with recorded evidence.
@@ -383,3 +383,28 @@
 - YouTube and TikTok are separate future slices and are not part of H012.
 - Design: `docs/superpowers/specs/2026-08-31-social-browser-assist-design.md`.
 - Plan: `docs/superpowers/plans/2026-08-31-social-browser-assist.md`.
+
+## 2026-08-31 H012 implementation and Layer 1/2 handoff
+
+- Implemented manifest-bound Facebook text/single-image preparation, account and
+  audience read-back, terminal-action denial, visible-browser human handoff,
+  post-publication permalink verification, restart-safe SQLite idempotency, and
+  DM/caller allowlisting.
+- Installed `browser-harness==0.1.10` locally with telemetry disabled by the
+  production runner. Version check returned `0.1.10`.
+- `python tests/verify_social_browser.py --layer 1` — pass,
+  2026-08-31T07:55:34Z, exit 0.
+- `uv run --frozen python ../tests/verify_social_browser.py --layer 2` — pass,
+  2026-08-31T07:55:34Z, exit 0; 31 tests passed.
+- Research Layer 1/2 regression checks — pass, exit 0.
+- Targeted security scans for `src/tools/social_browser` and the Hermes plugin
+  returned zero findings.
+- Browser-harness connected to the local CDP endpoint and returned `about:blank`;
+  the discovered non-Chrome tab was a Lenovo Vantage widget, not an approved
+  Facebook personal test profile.
+- H012 moved `active -> blocked`. Owner: user/operator plus independent verifier.
+  Unblock by manually logging into a dedicated Facebook test profile, configuring
+  the visible account label and allowed Telegram user ID, being available for
+  the human-only Publish click, and approving the live Layer 3 scenarios.
+- No Facebook content was prepared or published during implementation. H012 is
+  not `passing`.

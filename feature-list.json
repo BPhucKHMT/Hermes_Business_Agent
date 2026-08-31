@@ -265,9 +265,9 @@
         "layer_2": "uv run --frozen python ../tests/verify_social_browser.py --layer 2",
         "layer_3": "independent verifier uses a dedicated personal Facebook test account to prove prepare-only handoff, human Publish, read-back evidence, idempotency, and blocker paths"
       },
-      "state": "active",
+      "state": "blocked",
       "evidence": null,
-      "blocked": null,
+      "blocked": "Implementation and Layer 1/2 verification are complete. Owner: user/operator plus independent verifier. Unblock when a dedicated Facebook personal test profile is manually logged in, SOCIAL_BROWSER_FACEBOOK_ACCOUNT_LABEL and SOCIAL_BROWSER_ALLOWED_TELEGRAM_USERS are configured, the user is available to click Publish in the visible browser, and the live Layer 3 prepare/verify scenarios are approved.",
       "depends_on": ["H008"]
     }
   ]
