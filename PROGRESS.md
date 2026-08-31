@@ -2,9 +2,9 @@
 
 ## Harness Status
 
-- Phase: H010 (Tavily-First Dynamic Research & Official Site Intelligence) is `active`; H009 and H006 remain `blocked`; H008 is `passing`.
+- Phase: H009, H010, and H006 are `blocked`; H008 is `passing`.
 - Workspace: `C:\Hermes-Business-Agent` on `main`; existing unrelated uncommitted changes remain and must not be reset.
-- WIP limit: 1; H010 is the sole `active` feature.
+- WIP limit: 1; 0 active features.
 ## Completed
 
 - H001–H005 remain `passing` with recorded evidence.
@@ -390,3 +390,27 @@
 - Default operator environment contains a nonempty `TAVILY_API_KEY`; `protein-bar` profile environment does not. No profile secret was changed.
 - H010 is now `blocked` with `evidence: null`. Owner: operator plus independent verifier. Blockers: `tvly auth --json` is not authenticated despite the default environment key; the configured default route `-1004420788744/topic 1` is not present in `channel_directory.json`; Telegram `allowed_users` remains wildcard because recent logs provide no unambiguous operator numeric user ID. Unblock by operator confirmation/reconciliation of the approved default chat/topic and user ID, and Tavily auth/API-key resolution; then an independent verifier must execute all seven scenarios sequentially and record exact event/command, UTC timestamp, exit status, citations, deliverables, and negative/lifecycle results.
 5. Proceed to the next scheduled roadmap feature once H010 reaches `passing`.
+
+## 2026-08-31 H009 Gmail OAuth Readiness Investigation & Bounded Smoke Check
+
+- Backups created at `20260831_131353Z` without displaying or logging secrets:
+  - `src/.env` -> `C:\Hermes-Business-Agent\src\.env.bak-20260831_131353Z`
+  - `config.yaml` -> `C:\Users\ADMIN\AppData\Local\hermes\config.yaml.bak-20260831_131353Z`
+  - `mail_state.db` -> `C:\Users\ADMIN\AppData\Local\hermes\email\mail_state.db.bak-20260831_131353Z`
+  - `secrets_dir` -> `C:\Users\ADMIN\AppData\Local\hermes\email\secrets.bak-20260831_131353Z`
+- Transitioned H009 `blocked -> active` during bounded action execution, preserving gateway PID 54172 and configuration intact.
+- Safe local operator smoke check executed at `2026-08-31T13:20:00Z`:
+  - Built `EmailConnectorService` from environment with `LocalEncryptedSecretStore` and state DB.
+  - Ephemeral loopback HTTP listener on `127.0.0.1:8766` served `/health` -> HTTP 200 `{"ok":true}`; server closed cleanly.
+  - Queried existing connection metadata for `telegram:default:7275339077` -> returned connection `conn-4bf4f5a427a2bd996d565b22`, type `personal`, masked `n***@gmail.com`, status `connected`. Zero mailbox messages or Google APIs were accessed.
+  - Queried group search delivery policy for `-1004420788744/topic 1` -> returned status 200 with delivery `redirect_to_dm` and public text `Mở chat riêng với Hermes để xem Gmail cá nhân.`, verifying group fail-closed isolation without external calls.
+- Telegram-only remote customer evaluation:
+  - Current `http://127.0.0.1:8766/gmail/oauth/callback` is local-operator-only (requires browser on host machine).
+  - For customer's remote phone/device, Google OAuth callback cannot resolve `127.0.0.1` to the server.
+  - Customer production requires: 1) Public FQDN with valid HTTPS (e.g. `https://hermes.example.com/gmail/oauth/callback`) via reverse proxy (Caddy/Nginx/Tunnel) to port 8766, 2) Google Cloud Console registration of the public HTTPS redirect URI under Authorized Redirect URIs, 3) Updated `EMAIL_OAUTH_REDIRECT_URI` in `src/.env`, 4) Approved Telegram DM caller binding, 5) Interactive human OAuth consent on the mailbox.
+- Verification results at `2026-08-31T13:23:45Z`:
+  - Layer 1: `python tests/verify_email_intake.py --layer 1` -> pass (exit 0).
+  - Layer 2: `uv run --frozen python ../tests/verify_email_intake.py --layer 2` -> pass (59 passed, exit 0).
+  - CLI status: `uv run --frozen python -m tools.email.cli status` -> pass `{"ok": true, "service": "email_connector"}` (exit 0).
+  - Plugin discovery: `hermes plugins list` -> `email-connector` v0.1.0 discovered and enabled (exit 0).
+- Transitioned H009 `active -> blocked` with `evidence: null`. Blockers: public HTTPS reverse proxy/domain, Google Cloud registered redirect URI, approved Telegram DM caller binding, human OAuth consent on test mailbox, independent Layer 3 verifier evidence.

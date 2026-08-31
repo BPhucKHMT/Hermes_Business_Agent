@@ -239,7 +239,7 @@
       },
       "state": "blocked",
       "evidence": null,
-      "blocked": "MVP core implementation and Layer 1/Layer 2 verification complete. Layer 3 live verification is pending real Google Cloud OAuth credentials and live test mailbox.",
+      "blocked": "MVP core implementation and Layer 1/Layer 2 verification complete (59/59 tests passing). Live Layer 3 verification is blocked on 5 prerequisites: 1) Public HTTPS domain and reverse proxy for remote Telegram customer OAuth callback (current loopback http://127.0.0.1:8766 is local-operator-only), 2) Google Cloud Console authorized redirect URI registration for that public HTTPS endpoint, 3) Approved Telegram DM caller binding, 4) Human OAuth consent on the test mailbox, 5) Independent Layer 3 verifier evidence.",
       "depends_on": ["H008"]
     },
     {
