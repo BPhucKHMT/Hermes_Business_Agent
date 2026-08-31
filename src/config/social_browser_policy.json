@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "browser_harness_version": "0.1.10",
+  "telemetry": false,
+  "cloud": false,
+  "max_screenshot_bytes": 2097152,
+  "evidence_ttl_seconds": 86400,
+  "platforms": {
+    "facebook-personal": {
+      "origins": ["https://www.facebook.com"],
+      "audiences": ["friends", "only-me"],
+      "allowed_operations": [
+        "open",
+        "observe",
+        "activate_control",
+        "fill",
+        "upload",
+        "close"
+      ],
+      "terminal_names": [
+        "post",
+        "publish",
+        "schedule",
+        "send",
+        "đăng",
+        "xuất bản",
+        "lên lịch",
+        "gửi"
+      ],
+      "composer_names": ["what's on your mind?", "bạn đang nghĩ gì?"],
+      "max_text_chars": 63206,
+      "max_media_files": 1
+    }
+  }
+}
