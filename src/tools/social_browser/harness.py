@@ -27,8 +27,17 @@ for item in ax.get(\"nodes\", []):
     backend_id = item.get(\"backendDOMNodeId\")
     role = item.get(\"role\", {}).get(\"value\", \"\")
     name = item.get(\"name\", {}).get(\"value\", \"\")
+    properties = {
+        prop.get(\"name\"): prop.get(\"value\", {}).get(\"value\", \"\")
+        for prop in item.get(\"properties\", [])
+    }
     if backend_id and (role or name):
-        nodes.append({\"backend_node_id\": backend_id, \"role\": role, \"name\": name})
+        nodes.append({
+            \"backend_node_id\": backend_id,
+            \"role\": role,
+            \"name\": name,
+            \"url\": properties.get(\"url\", \"\"),
+        })
 print(json.dumps({**info, \"accessible_nodes\": nodes[:2000]}, ensure_ascii=False))
 """,
     BrowserOperation.ACTIVATE_CONTROL: _COMMON

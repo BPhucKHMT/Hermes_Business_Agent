@@ -45,6 +45,7 @@ class AccessibleNode:
     backend_node_id: int
     role: str
     name: str
+    url: str = ""
 
 
 @dataclass(frozen=True)

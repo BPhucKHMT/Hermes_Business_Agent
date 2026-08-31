@@ -53,6 +53,7 @@ class SafeBrowserGateway:
                 backend_node_id=int(item["backend_node_id"]),
                 role=str(item.get("role", "")),
                 name=str(item.get("name", "")),
+                url=str(item.get("url", "")),
             )
             for item in result.get("accessible_nodes", [])
         )
