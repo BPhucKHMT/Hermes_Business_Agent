@@ -26,6 +26,7 @@ class FakeGateway:
         self.observation_count = 0
         self.fail_observations = 0
         self.published_url = None
+        self.handoff_count = 0
 
     def open(self, url: str):
         return {"url": url}
@@ -72,6 +73,10 @@ class FakeGateway:
         self.uploaded_path = Path(path)
         return {"uploaded": True}
 
+    def handoff(self):
+        self.handoff_count += 1
+        return {"visible": True}
+
 
 def manifest(tmp_path: Path, with_media: bool = False):
     media_paths = []
@@ -95,6 +100,7 @@ def test_prepare_stops_before_post(tmp_path: Path) -> None:
     assert result.status is RunStatus.READY_FOR_HUMAN
     assert "Post" not in gateway.activated_names
     assert gateway.filled_text == "Hermes social browser fixture"
+    assert gateway.handoff_count == 1
 
 
 def test_prepare_uploads_manifest_media(tmp_path: Path) -> None:

@@ -15,6 +15,7 @@
         "activate_control",
         "fill",
         "upload",
+        "handoff",
         "close"
       ],
       "terminal_names": [

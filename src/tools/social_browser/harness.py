@@ -56,6 +56,10 @@ print(json.dumps({\"filled\": True}))
     + """upload_file(payload[\"selector\"], payload[\"path\"])
 print(json.dumps({\"uploaded\": True}))
 """,
+    BrowserOperation.HANDOFF: _COMMON
+    + """activate_tab(current_tab())
+print(json.dumps({\"visible\": True}))
+""",
     BrowserOperation.CLOSE: _COMMON
     + """close_tab()
 print(json.dumps({\"closed\": True}))
@@ -67,6 +71,7 @@ _REQUIRED_FIELDS = {
     BrowserOperation.ACTIVATE_CONTROL: {"session", "backend_node_id"},
     BrowserOperation.FILL: {"session", "selector", "text"},
     BrowserOperation.UPLOAD: {"session", "selector", "path"},
+    BrowserOperation.HANDOFF: {"session"},
     BrowserOperation.CLOSE: {"session"},
 }
 _ENV_ALLOWLIST = {

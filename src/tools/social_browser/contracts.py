@@ -30,6 +30,7 @@ class BrowserOperation(str, Enum):
     ACTIVATE_CONTROL = "activate_control"
     FILL = "fill"
     UPLOAD = "upload"
+    HANDOFF = "handoff"
     CLOSE = "close"
 
 

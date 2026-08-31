@@ -60,6 +60,7 @@ class FacebookPersonalAdapter:
         )
         if preview is None:
             return self._result(manifest, RunStatus.FAILED_UI_DRIFT, "preview_mismatch")
+        self.gateway.handoff()
         return self._result(manifest, RunStatus.READY_FOR_HUMAN)
 
     def verify_published(self, manifest: SocialActionManifest) -> str | None:

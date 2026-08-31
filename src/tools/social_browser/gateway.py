@@ -85,5 +85,8 @@ class SafeBrowserGateway:
             {"selector": selector, "path": str(resolved)},
         )
 
+    def handoff(self) -> dict:
+        return self.dispatch(BrowserOperation.HANDOFF.value, {})
+
     def close(self) -> dict:
         return self.dispatch(BrowserOperation.CLOSE.value, {})
