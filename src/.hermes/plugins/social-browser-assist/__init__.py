@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 import sys
 from typing import Any
+from types import ModuleType
 
 
 _PLUGIN_DIR = Path(__file__).resolve().parent
@@ -21,10 +22,42 @@ for candidate in (
             sys.path.insert(0, resolved)
         break
 
-from client import get_default_client
-from guard import SocialBrowserTools
-from plugin_tools import handle_prepare, handle_status, handle_verify
-from schemas import SOCIAL_PREPARE_SCHEMA, SOCIAL_STATUS_SCHEMA, SOCIAL_VERIFY_SCHEMA
+import importlib.util
+_namespace = sys.modules.setdefault(
+    "hermes_social_browser_assist", ModuleType("hermes_social_browser_assist")
+)
+_namespace.__path__ = [str(_PLUGIN_DIR)]
+
+
+def _load_plugin_module(name: str):
+    qualified = f"hermes_social_browser_assist.{name}"
+    module = sys.modules.get(qualified)
+    if module is not None:
+        return module
+    path = _PLUGIN_DIR / f"{name}.py"
+    spec = importlib.util.spec_from_file_location(qualified, path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"social_plugin_module_unavailable:{name}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[qualified] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+_caller = _load_plugin_module("social_caller")
+_guard = _load_plugin_module("social_guard")
+_client = _load_plugin_module("social_client")
+_tools = _load_plugin_module("social_plugin_tools")
+_schemas = _load_plugin_module("social_schemas")
+
+get_default_client = _client.get_default_client
+SocialBrowserTools = _guard.SocialBrowserTools
+handle_prepare = _tools.handle_prepare
+handle_status = _tools.handle_status
+handle_verify = _tools.handle_verify
+SOCIAL_PREPARE_SCHEMA = _schemas.SOCIAL_PREPARE_SCHEMA
+SOCIAL_STATUS_SCHEMA = _schemas.SOCIAL_STATUS_SCHEMA
+SOCIAL_VERIFY_SCHEMA = _schemas.SOCIAL_VERIFY_SCHEMA
 
 
 def register(ctx: Any) -> SocialBrowserTools:

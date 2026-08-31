@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 import subprocess
 from typing import Any, Callable
+from urllib.parse import urlsplit
 
 from tools.social_browser.contracts import BrowserOperation
 
@@ -97,7 +98,22 @@ class BrowserHarnessRunner:
         timeout_seconds: int = 30,
         max_output_chars: int = 50_000,
     ):
-        if not cdp_url.startswith(("http://127.0.0.1:", "http://localhost:")):
+        parts = urlsplit(cdp_url)
+        try:
+            port = parts.port
+        except ValueError as exc:
+            raise ValueError("local_cdp_endpoint_required") from exc
+        if (
+            parts.scheme != "http"
+            or parts.hostname not in {"127.0.0.1", "localhost"}
+            or parts.username
+            or parts.password
+            or port is None
+            or not 1 <= port <= 65535
+            or parts.path not in ("", "/")
+            or parts.query
+            or parts.fragment
+        ):
             raise ValueError("local_cdp_endpoint_required")
         self.workspace = Path(workspace).resolve()
         self.cdp_url = cdp_url

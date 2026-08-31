@@ -141,3 +141,19 @@ def test_verify_published_requires_matching_text_and_permalink(tmp_path: Path) -
     result = FacebookPersonalAdapter(gateway).verify_published(post)
 
     assert result == gateway.published_url
+
+def test_verify_rejects_wrong_origin_permalink(tmp_path: Path) -> None:
+    gateway = FakeGateway()
+    post = manifest(tmp_path)
+    gateway.filled_text = post.text
+    gateway.published_url = "https://evil.example/posts/123"
+
+    assert FacebookPersonalAdapter(gateway).verify_published(post) is None
+
+
+def test_verify_does_not_accept_media_only_run_without_text(tmp_path: Path) -> None:
+    gateway = FakeGateway()
+    post = manifest(tmp_path, with_media=True)
+    gateway.published_url = "https://www.facebook.com/test-account/posts/123"
+
+    assert FacebookPersonalAdapter(gateway).verify_published(post) is None

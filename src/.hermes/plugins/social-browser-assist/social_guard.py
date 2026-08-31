@@ -1,4 +1,4 @@
-from caller import CallerContextRegistry, DmOnlyError
+from hermes_social_browser_assist.social_caller import CallerContextRegistry, DmOnlyError
 
 
 SOCIAL_TOOL_NAMES = frozenset(

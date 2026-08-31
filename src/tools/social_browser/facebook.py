@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 from pathlib import Path
+from urllib.parse import urlsplit
 from typing import Callable
 
 from tools.social_browser.contracts import (
@@ -65,15 +66,25 @@ class FacebookPersonalAdapter:
 
     def verify_published(self, manifest: SocialActionManifest) -> str | None:
         observation = self.gateway.observe()
+        if not self._account_matches(observation, manifest.account_label):
+            return None
+        if not manifest.text:
+            return None
         page_text = " ".join(
             normalize_text(node.name) for node in observation.accessible_nodes
         ).casefold()
         if manifest.text.casefold() not in page_text:
             return None
         for node in observation.accessible_nodes:
-            if "/posts/" not in node.url:
+            parsed = urlsplit(node.url)
+            if "/posts/" not in parsed.path.casefold():
                 continue
-            self.gateway.policy.require_origin("facebook-personal", node.url)
+            try:
+                self.gateway.policy.require_origin("facebook-personal", node.url)
+            except PermissionError:
+                continue
+            if not parsed.netloc or not parsed.path.rstrip("/").split("/")[-1]:
+                continue
             return node.url
         return None
 

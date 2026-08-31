@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime, timezone
 import hashlib
 from pathlib import Path
 from typing import Callable
@@ -49,15 +50,15 @@ class SocialBrowserService:
             request.audience,
         )
         self.policy.require_audience(manifest.platform, manifest.audience)
-        stored = self.store.create_or_get(manifest)
+        stored = self._expire_if_needed(self.store.create_or_get(manifest))
         if stored.status is not RunStatus.REQUESTED:
             return self._stored_result(stored)
         self.store.transition(
             stored.run_id, RunStatus.REQUESTED, RunStatus.PREPARING
         )
-        gateway = self.gateway_factory(stored.run_id)
-        adapter = self.adapter_factory(gateway)
         try:
+            gateway = self.gateway_factory(stored.run_id)
+            adapter = self.adapter_factory(gateway)
             result = adapter.prepare(stored.manifest)
         except (PermissionError, RuntimeError, ValueError) as exc:
             self.store.transition(
@@ -76,10 +77,11 @@ class SocialBrowserService:
         return self._stored_result(transitioned, result.evidence_paths)
 
     def status(self, run_id: str) -> PreparationResult:
-        return self._stored_result(self.store.get_run(run_id))
+        return self._stored_result(self._expire_if_needed(self.store.get_run(run_id)))
+
 
     def verify_after_human(self, run_id: str) -> PreparationResult:
-        stored = self.store.get_run(run_id)
+        stored = self._expire_if_needed(self.store.get_run(run_id))
         if stored.status is RunStatus.PUBLISHED:
             return self._stored_result(stored)
         if stored.status is not RunStatus.READY_FOR_HUMAN:
@@ -95,6 +97,21 @@ class SocialBrowserService:
             verified_post_id=post_id,
         )
         return self._stored_result(published)
+
+    def _expire_if_needed(self, stored: StoredRun) -> StoredRun:
+        if stored.status not in {RunStatus.REQUESTED, RunStatus.READY_FOR_HUMAN}:
+            return stored
+        try:
+            expires_at = datetime.fromisoformat(
+                stored.manifest.expires_at.replace("Z", "+00:00")
+            )
+        except ValueError:
+            return stored
+        if datetime.now(timezone.utc) < expires_at:
+            return stored
+        return self.store.transition(
+            stored.run_id, stored.status, RunStatus.EXPIRED
+        )
 
     def _stored_result(
         self, stored: StoredRun, evidence_paths: tuple[str, ...] = ()

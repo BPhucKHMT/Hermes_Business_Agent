@@ -59,3 +59,18 @@ def test_runner_rejects_unknown_payload_fields(tmp_path: Path) -> None:
         assert str(exc) == "invalid_browser_payload"
     else:
         raise AssertionError("invalid payload was accepted")
+
+
+def test_runner_rejects_non_local_or_ambiguous_cdp_endpoint(tmp_path: Path) -> None:
+    for endpoint in (
+        "https://127.0.0.1:9222",
+        "http://127.0.0.1:9222/path",
+        "http://127.0.0.1:99999",
+        "http://user@localhost:9222",
+    ):
+        try:
+            BrowserHarnessRunner(workspace=tmp_path, cdp_url=endpoint)
+        except ValueError as exc:
+            assert str(exc) == "local_cdp_endpoint_required"
+        else:
+            raise AssertionError(f"unsafe endpoint accepted: {endpoint}")

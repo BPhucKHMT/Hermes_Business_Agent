@@ -27,6 +27,8 @@ class SafeBrowserGateway:
         self.current_url = ""
 
     def dispatch(self, operation: str, payload: dict[str, Any]) -> dict:
+        if "session" in payload:
+            raise ValueError("session_field_reserved")
         try:
             typed = BrowserOperation(operation)
         except ValueError as exc:

@@ -3,7 +3,10 @@ import json
 import os
 from pathlib import Path
 import sys
-from types import SimpleNamespace
+from types import ModuleType, SimpleNamespace
+
+
+PACKAGE = "hermes_social_browser_assist"
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -15,18 +18,30 @@ UPSTREAM = Path(os.environ.get("LOCALAPPDATA", "")) / "hermes/hermes-agent"
 sys.path.insert(0, str(PLUGIN))
 sys.path.insert(0, str(SRC))
 sys.path.insert(0, str(UPSTREAM))
+package = sys.modules.setdefault(PACKAGE, ModuleType(PACKAGE))
+package.__path__ = [str(PLUGIN)]
 
 
 def load(name: str, path: Path):
     spec = importlib.util.spec_from_file_location(name, path)
     module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
     spec.loader.exec_module(module)
     return module
 
-
-plugin_tools = load("social_plugin_tools", PLUGIN / "plugin_tools.py")
+caller = load(
+    f"{PACKAGE}.social_caller",
+    PLUGIN / "social_caller.py",
+)
+plugin_tools = load(
+    f"{PACKAGE}.social_plugin_tools",
+    PLUGIN / "social_plugin_tools.py",
+)
 plugin_module = load("social_plugin", PLUGIN / "__init__.py")
-plugin_client = load("social_plugin_client", PLUGIN / "client.py")
+plugin_client = load(
+    f"{PACKAGE}.social_client",
+    PLUGIN / "social_client.py",
+)
 
 
 class FakeContext:

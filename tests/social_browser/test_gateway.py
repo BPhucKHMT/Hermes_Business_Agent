@@ -51,3 +51,7 @@ def test_gateway_allows_nonterminal_control(gateway) -> None:
     operation, payload = gateway.runner.calls[-1]
     assert operation is BrowserOperation.ACTIVATE_CONTROL
     assert payload["backend_node_id"] == 42
+
+def test_gateway_does_not_allow_callers_to_override_session(gateway) -> None:
+    with pytest.raises(ValueError, match="session_field_reserved"):
+        gateway.dispatch(BrowserOperation.OBSERVE.value, {"session": "other"})

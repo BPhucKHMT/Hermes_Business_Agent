@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from caller import CallerContextRegistry, DmOnlyError
+from hermes_social_browser_assist.social_caller import CallerContextRegistry, DmOnlyError
 
 
 def _json(data: dict[str, Any]) -> str:

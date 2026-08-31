@@ -35,8 +35,11 @@ def layer_1() -> None:
         SRC / "tools/social_browser/service.py",
         SRC / "tools/social_browser/cli.py",
         PLUGIN / "plugin.yaml",
-        PLUGIN / "schemas.py",
-        PLUGIN / "plugin_tools.py",
+        PLUGIN / "social_schemas.py",
+        PLUGIN / "social_plugin_tools.py",
+        PLUGIN / "social_caller.py",
+        PLUGIN / "social_guard.py",
+        PLUGIN / "social_client.py",
         PLUGIN / "__init__.py",
         SRC / "skills/social-browser-assist/SKILL.md",
         SRC / ".hermes/browser-harness-workspace/agent_helpers.py",
@@ -76,7 +79,7 @@ def layer_1() -> None:
     assert h012["state"] in {"active", "blocked"}
     assert h012["evidence"] is None
 
-    schemas = load_module("social_browser_schemas", PLUGIN / "schemas.py")
+    schemas = load_module("hermes_social_browser_assist.social_schemas", PLUGIN / "social_schemas.py")
     schemas_by_name = {
         schema["name"]: schema
         for schema in (
