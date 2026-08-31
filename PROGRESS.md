@@ -2,8 +2,8 @@
 
 ## Harness Status
 
-- Phase: H009, H010, and H006 are `blocked`; H008 is `passing`.
-- Workspace: `C:\Hermes-Business-Agent` on `autoresearch/https-github-com-browser-use-browser-harness-xem-20260830`; existing unrelated uncommitted changes remain and must not be reset.
+- Phase: H009, H010, H013, H014, H015, and H006 are `blocked`; H008 is `passing`.
+- Workspace: `C:\Hermes-Business-Agent` on `feature/h013-calendar-youtube-tiktok`.
 - WIP limit: 1; 0 active features.
 ## Completed
 
@@ -423,3 +423,28 @@
 - After: `Bảng giá chuỗi cà phê tại TP.HCM`; `Danh mục món và giá VND...`; Vietnamese findings/recommendation; footer `Hermes`; method only in `Phụ lục bằng chứng`.
 - `python tests/verify_research.py --layer 1`, `--layer 2`, `python -m py_compile src/skills/research/scripts/render_report.py`, and `git diff --check` — pass at `2026-08-31T16:26:12Z` UTC.
 - Full `python -m pytest --basetemp=.pytest-tmp-safe` was attempted; collection is blocked by the existing Python 3.9-incompatible `ContextVar[str | object]` in external Hermes gateway code (`TypeError`), unrelated to this change.
+
+## 2026-08-31 Multi-channel Integrations: Google Calendar (H013), YouTube (H014), TikTok (H015)
+
+- Implemented Google Calendar Integration (`H013`):
+  - Core package in `src/tools/calendar/` (`contracts.py`, `policy.py`, `google_calendar.py`, `store.py`, `service.py`, `cli.py`, `__init__.py`).
+  - Standalone plugin in `src/.hermes/plugins/calendar-connector/` with 5 tools: `calendar_list_events`, `calendar_find_free_slots`, `calendar_create_draft_event` (Tier 2), `calendar_confirm_event`, `calendar_status`.
+  - Runtime skill `src/skills/calendar/SKILL.md` and capability in `src/AGENTS.md`.
+  - Unit tests in `tests/google_calendar/` (21 tests passing).
+  - Verifier `tests/verify_calendar.py` (Layer 1 and Layer 2 passing).
+
+- Implemented YouTube Channel Integration (`H014`):
+  - Core package in `src/tools/youtube/` (`contracts.py`, `policy.py`, `youtube_client.py`, `store.py`, `service.py`, `cli.py`, `__init__.py`).
+  - Standalone plugin in `src/.hermes/plugins/youtube-connector/` with 5 tools: `youtube_channel_status`, `youtube_list_videos`, `youtube_create_draft_video` (Tier 2), `youtube_upload_video`, `youtube_update_video_metadata`.
+  - Runtime skill `src/skills/youtube/SKILL.md` and capability in `src/AGENTS.md`.
+  - Unit tests in `tests/youtube_tool/` (18 tests passing).
+  - Verifier `tests/verify_youtube.py` (Layer 1 and Layer 2 passing).
+
+- Implemented TikTok Content Posting API Integration (`H015`):
+  - Core package in `src/tools/tiktok/` (`contracts.py`, `policy.py`, `tiktok_client.py`, `store.py`, `service.py`, `cli.py`, `__init__.py`).
+  - Standalone plugin in `src/.hermes/plugins/tiktok-connector/` with 4 tools: `tiktok_creator_info`, `tiktok_create_draft_post` (Tier 2), `tiktok_publish_video`, `tiktok_post_status`.
+  - Runtime skill `src/skills/tiktok/SKILL.md` and capability in `src/AGENTS.md`.
+  - Unit tests in `tests/tiktok_tool/` (17 tests passing).
+  - Verifier `tests/verify_tiktok.py` (Layer 1 and Layer 2 passing).
+
+- All 56 new unit and integration tests passing; zero regressions across research, knowledge, progress, and email suites.

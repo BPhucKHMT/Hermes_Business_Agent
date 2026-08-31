@@ -1,0 +1,20 @@
+name: youtube-connector
+label: YouTube Channel Connector
+kind: standalone
+version: 0.1.0
+description: Official YouTube Channel video staging, upload management, and metadata updates with Tier 2 review.
+author: Hermes project team
+platforms:
+  - linux
+  - macos
+  - windows
+provides_tools:
+  - youtube_channel_status
+  - youtube_list_videos
+  - youtube_create_draft_video
+  - youtube_upload_video
+  - youtube_update_video_metadata
+provides_hooks:
+  - pre_gateway_dispatch
+  - pre_tool_call
+  - on_session_finalize

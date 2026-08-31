@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "default_timezone": "Asia/Ho_Chi_Minh",
+  "working_hours": {
+    "start": "09:00",
+    "end": "18:00"
+  },
+  "max_lookahead_days": 30,
+  "max_event_duration_minutes": 480,
+  "min_event_duration_minutes": 15,
+  "max_list_results": 50,
+  "scopes": [
+    "https://www.googleapis.com/auth/calendar.events",
+    "https://www.googleapis.com/auth/calendar.readonly"
+  ]
+}

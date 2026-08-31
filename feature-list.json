@@ -255,6 +255,48 @@
       "evidence": null,
       "blocked": "Operator setup completed for default H010 profile, but Layer 3 is blocked. Owner: operator plus independent verifier. Unblock when the operator confirms the approved Telegram chat/topic and unambiguous numeric user_id (current configured route -1004420788744/topic 1 is absent from channel_directory; allowed_users remains wildcard), and resolves Tavily auth status (tvly auth --json reports authenticated=false) or confirms env-key API authentication. Then an independent verifier must run all seven Telegram scenarios sequentially and record command/event, UTC timestamp, exit status, citations, deliverables, and negative/lifecycle results.",
       "depends_on": ["H005"]
+    },
+    {
+      "id": "H013",
+      "title": "Hermes manages Google Calendar agenda, free slot search, and Tier 2 event drafts",
+      "behavior": "From an approved Telegram DM caller, Hermes lists upcoming calendar events, finds available free slots within working hours, stages Tier 2 event drafts with idempotency protection, confirms events to Google Calendar upon user approval, and provides machine-verifiable Google event IDs.",
+      "verification": {
+        "layer_1": "python tests/verify_calendar.py --layer 1",
+        "layer_2": "python tests/verify_calendar.py --layer 2",
+        "layer_3": "independent verifier exercises a fresh Hermes process with an approved Telegram DM caller and live Google Calendar connection, verifying agenda lookup, free slot calculation, draft staging, 1-tap confirmation, and read-back event ID"
+      },
+      "state": "blocked",
+      "evidence": null,
+      "blocked": "Core implementation, store, policy, plugin, and Layer 1/2 verification complete (21 tests passing). Live Layer 3 verification is blocked on real Google OAuth Calendar credentials and live test calendar account.",
+      "depends_on": ["H008"]
+    },
+    {
+      "id": "H014",
+      "title": "Hermes manages YouTube Channel video staging, upload drafts, and metadata updates",
+      "behavior": "From an approved Telegram DM caller, Hermes inspects channel status, lists recent videos, stages Tier 2 video upload drafts, confirms and executes uploads via official YouTube Data API v3, and returns machine-verifiable YouTube video IDs.",
+      "verification": {
+        "layer_1": "python tests/verify_youtube.py --layer 1",
+        "layer_2": "python tests/verify_youtube.py --layer 2",
+        "layer_3": "independent verifier exercises a fresh Hermes process with an approved Telegram DM caller and live YouTube channel connection, verifying channel status, draft staging, upload execution, and read-back video ID"
+      },
+      "state": "blocked",
+      "evidence": null,
+      "blocked": "Core implementation, store, policy, plugin, and Layer 1/2 verification complete (18 tests passing). Live Layer 3 verification is blocked on real Google/YouTube OAuth credentials and live test channel.",
+      "depends_on": ["H008"]
+    },
+    {
+      "id": "H015",
+      "title": "Hermes integrates official TikTok Content Posting API for creator info, video staging, and publishing",
+      "behavior": "From an approved Telegram DM caller, Hermes queries creator account info, stages Tier 2 video post drafts with caption and privacy settings, initiates publication via official TikTok Content Posting API, and tracks publication status.",
+      "verification": {
+        "layer_1": "python tests/verify_tiktok.py --layer 1",
+        "layer_2": "python tests/verify_tiktok.py --layer 2",
+        "layer_3": "independent verifier exercises a fresh Hermes process with an approved Telegram DM caller and live TikTok creator connection, verifying creator profile inspection, draft staging, publish initialization, and status tracking"
+      },
+      "state": "blocked",
+      "evidence": null,
+      "blocked": "Core implementation, store, policy, plugin, and Layer 1/2 verification complete (17 tests passing). Live Layer 3 verification is blocked on real TikTok Developer App OAuth credentials and live test creator account.",
+      "depends_on": ["H008"]
     }
   ]
 }

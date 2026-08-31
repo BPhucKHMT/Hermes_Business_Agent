@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "default_privacy_status": "unlisted",
+  "allowed_privacy_statuses": [
+    "private",
+    "unlisted",
+    "public"
+  ],
+  "max_video_size_bytes": 1073741824,
+  "allowed_video_extensions": [
+    ".mp4",
+    ".mov",
+    ".avi",
+    ".mkv",
+    ".webm"
+  ],
+  "max_title_chars": 100,
+  "max_description_chars": 5000,
+  "max_tags_count": 30,
+  "scopes": [
+    "https://www.googleapis.com/auth/youtube.upload",
+    "https://www.googleapis.com/auth/youtube.readonly"
+  ]
+}

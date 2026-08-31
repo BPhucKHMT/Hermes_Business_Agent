@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "default_privacy_level": "SELF_ONLY",
+  "allowed_privacy_levels": [
+    "PUBLIC_TO_EVERYONE",
+    "MUTUAL_FOLLOW_FRIENDS",
+    "SELF_ONLY",
+    "FOLLOWER_OF_CREATOR"
+  ],
+  "max_caption_chars": 2200,
+  "max_video_size_bytes": 1073741824,
+  "allowed_video_extensions": [
+    ".mp4",
+    ".mov",
+    ".webm"
+  ],
+  "scopes": [
+    "user.info.basic",
+    "video.publish",
+    "video.upload"
+  ]
+}

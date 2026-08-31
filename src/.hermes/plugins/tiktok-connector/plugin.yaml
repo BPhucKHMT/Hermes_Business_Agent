@@ -1,0 +1,19 @@
+name: tiktok-connector
+label: TikTok Content Posting API Connector
+kind: standalone
+version: 0.1.0
+description: Official TikTok Content Posting API integration for creator info, video draft staging, and publishing.
+author: Hermes project team
+platforms:
+  - linux
+  - macos
+  - windows
+provides_tools:
+  - tiktok_creator_info
+  - tiktok_create_draft_post
+  - tiktok_publish_video
+  - tiktok_post_status
+provides_hooks:
+  - pre_gateway_dispatch
+  - pre_tool_call
+  - on_session_finalize

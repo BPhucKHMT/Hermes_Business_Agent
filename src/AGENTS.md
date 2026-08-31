@@ -30,6 +30,9 @@ and other runtime-owned files belong in this workspace.
 - Workspace & Document Access: Agent runs with root at `src` and is authorized to inspect, read, and update business documents directly inside `docs/` (or `workspaces/`), including spreadsheets (`.xlsx`) and project plans (`.docx`). Agent must search `docs/` automatically for domain documents without requiring user filesystem paths.
 - Cross-platform uploaded files: Any file received or delivered through Telegram, WhatsApp, or other connected platforms must be saved into the project workspace (`docs/`, `workspaces/`, or Hermes cache) and, where applicable, ingested into the Azure knowledge base so that skills such as `hermes-azure-rag`, `progress-report`, and document search can access them.
 - `/email` defines multi-user read-only Gmail thread search and inspection in DM with host-owned caller authorization.
+- `/calendar` defines multi-user Google Calendar event listing, free slot search, and Tier 2 event drafting with 1-tap confirmation.
+- `/youtube` defines official YouTube Channel video metadata staging, Tier 2 upload drafts, and video upload execution.
+- `/tiktok` defines official TikTok Content Posting API integration, creator profile inspection, Tier 2 post drafts, and video publishing.
 - No project-owned deep-research provider, web UI, Slack, sales, invoice, cron-research, or outbound Gmail sending integration exists yet. Deck composition delegates to the existing prebuilt deck/productivity skills; do not claim unsupported integrations.
 
 ## Operating Rules

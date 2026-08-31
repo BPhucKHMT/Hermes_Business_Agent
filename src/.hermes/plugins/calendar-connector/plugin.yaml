@@ -1,0 +1,20 @@
+name: calendar-connector
+label: Google Calendar Connector
+kind: standalone
+version: 0.1.0
+description: Google Calendar event lookup, free slot search, and Tier 2 draft-before-create workflow.
+author: Hermes project team
+platforms:
+  - linux
+  - macos
+  - windows
+provides_tools:
+  - calendar_list_events
+  - calendar_find_free_slots
+  - calendar_create_draft_event
+  - calendar_confirm_event
+  - calendar_status
+provides_hooks:
+  - pre_gateway_dispatch
+  - pre_tool_call
+  - on_session_finalize
