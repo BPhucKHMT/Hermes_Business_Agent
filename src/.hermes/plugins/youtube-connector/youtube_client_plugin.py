@@ -8,13 +8,36 @@ from threading import Lock
 from typing import Any, Callable, Dict, List, Optional
 
 _PLUGIN_DIR = Path(__file__).resolve().parent
-_SRC = _PLUGIN_DIR.parents[2]
-if str(_SRC) not in sys.path:
-    sys.path.insert(0, str(_SRC))
+if str(_PLUGIN_DIR) not in sys.path:
+    sys.path.insert(0, str(_PLUGIN_DIR))
 
+for candidate in (
+    Path(os.environ.get("HERMES_PROJECT_SRC", "")),
+    Path(os.environ.get("HERMES_SRC_DIR", "")),
+    _PLUGIN_DIR.parents[2],
+    Path("C:/Hermes-Business-Agent/src"),
+    Path.cwd() / "src",
+    Path.cwd(),
+):
+    try:
+        if (
+            candidate
+            and candidate.is_dir()
+            and (candidate / "tools" / "youtube").is_dir()
+        ):
+            cand_str = str(candidate.resolve())
+            if cand_str not in sys.path:
+                sys.path.insert(0, cand_str)
+            import tools
+
+            tools_path_str = str((candidate / "tools").resolve())
+            if tools_path_str not in tools.__path__:
+                tools.__path__.insert(0, tools_path_str)
+            break
+    except Exception:
+        continue
 from tools.youtube.cli import build_service
 from tools.youtube.service import YouTubeService
-
 
 class YouTubeConnectorClient:
     def __init__(self, service_factory: Callable[[], YouTubeService] = build_service) -> None:

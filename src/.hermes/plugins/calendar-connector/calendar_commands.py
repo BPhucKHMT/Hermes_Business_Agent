@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from caller import DM_REDIRECT_TEXT, DmOnlyError
+from calendar_caller import DM_REDIRECT_TEXT, DmOnlyError
 
 
 def _caller(registry: Any) -> Any:

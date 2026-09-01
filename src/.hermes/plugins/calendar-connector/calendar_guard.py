@@ -2,21 +2,22 @@ from __future__ import annotations
 
 from typing import Any
 
-from caller import CallerContextRegistry, DmOnlyError
+from calendar_caller import CallerContextRegistry, DmOnlyError
 
 
-TIKTOK_TOOL_NAMES = frozenset(
+CALENDAR_TOOL_NAMES = frozenset(
     {
-        "tiktok_creator_info",
-        "tiktok_create_draft_post",
-        "tiktok_publish_video",
-        "tiktok_post_status",
+        "calendar_list_events",
+        "calendar_find_free_slots",
+        "calendar_create_draft_event",
+        "calendar_confirm_event",
+        "calendar_status",
     }
 )
 
 
-class TikTokToolsGuard:
-    """Production TikTokToolsGuard entrypoint and caller protection."""
+class CalendarToolsGuard:
+    """Production CalendarToolsGuard entrypoint and caller protection."""
 
     def __init__(self, registry: CallerContextRegistry | None = None) -> None:
         self.registry = registry or CallerContextRegistry()
@@ -45,7 +46,7 @@ class TikTokToolsGuard:
         **kwargs: Any,
     ) -> dict[str, Any] | None:
         del _args, kwargs
-        if tool_name not in TIKTOK_TOOL_NAMES:
+        if tool_name not in CALENDAR_TOOL_NAMES:
             return None
         try:
             self.registry.resolve_dm_tool(task_id=task_id, session_id=session_id)

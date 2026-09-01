@@ -24,7 +24,7 @@ def load_module(name: str, path: Path):
     return module
 
 
-plugin_tools = load_module("youtube_plugin_tools", PLUGIN / "plugin_tools.py")
+plugin_tools = load_module("youtube_plugin_tools", PLUGIN / "youtube_plugin_tools.py")
 plugin_module = load_module("youtube_plugin", PLUGIN / "__init__.py")
 
 

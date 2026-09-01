@@ -2,22 +2,22 @@ from __future__ import annotations
 
 from typing import Any
 
-from caller import CallerContextRegistry, DmOnlyError
+from youtube_caller import CallerContextRegistry, DmOnlyError
 
 
-CALENDAR_TOOL_NAMES = frozenset(
+YOUTUBE_TOOL_NAMES = frozenset(
     {
-        "calendar_list_events",
-        "calendar_find_free_slots",
-        "calendar_create_draft_event",
-        "calendar_confirm_event",
-        "calendar_status",
+        "youtube_channel_status",
+        "youtube_list_videos",
+        "youtube_create_draft_video",
+        "youtube_upload_video",
+        "youtube_update_video_metadata",
     }
 )
 
 
-class CalendarToolsGuard:
-    """Production CalendarToolsGuard entrypoint and caller protection."""
+class YouTubeToolsGuard:
+    """Production YouTubeToolsGuard entrypoint and caller protection."""
 
     def __init__(self, registry: CallerContextRegistry | None = None) -> None:
         self.registry = registry or CallerContextRegistry()
@@ -46,7 +46,7 @@ class CalendarToolsGuard:
         **kwargs: Any,
     ) -> dict[str, Any] | None:
         del _args, kwargs
-        if tool_name not in CALENDAR_TOOL_NAMES:
+        if tool_name not in YOUTUBE_TOOL_NAMES:
             return None
         try:
             self.registry.resolve_dm_tool(task_id=task_id, session_id=session_id)

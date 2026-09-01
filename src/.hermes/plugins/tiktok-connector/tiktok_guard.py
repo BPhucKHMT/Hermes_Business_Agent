@@ -2,22 +2,21 @@ from __future__ import annotations
 
 from typing import Any
 
-from caller import CallerContextRegistry, DmOnlyError
+from tiktok_caller import CallerContextRegistry, DmOnlyError
 
 
-YOUTUBE_TOOL_NAMES = frozenset(
+TIKTOK_TOOL_NAMES = frozenset(
     {
-        "youtube_channel_status",
-        "youtube_list_videos",
-        "youtube_create_draft_video",
-        "youtube_upload_video",
-        "youtube_update_video_metadata",
+        "tiktok_creator_info",
+        "tiktok_create_draft_post",
+        "tiktok_publish_video",
+        "tiktok_post_status",
     }
 )
 
 
-class YouTubeToolsGuard:
-    """Production YouTubeToolsGuard entrypoint and caller protection."""
+class TikTokToolsGuard:
+    """Production TikTokToolsGuard entrypoint and caller protection."""
 
     def __init__(self, registry: CallerContextRegistry | None = None) -> None:
         self.registry = registry or CallerContextRegistry()
@@ -46,7 +45,7 @@ class YouTubeToolsGuard:
         **kwargs: Any,
     ) -> dict[str, Any] | None:
         del _args, kwargs
-        if tool_name not in YOUTUBE_TOOL_NAMES:
+        if tool_name not in TIKTOK_TOOL_NAMES:
             return None
         try:
             self.registry.resolve_dm_tool(task_id=task_id, session_id=session_id)

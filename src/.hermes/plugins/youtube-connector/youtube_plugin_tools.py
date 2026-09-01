@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from typing import Any, Dict
 
-from caller import CallerContextRegistry, DmOnlyError
+from youtube_caller import CallerContextRegistry, DmOnlyError
 
 
 def _json(data: Dict[str, Any]) -> str:

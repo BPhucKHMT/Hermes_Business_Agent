@@ -7,34 +7,51 @@ import sys
 from typing import Any
 
 _PLUGIN_DIR = Path(__file__).resolve().parent
-_SRC = _PLUGIN_DIR.parents[2]
+if str(_PLUGIN_DIR) not in sys.path:
+    sys.path.insert(0, str(_PLUGIN_DIR))
+
+import os
+
 for candidate in (
     Path(os.environ.get("HERMES_PROJECT_SRC", "")),
     Path(os.environ.get("HERMES_SRC_DIR", "")),
-    _SRC,
+    _PLUGIN_DIR.parents[2],
+    Path("C:/Hermes-Business-Agent/src"),
+    Path.cwd() / "src",
     Path.cwd(),
 ):
-    if candidate.is_dir() and (candidate / "tools/calendar").is_dir():
-        resolved = str(candidate.resolve())
-        if resolved not in sys.path:
-            sys.path.insert(0, resolved)
-        break
+    try:
+        if (
+            candidate
+            and candidate.is_dir()
+            and (candidate / "tools" / "calendar").is_dir()
+        ):
+            cand_str = str(candidate.resolve())
+            if cand_str not in sys.path:
+                sys.path.insert(0, cand_str)
+            import tools
 
-from client import get_default_client
-from commands import (
+            tools_path_str = str((candidate / "tools").resolve())
+            if tools_path_str not in tools.__path__:
+                tools.__path__.insert(0, tools_path_str)
+            break
+    except Exception:
+        continue
+from calendar_client import get_default_client
+from calendar_commands import (
     handle_calendar_status_cmd,
     handle_connect_calendar,
     handle_disconnect_calendar,
 )
-from guard import CalendarToolsGuard
-from plugin_tools import (
+from calendar_guard import CalendarToolsGuard
+from calendar_plugin_tools import (
     handle_calendar_confirm_event,
     handle_calendar_create_draft_event,
     handle_calendar_find_free_slots,
     handle_calendar_list_events,
     handle_calendar_status,
 )
-from schemas import (
+from calendar_schemas import (
     CALENDAR_CONFIRM_EVENT_SCHEMA,
     CALENDAR_CREATE_DRAFT_EVENT_SCHEMA,
     CALENDAR_FIND_FREE_SLOTS_SCHEMA,

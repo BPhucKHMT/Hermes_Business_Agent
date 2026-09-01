@@ -7,28 +7,45 @@ import sys
 from typing import Any
 
 _PLUGIN_DIR = Path(__file__).resolve().parent
-_SRC = _PLUGIN_DIR.parents[2]
+if str(_PLUGIN_DIR) not in sys.path:
+    sys.path.insert(0, str(_PLUGIN_DIR))
+
+import os
+
 for candidate in (
     Path(os.environ.get("HERMES_PROJECT_SRC", "")),
     Path(os.environ.get("HERMES_SRC_DIR", "")),
-    _SRC,
+    _PLUGIN_DIR.parents[2],
+    Path("C:/Hermes-Business-Agent/src"),
+    Path.cwd() / "src",
     Path.cwd(),
 ):
-    if candidate.is_dir() and (candidate / "tools/tiktok").is_dir():
-        resolved = str(candidate.resolve())
-        if resolved not in sys.path:
-            sys.path.insert(0, resolved)
-        break
+    try:
+        if (
+            candidate
+            and candidate.is_dir()
+            and (candidate / "tools" / "tiktok").is_dir()
+        ):
+            cand_str = str(candidate.resolve())
+            if cand_str not in sys.path:
+                sys.path.insert(0, cand_str)
+            import tools
 
-from client import get_default_client
-from guard import TikTokToolsGuard
-from plugin_tools import (
+            tools_path_str = str((candidate / "tools").resolve())
+            if tools_path_str not in tools.__path__:
+                tools.__path__.insert(0, tools_path_str)
+            break
+    except Exception:
+        continue
+from tiktok_client_plugin import get_default_client
+from tiktok_guard import TikTokToolsGuard
+from tiktok_plugin_tools import (
     handle_tiktok_create_draft_post,
     handle_tiktok_creator_info,
     handle_tiktok_post_status,
     handle_tiktok_publish_video,
 )
-from schemas import (
+from tiktok_schemas import (
     TIKTOK_CREATE_DRAFT_POST_SCHEMA,
     TIKTOK_CREATOR_INFO_SCHEMA,
     TIKTOK_POST_STATUS_SCHEMA,

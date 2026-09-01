@@ -30,14 +30,12 @@ def layer_1() -> None:
         SRC / "tools/tiktok/tiktok_client.py",
         SRC / "tools/tiktok/store.py",
         SRC / "tools/tiktok/service.py",
-        SRC / "tools/tiktok/cli.py",
-        SRC / "tools/tiktok/__init__.py",
         PLUGIN / "plugin.yaml",
-        PLUGIN / "schemas.py",
-        PLUGIN / "caller.py",
-        PLUGIN / "guard.py",
-        PLUGIN / "client.py",
-        PLUGIN / "plugin_tools.py",
+        PLUGIN / "tiktok_schemas.py",
+        PLUGIN / "tiktok_caller.py",
+        PLUGIN / "tiktok_guard.py",
+        PLUGIN / "tiktok_client_plugin.py",
+        PLUGIN / "tiktok_plugin_tools.py",
         PLUGIN / "__init__.py",
         SRC / "skills/tiktok/SKILL.md",
     )
@@ -48,9 +46,7 @@ def layer_1() -> None:
     policy = json.loads(required[0].read_text(encoding="utf-8"))
     assert policy["schema_version"] == 1
     assert "video.publish" in policy["scopes"]
-
-    # Verify schemas
-    schemas = load_module("tiktok_schemas", PLUGIN / "schemas.py")
+    schemas = load_module("tiktok_schemas", PLUGIN / "tiktok_schemas.py")
     expected_tools = {
         "tiktok_creator_info",
         "tiktok_create_draft_post",

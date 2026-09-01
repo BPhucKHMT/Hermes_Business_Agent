@@ -31,13 +31,13 @@ def layer_1() -> None:
         SRC / "tools/calendar/store.py",
         SRC / "tools/calendar/service.py",
         SRC / "tools/calendar/cli.py",
-        SRC / "tools/calendar/__init__.py",
         PLUGIN / "plugin.yaml",
-        PLUGIN / "schemas.py",
-        PLUGIN / "caller.py",
-        PLUGIN / "guard.py",
-        PLUGIN / "client.py",
-        PLUGIN / "plugin_tools.py",
+        PLUGIN / "calendar_schemas.py",
+        PLUGIN / "calendar_caller.py",
+        PLUGIN / "calendar_guard.py",
+        PLUGIN / "calendar_client.py",
+        PLUGIN / "calendar_plugin_tools.py",
+        PLUGIN / "calendar_commands.py",
         PLUGIN / "__init__.py",
         SRC / "skills/calendar/SKILL.md",
     )
@@ -51,7 +51,7 @@ def layer_1() -> None:
     assert "https://www.googleapis.com/auth/calendar.events" in policy["scopes"]
 
     # Verify schemas
-    schemas = load_module("calendar_schemas", PLUGIN / "schemas.py")
+    schemas = load_module("calendar_schemas", PLUGIN / "calendar_schemas.py")
     expected_tools = {
         "calendar_list_events",
         "calendar_find_free_slots",

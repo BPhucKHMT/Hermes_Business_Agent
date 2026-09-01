@@ -30,14 +30,12 @@ def layer_1() -> None:
         SRC / "tools/youtube/youtube_client.py",
         SRC / "tools/youtube/store.py",
         SRC / "tools/youtube/service.py",
-        SRC / "tools/youtube/cli.py",
-        SRC / "tools/youtube/__init__.py",
         PLUGIN / "plugin.yaml",
-        PLUGIN / "schemas.py",
-        PLUGIN / "caller.py",
-        PLUGIN / "guard.py",
-        PLUGIN / "client.py",
-        PLUGIN / "plugin_tools.py",
+        PLUGIN / "youtube_schemas.py",
+        PLUGIN / "youtube_caller.py",
+        PLUGIN / "youtube_guard.py",
+        PLUGIN / "youtube_client_plugin.py",
+        PLUGIN / "youtube_plugin_tools.py",
         PLUGIN / "__init__.py",
         SRC / "skills/youtube/SKILL.md",
     )
@@ -49,8 +47,7 @@ def layer_1() -> None:
     assert policy["schema_version"] == 1
     assert "https://www.googleapis.com/auth/youtube.upload" in policy["scopes"]
 
-    # Verify schemas
-    schemas = load_module("youtube_schemas", PLUGIN / "schemas.py")
+    schemas = load_module("youtube_schemas", PLUGIN / "youtube_schemas.py")
     expected_tools = {
         "youtube_channel_status",
         "youtube_list_videos",

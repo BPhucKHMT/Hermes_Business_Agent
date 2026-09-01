@@ -743,7 +743,11 @@ def create_http_server(
                     )
                 )
                 return
-            if parsed.path == "/gmail/oauth/callback":
+            if parsed.path in (
+                "/gmail/oauth/callback",
+                "/calendar/oauth/callback",
+                "/google/oauth/callback",
+            ):
                 query = urllib.parse.parse_qs(parsed.query)
                 self._write(
                     service.handle_oauth_callback(
