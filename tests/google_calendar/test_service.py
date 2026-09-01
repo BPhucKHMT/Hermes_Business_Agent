@@ -23,15 +23,15 @@ def service(tmp_path: Path) -> CalendarService:
         {
             "id": "evt-existing-1",
             "summary": "Team Sync",
-            "start": {"dateTime": "2026-09-01T09:30:00Z"},
-            "end": {"dateTime": "2026-09-01T10:30:00Z"},
+            "start": {"dateTime": "2026-09-01T09:30:00+07:00"},
+            "end": {"dateTime": "2026-09-01T10:30:00+07:00"},
             "htmlLink": "https://google.com/calendar/event?eid=1",
         },
         {
             "id": "evt-existing-2",
             "summary": "Lunch Break",
-            "start": {"dateTime": "2026-09-01T12:00:00Z"},
-            "end": {"dateTime": "2026-09-01T13:00:00Z"},
+            "start": {"dateTime": "2026-09-01T12:00:00+07:00"},
+            "end": {"dateTime": "2026-09-01T13:00:00+07:00"},
             "htmlLink": "https://google.com/calendar/event?eid=2",
         },
     ]
@@ -52,11 +52,15 @@ def test_list_events(service: CalendarService) -> None:
 def test_find_free_slots(service: CalendarService) -> None:
     caller = SimpleNamespace(principal_id="telegram:default:7275339077")
     slots = service.find_free_slots(caller, "2026-09-01", duration_minutes=30)
-    assert len(slots) >= 3
-    # 09:00 - 09:30 (30 mins before first event)
-    assert slots[0].start_time == "2026-09-01T09:00:00Z"
-    assert slots[0].end_time == "2026-09-01T09:30:00Z"
+    assert len(slots) == 3
+    # 09:00 - 09:30 ICT (02:00 - 02:30 UTC)
+    assert slots[0].start_time == "2026-09-01T02:00:00Z"
+    assert slots[0].end_time == "2026-09-01T02:30:00Z"
     assert slots[0].duration_minutes == 30
+    # 10:30 - 12:00 ICT (03:30 - 05:00 UTC)
+    assert slots[1].start_time == "2026-09-01T03:30:00Z"
+    assert slots[1].end_time == "2026-09-01T05:00:00Z"
+    assert slots[1].duration_minutes == 90
 
 
 def test_create_and_confirm_draft(service: CalendarService) -> None:

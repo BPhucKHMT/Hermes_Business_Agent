@@ -41,17 +41,31 @@ class CalendarService:
         try:
             from tools.email.service import build_service_from_env
             email_svc = build_service_from_env()
-            for c in email_svc.store.list_connections(principal_id):
+            candidates = list(email_svc.store.list_connections(principal_id))
+            candidates.sort(key=lambda c: getattr(c, "created_at", "") or "", reverse=True)
+
+            selected = None
+            for c in candidates:
                 if c.secret_ref:
-                    token_data = email_svc.secret_store.get_json(c.secret_ref)
-                    if token_data and ("token" in token_data or "access_token" in token_data):
-                        return {
-                            "access_token": token_data.get("token") or token_data.get("access_token"),
-                            "refresh_token": token_data.get("refresh_token"),
-                            "token_uri": token_data.get("token_uri", "https://oauth2.googleapis.com/token"),
-                            "client_id": token_data.get("client_id"),
-                            "client_secret": token_data.get("client_secret"),
-                        }
+                    t_data = email_svc.secret_store.get_json(c.secret_ref)
+                    if t_data and ("token" in t_data or "access_token" in t_data):
+                        scopes = t_data.get("scopes", [])
+                        if any("calendar" in s for s in scopes):
+                            selected = t_data
+                            break
+                        if selected is None:
+                            selected = t_data
+            if selected:
+                token = selected.get("token") or selected.get("access_token")
+                return {
+                    "access_token": token,
+                    "token": token,
+                    "refresh_token": selected.get("refresh_token"),
+                    "token_uri": selected.get("token_uri", "https://oauth2.googleapis.com/token"),
+                    "client_id": selected.get("client_id"),
+                    "client_secret": selected.get("client_secret"),
+                    "scopes": selected.get("scopes", []),
+                }
         except Exception:
             pass
         return {"access_token": "mock_token_for_test", "mock_mode": True}
@@ -96,8 +110,16 @@ class CalendarService:
         wh_start_t = datetime.strptime(self.policy.working_hours.start, "%H:%M").time()
         wh_end_t = datetime.strptime(self.policy.working_hours.end, "%H:%M").time()
 
-        day_start = datetime.combine(target_date, wh_start_t, tzinfo=timezone.utc)
-        day_end = datetime.combine(target_date, wh_end_t, tzinfo=timezone.utc)
+        try:
+            from zoneinfo import ZoneInfo
+            tz = ZoneInfo(self.policy.default_timezone)
+        except Exception:
+            tz = timezone(timedelta(hours=7))
+
+        day_start_local = datetime.combine(target_date, wh_start_t, tzinfo=tz)
+        day_end_local = datetime.combine(target_date, wh_end_t, tzinfo=tz)
+        day_start = day_start_local.astimezone(timezone.utc)
+        day_end = day_end_local.astimezone(timezone.utc)
 
         events = self.list_events(
             caller=caller,
@@ -143,8 +165,8 @@ class CalendarService:
                 if slot_duration >= duration_minutes:
                     free_slots.append(
                         FreeSlot(
-                            start_time=current_cursor.isoformat().replace("+00:00", "Z"),
-                            end_time=busy_start.isoformat().replace("+00:00", "Z"),
+                            start_time=current_cursor.astimezone(timezone.utc).isoformat().replace("+00:00", "Z"),
+                            end_time=busy_start.astimezone(timezone.utc).isoformat().replace("+00:00", "Z"),
                             duration_minutes=slot_duration,
                         )
                     )
@@ -155,8 +177,8 @@ class CalendarService:
             if slot_duration >= duration_minutes:
                 free_slots.append(
                     FreeSlot(
-                        start_time=current_cursor.isoformat().replace("+00:00", "Z"),
-                        end_time=day_end.isoformat().replace("+00:00", "Z"),
+                        start_time=current_cursor.astimezone(timezone.utc).isoformat().replace("+00:00", "Z"),
+                        end_time=day_end.astimezone(timezone.utc).isoformat().replace("+00:00", "Z"),
                         duration_minutes=slot_duration,
                     )
                 )
