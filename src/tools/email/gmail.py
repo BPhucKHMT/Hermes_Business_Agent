@@ -121,23 +121,28 @@ class GmailReader:
 
     @staticmethod
     def _default_service_builder(token_data: Dict[str, Any]) -> Any:
+        import os
         from google.oauth2.credentials import Credentials
         from googleapiclient.discovery import build
 
+        token = token_data.get("token") or token_data.get("access_token")
+        client_id = token_data.get("client_id") or os.environ.get("EMAIL_GOOGLE_CLIENT_ID")
+        client_secret = token_data.get("client_secret") or os.environ.get("EMAIL_GOOGLE_CLIENT_SECRET")
+        scopes = token_data.get(
+            "scopes", ["https://www.googleapis.com/auth/gmail.readonly"]
+        )
+
         creds = Credentials(
-            token=token_data.get("token"),
+            token=token,
             refresh_token=token_data.get("refresh_token"),
             token_uri=token_data.get(
                 "token_uri", "https://oauth2.googleapis.com/token"
             ),
-            client_id=token_data.get("client_id"),
-            client_secret=token_data.get("client_secret"),
-            scopes=token_data.get(
-                "scopes", ["https://www.googleapis.com/auth/gmail.readonly"]
-            ),
+            client_id=client_id,
+            client_secret=client_secret,
+            scopes=scopes,
         )
         return build("gmail", "v1", credentials=creds, cache_discovery=False)
-
     def search_threads(
         self, token_data: Dict[str, Any], query: str, limit: int = 10
     ) -> tuple[SearchHit, ...]:

@@ -14,8 +14,10 @@ def _error(code: str, message: str = "") -> str:
     err: Dict[str, Any] = {"code": code}
     if message:
         err["message"] = message
+        lower = message.lower()
+        if any(term in lower for term in ("missing_access_token", "invalid_grant", "401", "unauthorized")):
+            err["hint"] = "Tài khoản YouTube/Google chưa được kết nối hoặc token đã hết hạn. Hãy dùng lệnh /connect_google để kết nối lại."
     return _json({"ok": False, "error": err})
-
 
 def _resolve_caller(
     registry: CallerContextRegistry | Any,

@@ -448,3 +448,21 @@
   - Verifier `tests/verify_tiktok.py` (Layer 1 and Layer 2 passing).
 
 - All 56 new unit and integration tests passing; zero regressions across research, knowledge, progress, and email suites.
+
+## 2026-09-02 Senior Engineer Code Audit, Bug Hunting & Refactoring
+
+- Executed comprehensive architectural and code quality audit across all modules (`src/tools/`, `src/.hermes/plugins/`, `src/skills/`, `tests/`).
+- Bug Fixes & Hardening:
+  - **Calendar Token Auto-Refresh & Timezone Fix:** Implemented `_refresh_access_token` and `_request_json` in `GoogleCalendarClient` to auto-refresh expired access tokens on HTTP 401. Fixed `find_free_slots` in `CalendarService` to use `zoneinfo.ZoneInfo(default_timezone)` (UTC+7 / `Asia/Ho_Chi_Minh`) instead of naive UTC comparisons.
+  - **MailStore Connection Limit Idempotency:** Fixed duplicate mailbox reconnection handling in `src/tools/email/store.py` so reconnecting the same email revokes prior stale records before evaluating `MAX_CONNECTIONS_PER_PRINCIPAL`.
+  - **YouTube Token Auto-Refresh:** Integrated auto-refresh on 401 into `src/tools/youtube/youtube_client.py` and upgraded `_default_token_resolver` in `src/tools/youtube/service.py`.
+  - **Exception & Resource Management:** Removed bare `except Exception: pass` swallows in `research_store.py`, `calendar/service.py`, `email/service.py`, and `youtube/service.py`, adding structured debug logging and proper exception classification.
+  - **Structured Error Hierarchy:** Standardized `_error` across all 4 connectors (`calendar-connector`, `youtube-connector`, `tiktok-connector`, `email-connector`) with Vietnamese recovery hints (directing user to `/connect_google` or `/connect_tiktok`).
+- Boundary & Stress Testing:
+  - Added `tests/google_calendar/test_boundary.py`, `tests/youtube_tool/test_boundary.py`, and `tests/tiktok_tool/test_boundary.py`.
+  - Validated parameter boundaries (empty strings, format errors, limit clamping, file extension checks).
+- Verification Results:
+  - 16/16 verification suites passed cleanly with 100% success rate across all layers.
+  - Python bytecode compilation (`compileall`) exited with 0 errors across `src` and `tests`.
+  - Gateway successfully updated and restarted.
+  - Report authored in `docs/progress/2026-09-02-senior-engineer-code-audit-and-refactor.md`.

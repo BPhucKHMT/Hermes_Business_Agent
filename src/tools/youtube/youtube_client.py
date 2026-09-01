@@ -21,7 +21,7 @@ class YouTubeClient:
         self.http_client = http_client
 
     def _get_headers(self, token_data: Dict[str, Any]) -> Dict[str, str]:
-        token = token_data.get("access_token", "")
+        token = token_data.get("access_token") or token_data.get("token") or ""
         if not token and not token_data.get("mock_mode"):
             raise ValueError("missing_access_token")
         return {
@@ -30,6 +30,69 @@ class YouTubeClient:
             "Content-Type": "application/json",
         }
 
+    def _refresh_access_token(self, token_data: Dict[str, Any]) -> str:
+        import os
+        refresh_token = token_data.get("refresh_token")
+        client_id = token_data.get("client_id") or os.environ.get("EMAIL_GOOGLE_CLIENT_ID")
+        client_secret = token_data.get("client_secret") or os.environ.get("EMAIL_GOOGLE_CLIENT_SECRET")
+        token_uri = token_data.get("token_uri", "https://oauth2.googleapis.com/token")
+
+        if not refresh_token or not client_id or not client_secret:
+            return token_data.get("access_token") or token_data.get("token") or ""
+
+        body = urllib.parse.urlencode({
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "refresh_token": refresh_token,
+            "grant_type": "refresh_token",
+        }).encode("utf-8")
+        req = urllib.request.Request(token_uri, data=body, method="POST")
+        req.add_header("Content-Type", "application/x-www-form-urlencoded")
+        try:
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+                new_tok = data.get("access_token")
+                if new_tok:
+                    token_data["access_token"] = new_tok
+                    token_data["token"] = new_tok
+                    return new_tok
+        except Exception:
+            pass
+        return token_data.get("access_token") or token_data.get("token") or ""
+
+    def _request_json(
+        self,
+        token_data: Dict[str, Any],
+        url: str,
+        method: str = "GET",
+        body_bytes: Optional[bytes] = None,
+    ) -> Dict[str, Any]:
+        headers = self._get_headers(token_data)
+        if self.http_client is not None:
+            if method == "GET":
+                return self.http_client.get(url, headers=headers)
+            elif method == "POST":
+                return self.http_client.post(url, headers=headers, body=body_bytes)
+            elif method == "DELETE":
+                return self.http_client.delete(url, headers=headers)
+
+        req = urllib.request.Request(url, data=body_bytes, headers=headers, method=method)
+        try:
+            with urllib.request.urlopen(req, timeout=15) as resp:
+                if resp.status == 204 or not resp.length:
+                    return {"status": resp.status}
+                return json.loads(resp.read().decode("utf-8"))
+        except HTTPError as err:
+            if err.code == 401:
+                new_tok = self._refresh_access_token(token_data)
+                if new_tok and new_tok != headers.get("Authorization", "").replace("Bearer ", ""):
+                    headers = self._get_headers(token_data)
+                    retry_req = urllib.request.Request(url, data=body_bytes, headers=headers, method=method)
+                    with urllib.request.urlopen(retry_req, timeout=15) as resp:
+                        if resp.status == 204 or not resp.length:
+                            return {"status": resp.status}
+                        return json.loads(resp.read().decode("utf-8"))
+            raise RuntimeError(f"youtube_api_error_{err.code}") from err
     def get_channel_info(self, token_data: Dict[str, Any], channel_id: str = "mine") -> ChannelInfo:
         if token_data.get("mock_mode") or "mock_channel" in token_data:
             mock = token_data.get("mock_channel", {})
@@ -44,18 +107,7 @@ class YouTubeClient:
             )
 
         url = "https://www.googleapis.com/youtube/v3/channels?part=snippet,statistics&mine=true"
-        headers = self._get_headers(token_data)
-
-        if self.http_client is not None:
-            res_data = self.http_client.get(url, headers=headers)
-        else:
-            req = urllib.request.Request(url, headers=headers, method="GET")
-            try:
-                with urllib.request.urlopen(req, timeout=15) as resp:
-                    res_data = json.loads(resp.read().decode("utf-8"))
-            except HTTPError as err:
-                raise RuntimeError(f"youtube_api_error_{err.code}") from err
-
+        res_data = self._request_json(token_data, url, method="GET")
         items = res_data.get("items", [])
         if not items:
             raise RuntimeError("no_youtube_channel_found")
@@ -79,18 +131,7 @@ class YouTubeClient:
             return [self._mock_item_to_video(item) for item in mock_list]
 
         url = f"https://www.googleapis.com/youtube/v3/search?part=snippet&forMine=true&type=video&maxResults={max_results}"
-        headers = self._get_headers(token_data)
-
-        if self.http_client is not None:
-            res_data = self.http_client.get(url, headers=headers)
-        else:
-            req = urllib.request.Request(url, headers=headers, method="GET")
-            try:
-                with urllib.request.urlopen(req, timeout=15) as resp:
-                    res_data = json.loads(resp.read().decode("utf-8"))
-            except HTTPError as err:
-                raise RuntimeError(f"youtube_api_error_{err.code}") from err
-
+        res_data = self._request_json(token_data, url, method="GET")
         items = res_data.get("items", [])
         videos = []
         for item in items:

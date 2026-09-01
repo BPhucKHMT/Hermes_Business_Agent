@@ -1,6 +1,7 @@
 from argparse import ArgumentParser
 import hashlib
 import json
+import logging
 import os
 from pathlib import Path
 import re
@@ -15,6 +16,7 @@ _ID_RE = re.compile(r"^[a-z0-9][a-z0-9._-]{0,127}$")
 _MODES = {"temporary", "save", "track", "watch"}
 _CLAIM_TYPES = {"fact", "source-assertion", "inference", "recommendation", "unknown"}
 _EVIDENCE_KINDS = {"text", "structured"}
+logger = logging.getLogger(__name__)
 
 
 def safe_id(value: str) -> str:
@@ -245,10 +247,9 @@ def archive_legacy_dossiers(workspace: Path) -> list:
                             target.parent.mkdir(parents=True, exist_ok=True)
                             shutil.move(str(path), str(target))
                             archived.append(path.name)
-                    except Exception:
-                        pass
+                    except (json.JSONDecodeError, OSError) as exc:
+                        logger.debug("Skipping unreadable legacy dossier at %s: %s", path, exc)
     return archived
-
 
 def main() -> None:
     parser = ArgumentParser()

@@ -814,9 +814,8 @@ def build_service_from_env() -> EmailConnectorService:
             client_secret = secret_store.get_json(client_secret_ref).get(
                 "client_secret", ""
             )
-        except Exception:
-            pass
-
+        except Exception as exc:
+            logger.debug("Failed to load client_secret from secret store ref: %s", exc)
     if not client_secret:
         raise RuntimeError("oauth_client_secret_not_configured")
 
