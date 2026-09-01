@@ -109,3 +109,45 @@ def test_public_callback_resolves_principal_from_oauth_state(oauth_manager):
 
     assert connection.owner_principal_id == "telegram:bot:111"
     assert oauth_manager.store.list_connections("telegram:bot:111") == (connection,)
+
+
+def test_exchange_code_sets_relax_token_scope(oauth_manager, monkeypatch):
+    from types import SimpleNamespace
+
+    class FakeCredentials:
+        token = "test-token"
+        refresh_token = "test-refresh"
+        token_uri = "https://oauth2.googleapis.com/token"
+        client_id = "test-client"
+        client_secret = "test-secret"
+        scopes = ["https://www.googleapis.com/auth/gmail.readonly"]
+
+    class FakeFlow:
+        credentials = FakeCredentials()
+
+        @classmethod
+        def from_client_config(cls, *args, **kwargs):
+            return cls()
+
+        def fetch_token(self, code):
+            pass
+
+    class FakeUsers:
+        def getProfile(self, userId):
+            return self
+
+        def execute(self):
+            return {"emailAddress": "testuser@gmail.com"}
+
+    class FakeService:
+        def users(self):
+            return FakeUsers()
+
+    monkeypatch.setattr("google_auth_oauthlib.flow.Flow", FakeFlow)
+    monkeypatch.setattr("googleapiclient.discovery.build", lambda *args, **kwargs: FakeService())
+
+    token_data, email, sub_id = oauth_manager._exchange_code("code123", "verifier123")
+    assert email == "testuser@gmail.com"
+    assert token_data["token"] == "test-token"
+    import os
+    assert os.environ.get("OAUTHLIB_RELAX_TOKEN_SCOPE") == "1"

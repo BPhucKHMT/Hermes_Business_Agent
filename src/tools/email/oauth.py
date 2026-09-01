@@ -4,6 +4,7 @@ import base64
 import hashlib
 import json
 import logging
+import os
 import secrets
 import urllib.parse
 from dataclasses import dataclass
