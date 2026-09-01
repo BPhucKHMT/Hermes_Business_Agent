@@ -119,9 +119,10 @@ class GmailOAuthManager:
                 "token_uri": "https://oauth2.googleapis.com/token",
             }
         }
+        os.environ["OAUTHLIB_RELAX_TOKEN_SCOPE"] = "1"
         flow = Flow.from_client_config(
             client_config,
-            scopes=[GMAIL_READONLY_SCOPE],
+            scopes=list(UNIFIED_GOOGLE_SCOPES),
             redirect_uri=self.redirect_uri,
             code_verifier=verifier,
         )
