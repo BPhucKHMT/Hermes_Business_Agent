@@ -37,6 +37,22 @@ class YouTubeService:
         conn = self.store.get_connection(principal_id)
         if not conn:
             return {"mock_mode": True}
+        try:
+            from tools.email.service import build_service_from_env
+            email_svc = build_service_from_env()
+            for c in email_svc.store.list_connections(principal_id):
+                if c.secret_ref:
+                    token_data = email_svc.secret_store.get_json(c.secret_ref)
+                    if token_data and ("token" in token_data or "access_token" in token_data):
+                        return {
+                            "access_token": token_data.get("token") or token_data.get("access_token"),
+                            "refresh_token": token_data.get("refresh_token"),
+                            "token_uri": token_data.get("token_uri", "https://oauth2.googleapis.com/token"),
+                            "client_id": token_data.get("client_id"),
+                            "client_secret": token_data.get("client_secret"),
+                        }
+        except Exception:
+            pass
         return {"access_token": "mock_yt_token", "mock_mode": True}
 
     def get_channel_status(self, caller: Any) -> Dict[str, Any]:

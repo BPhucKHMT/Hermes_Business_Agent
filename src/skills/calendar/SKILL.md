@@ -42,6 +42,7 @@ Manage meetings, appointments, and daily agendas from Telegram with strict priva
 
 ## Operating Rules
 
+- **Native Tools Only:** Always use the registered tools `calendar_list_events`, `calendar_find_free_slots`, `calendar_create_draft_event`, `calendar_confirm_event`, `calendar_status`. Do NOT invoke terminal Python scripts, `google_workspace.py`, or legacy external tools.
 - **Tier 2 Draft-Before-Commit:** Never create or overwrite calendar events without staging a draft and presenting details to the user for explicit confirmation.
 - **Privacy & Host Identity:** Calendar access is strictly DM-only per user; requests in group chats redirect to DM.
 - **Working Hours & Lookahead:** Calendar operations are bounded by configured policy (maximum 30 days lookahead, 15 to 480 minutes duration).
