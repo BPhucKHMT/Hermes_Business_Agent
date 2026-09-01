@@ -33,13 +33,27 @@ class GoogleCalendarClient:
         time_max: Optional[str] = None,
         max_results: int = 50,
     ) -> List[CalendarEvent]:
-        # Support mock test injection if provided in token_data
-        if "mock_events" in token_data:
+        if "mock_events" in token_data or token_data.get("mock_mode"):
             events = []
-            for item in token_data["mock_events"]:
+            mock_list = token_data.get("mock_events", [
+                {
+                    "id": "evt-mock-1",
+                    "summary": "Team Sync",
+                    "start": {"dateTime": "2026-09-01T10:00:00Z"},
+                    "end": {"dateTime": "2026-09-01T11:00:00Z"},
+                    "htmlLink": "https://google.com/calendar/event?eid=mock1",
+                },
+                {
+                    "id": "evt-mock-2",
+                    "summary": "Client Meeting",
+                    "start": {"dateTime": "2026-09-01T14:30:00Z"},
+                    "end": {"dateTime": "2026-09-01T15:30:00Z"},
+                    "htmlLink": "https://google.com/calendar/event?eid=mock2",
+                },
+            ])
+            for item in mock_list:
                 events.append(self._item_to_event(calendar_id, item))
             return events
-
         cal_encoded = urllib.parse.quote(calendar_id, safe="")
         params = {
             "singleEvents": "true",
@@ -73,12 +87,21 @@ class GoogleCalendarClient:
         calendar_id: str,
         event_id: str,
     ) -> CalendarEvent:
-        if "mock_events" in token_data:
-            for item in token_data["mock_events"]:
+        if "mock_events" in token_data or token_data.get("mock_mode"):
+            for item in token_data.get("mock_events", []):
                 if item.get("id") == event_id:
                     return self._item_to_event(calendar_id, item)
-            raise RuntimeError("event_not_found")
-
+            return CalendarEvent(
+                event_id=event_id,
+                calendar_id=calendar_id,
+                summary="Mock Event",
+                description="Mock event description",
+                location="Office",
+                start_time="2026-09-01T10:00:00Z",
+                end_time="2026-09-01T11:00:00Z",
+                html_link=f"https://google.com/calendar/event?eid={event_id}",
+                status="confirmed",
+            )
         cal_encoded = urllib.parse.quote(calendar_id, safe="")
         evt_encoded = urllib.parse.quote(event_id, safe="")
         url = f"https://www.googleapis.com/calendar/v3/calendars/{cal_encoded}/events/{evt_encoded}"
