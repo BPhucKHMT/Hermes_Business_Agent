@@ -115,6 +115,12 @@ class CallerContextRegistry:
         if caller is None:
             raise LookupError("Hermes session has no captured Telegram DM caller")
         return caller
+    def resolve_command(self) -> CallerContext:
+        caller = self._current_caller.get()
+        if caller is None:
+            raise LookupError("command has no captured Telegram DM caller")
+        return caller
+
 
     def forget_by_session_id(self, session_id: str) -> None:
         with self._lock:

@@ -27,14 +27,17 @@ def load_module(name: str, path: Path):
 plugin_tools = load_module("calendar_plugin_tools", PLUGIN / "plugin_tools.py")
 plugin_module = load_module("calendar_plugin", PLUGIN / "__init__.py")
 
-
 class FakeContext:
     def __init__(self) -> None:
         self.tools = {}
+        self.commands = {}
         self.hooks = {}
 
     def register_tool(self, name, **kwargs):
         self.tools[name] = kwargs
+
+    def register_command(self, name, handler, description=""):
+        self.commands[name] = {"handler": handler, "description": description}
 
     def register_hook(self, name, handler):
         self.hooks[name] = handler

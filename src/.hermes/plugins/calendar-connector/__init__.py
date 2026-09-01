@@ -21,6 +21,11 @@ for candidate in (
         break
 
 from client import get_default_client
+from commands import (
+    handle_calendar_status_cmd,
+    handle_connect_calendar,
+    handle_disconnect_calendar,
+)
 from guard import CalendarToolsGuard
 from plugin_tools import (
     handle_calendar_confirm_event,
@@ -78,6 +83,26 @@ def register(ctx: Any) -> CalendarToolsGuard:
         handler=partial(handle_calendar_status, client=client, registry=registry),
         description="Check Google Calendar connection status.",
     )
+
+    # Register slash commands
+    for cmd in ("connect_calendar", "connect-calendar"):
+        ctx.register_command(
+            cmd,
+            partial(handle_connect_calendar, client=client, registry=registry),
+            description="Connect a Google Calendar account",
+        )
+    for cmd in ("calendar_status", "calendar-status"):
+        ctx.register_command(
+            cmd,
+            partial(handle_calendar_status_cmd, client=client, registry=registry),
+            description="Check calendar connection status",
+        )
+    for cmd in ("disconnect_calendar", "disconnect-calendar"):
+        ctx.register_command(
+            cmd,
+            partial(handle_disconnect_calendar, client=client, registry=registry),
+            description="Disconnect connected calendar",
+        )
 
     ctx.register_hook("pre_gateway_dispatch", guard.pre_gateway_dispatch)
     ctx.register_hook("pre_tool_call", guard.pre_tool_call)
