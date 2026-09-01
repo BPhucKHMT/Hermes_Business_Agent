@@ -112,6 +112,25 @@ class MailStore:
     def add_connection(self, conn_record: MailConnection) -> None:
         with self._connect() as conn:
             conn.execute("BEGIN IMMEDIATE;")
+            # 1. If an active connection for the exact same mailbox exists, revoke it to replace cleanly
+            existing = conn.execute(
+                """
+                SELECT connection_id FROM mail_connections
+                WHERE owner_principal_id = ? AND provider_subject_hash = ? AND status != 'revoked';
+                """,
+                (conn_record.owner_principal_id, conn_record.provider_subject_hash),
+            ).fetchone()
+            if existing:
+                conn.execute(
+                    """
+                    UPDATE mail_connections
+                    SET status = 'revoked', revoked_at = ?
+                    WHERE connection_id = ?;
+                    """,
+                    (_utc_now_iso(), existing["connection_id"]),
+                )
+
+            # 2. Check remaining active count
             cur = conn.execute(
                 """
                 SELECT COUNT(*) AS active_count FROM mail_connections
