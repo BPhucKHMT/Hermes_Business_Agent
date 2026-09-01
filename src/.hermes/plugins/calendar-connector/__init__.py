@@ -85,7 +85,7 @@ def register(ctx: Any) -> CalendarToolsGuard:
     )
 
     # Register slash commands
-    for cmd in ("connect_calendar", "connect-calendar"):
+    for cmd in ("connect_google", "connect-google", "google_connect", "connect_calendar", "connect-calendar"):
         ctx.register_command(
             cmd,
             partial(handle_connect_calendar, client=client, registry=registry),

@@ -15,6 +15,21 @@ from typing import Optional
 
 
 GMAIL_READONLY_SCOPE = "https://www.googleapis.com/auth/gmail.readonly"
+CALENDAR_EVENTS_SCOPE = "https://www.googleapis.com/auth/calendar.events"
+CALENDAR_READONLY_SCOPE = "https://www.googleapis.com/auth/calendar.readonly"
+YOUTUBE_UPLOAD_SCOPE = "https://www.googleapis.com/auth/youtube.upload"
+YOUTUBE_READONLY_SCOPE = "https://www.googleapis.com/auth/youtube.readonly"
+
+UNIFIED_GOOGLE_SCOPES: tuple[str, ...] = (
+    "openid",
+    "https://www.googleapis.com/auth/userinfo.email",
+    "https://www.googleapis.com/auth/userinfo.profile",
+    GMAIL_READONLY_SCOPE,
+    CALENDAR_EVENTS_SCOPE,
+    CALENDAR_READONLY_SCOPE,
+    YOUTUBE_UPLOAD_SCOPE,
+    YOUTUBE_READONLY_SCOPE,
+)
 MAX_CONNECTIONS_PER_PRINCIPAL = 3
 
 

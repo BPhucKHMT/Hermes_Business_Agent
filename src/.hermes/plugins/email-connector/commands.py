@@ -40,7 +40,7 @@ def handle_connect_gmail(
     )
     if not url:
         return _unavailable(response.get("error", {}).get("code", "oauth_start_failed"))
-    return f"Mở liên kết này để kết nối Gmail chỉ-đọc: {url}"
+    return f"Mở liên kết này để kết nối Google (Gmail, Calendar, YouTube): {url}"
 
 
 def handle_mail_status(

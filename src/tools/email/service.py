@@ -263,7 +263,7 @@ class EmailConnectorService:
             )
         return ServiceResponse(
             status=200,
-            body=b"Gmail connected. Return to Hermes.",
+            body=b"Gmail connected. Google Workspace active (Gmail, Google Calendar, YouTube). Return to Hermes.",
             content_type="text/plain; charset=utf-8",
         )
 

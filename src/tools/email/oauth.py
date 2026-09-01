@@ -12,6 +12,7 @@ from typing import Any, Dict, Tuple
 
 from tools.email.contracts import (
     GMAIL_READONLY_SCOPE,
+    UNIFIED_GOOGLE_SCOPES,
     ConnectionStatus,
     MailConnection,
     MailboxType,
@@ -93,7 +94,7 @@ class GmailOAuthManager:
             "client_id": self.client_id,
             "redirect_uri": self.redirect_uri,
             "response_type": "code",
-            "scope": GMAIL_READONLY_SCOPE,
+            "scope": " ".join(UNIFIED_GOOGLE_SCOPES),
             "access_type": "offline",
             "prompt": "consent",
             "code_challenge": challenge,
@@ -183,7 +184,7 @@ class GmailOAuthManager:
             masked_address=masked,
             provider_subject_hash=sub_hash,
             secret_ref=token_ref,
-            granted_scopes=(GMAIL_READONLY_SCOPE,),
+            granted_scopes=UNIFIED_GOOGLE_SCOPES,
             status=ConnectionStatus.CONNECTED,
         )
 
@@ -192,6 +193,37 @@ class GmailOAuthManager:
         except Exception:
             self.secret_store.delete(token_ref)
             raise
+
+        # Provision connections across Calendar and YouTube stores
+        try:
+            from pathlib import Path
+            from tools.calendar.contracts import (
+                CalendarConnection,
+                CalendarConnectionStatus,
+            )
+            from tools.calendar.store import CalendarStore
+            from tools.youtube.store import YouTubeStore
+
+            src_dir = Path(__file__).resolve().parents[2]
+            cal_db = src_dir / ".runtime" / "calendar" / "calendar.sqlite3"
+            CalendarStore(cal_db).upsert_connection(
+                CalendarConnection(
+                    connection_id=f"conn-cal-{conn_id[5:]}",
+                    principal_id=principal_id,
+                    email=email_address,
+                    calendar_id="primary",
+                    calendar_name="Primary Calendar",
+                    status=CalendarConnectionStatus.CONNECTED,
+                )
+            )
+            yt_db = src_dir / ".runtime" / "youtube" / "youtube.sqlite3"
+            YouTubeStore(yt_db).upsert_connection(
+                principal_id=principal_id,
+                channel_id="mine",
+                channel_title=f"{email_address}'s Channel",
+            )
+        except Exception as sync_err:
+            logger.warning("Auto-syncing multi-service connections failed: %s", sync_err)
 
         # Clean up temporary PKCE secret
         self.secret_store.delete(link_req.pkce_secret_ref)

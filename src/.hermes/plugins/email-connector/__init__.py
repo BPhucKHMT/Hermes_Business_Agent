@@ -94,6 +94,10 @@ def register(ctx: Any) -> PersonalGmailTools:
 
     # 2. Register commands (support both gmail and email/mail aliases)
     for cmd_name in (
+        "connect_google",
+        "connect-google",
+        "google_connect",
+        "google-connect",
         "connect_gmail",
         "connect-gmail",
         "connect_email",
@@ -104,7 +108,7 @@ def register(ctx: Any) -> PersonalGmailTools:
         ctx.register_command(
             cmd_name,
             partial(handle_connect_gmail, client=client, registry=registry),
-            description="Connect a private Gmail account",
+            description="Connect a Google account (Gmail, Calendar, YouTube)",
         )
     for cmd_name in ("mail_status", "mail-status", "email_status", "email-status"):
         ctx.register_command(
