@@ -12,6 +12,9 @@ _PLUGIN_DIR = Path(__file__).resolve().parent
 for candidate in (
     Path(os.environ.get("HERMES_PROJECT_SRC", "")),
     Path(os.environ.get("HERMES_SRC_DIR", "")),
+    Path.home() / "Hermes-Business-Agent" / "src",
+    Path("/home/azureuser/Hermes-Business-Agent/src"),
+    _PLUGIN_DIR.parents[2] / "Hermes-Business-Agent" / "src",
     _PLUGIN_DIR.parents[2],
     Path("C:/Hermes-Business-Agent/src"),
     Path.cwd() / "src",
