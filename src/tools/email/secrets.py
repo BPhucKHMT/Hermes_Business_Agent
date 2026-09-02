@@ -84,7 +84,14 @@ class LocalEncryptedSecretStore:
         if storage_dir:
             self.storage_dir = Path(storage_dir)
         else:
-            hermes_home = Path(os.environ.get("HERMES_HOME", Path.home() / ".hermes"))
+            if os.environ.get("HERMES_HOME"):
+                hermes_home = Path(os.environ["HERMES_HOME"])
+            elif sys.platform == "win32":
+                local_appdata = os.environ.get("LOCALAPPDATA", "").strip()
+                base = Path(local_appdata) if local_appdata else Path.home() / "AppData" / "Local"
+                hermes_home = base / "hermes"
+            else:
+                hermes_home = Path.home() / ".hermes"
             self.storage_dir = hermes_home / "email" / "secrets"
         self.storage_dir.mkdir(parents=True, exist_ok=True)
         self.secret_key = secret_key

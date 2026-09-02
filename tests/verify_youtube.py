@@ -84,9 +84,10 @@ def layer_2() -> None:
     separator = os.pathsep
     env["PYTHONPATH"] = separator.join((str(SRC), str(PLUGIN), str(UPSTREAM), env.get("PYTHONPATH", "")))
 
-    uv_path = Path("C:/Users/ADMIN/.local/bin/uv.exe")
-    if uv_path.is_file():
-        command = [str(uv_path), "run", "--frozen", "python", "-m", "pytest", str(ROOT / "tests/youtube_tool"), "-q", "--basetemp", str(basetemp)]
+    import shutil
+    uv_candidate = shutil.which("uv") or (str(Path.home() / ".local/bin/uv") if (Path.home() / ".local/bin/uv").is_file() else ("C:/Users/ADMIN/.local/bin/uv.exe" if Path("C:/Users/ADMIN/.local/bin/uv.exe").is_file() else None))
+    if uv_candidate:
+        command = [str(uv_candidate), "run", "--frozen", "python", "-m", "pytest", str(ROOT / "tests/youtube_tool"), "-q", "--basetemp", str(basetemp)]
     else:
         command = [sys.executable, "-m", "pytest", str(ROOT / "tests/youtube_tool"), "-q", "--basetemp", str(basetemp)]
 

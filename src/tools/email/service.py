@@ -821,7 +821,14 @@ def build_service_from_env() -> EmailConnectorService:
 
     state_path = os.environ.get("EMAIL_STATE_DB_PATH", "").strip()
     if not state_path:
-        hermes_home = Path(os.environ.get("HERMES_HOME", Path.home() / ".hermes"))
+        if os.environ.get("HERMES_HOME"):
+            hermes_home = Path(os.environ["HERMES_HOME"])
+        elif sys.platform == "win32":
+            local_appdata = os.environ.get("LOCALAPPDATA", "").strip()
+            base = Path(local_appdata) if local_appdata else Path.home() / "AppData" / "Local"
+            hermes_home = base / "hermes"
+        else:
+            hermes_home = Path.home() / ".hermes"
         state_path = str(hermes_home / "email" / "mail_state.db")
     store = MailStore(state_path)
     operator_ids = tuple(
