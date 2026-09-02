@@ -702,11 +702,11 @@ class EmailConnectorService:
 
 def create_http_server(
     service: EmailConnectorService,
-    host: str = "127.0.0.1",
+    host: str = "0.0.0.0",
     port: int = 8766,
 ) -> ThreadingHTTPServer:
-    if host not in ("127.0.0.1", "localhost", "::1"):
-        raise ValueError("email_connector_must_bind_loopback")
+    if host not in ("127.0.0.1", "localhost", "::1", "0.0.0.0"):
+        raise ValueError("unsupported_host_binding")
 
     class Handler(BaseHTTPRequestHandler):
         def _write(self, response: ServiceResponse) -> None:

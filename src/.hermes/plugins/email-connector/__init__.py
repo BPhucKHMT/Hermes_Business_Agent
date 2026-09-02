@@ -65,11 +65,38 @@ from plugin_tools import (
 
 logger = logging.getLogger(__name__)
 
+_oauth_server = None
+_oauth_thread = None
+
+
+def _start_oauth_server_background(service: Any) -> None:
+    global _oauth_server, _oauth_thread
+    if _oauth_server is not None:
+        return
+    import os
+    import threading
+    port = int(os.environ.get("EMAIL_CONNECTOR_PORT", "8766"))
+    host = os.environ.get("EMAIL_CONNECTOR_HOST", "0.0.0.0")
+    try:
+        from tools.email.service import create_http_server
+        _oauth_server = create_http_server(service, host=host, port=port)
+        _oauth_thread = threading.Thread(
+            target=_oauth_server.serve_forever, daemon=True, name="gmail-oauth-listener"
+        )
+        _oauth_thread.start()
+        logger.info("Started background Gmail OAuth callback server on %s:%d", host, port)
+    except Exception as exc:
+        logger.warning("Could not start background OAuth callback server on %s:%d: %s", host, port, exc)
+
 
 def register(ctx: Any) -> PersonalGmailTools:
     guard = PersonalGmailTools()
     client = get_default_client()
     registry = guard.registry
+
+    svc = getattr(client, "_service", None)
+    if svc is not None:
+        _start_oauth_server_background(svc)
     # 1. Register tools
     ctx.register_tool(
         name="email_search",

@@ -3,9 +3,11 @@ from __future__ import annotations
 from dataclasses import asdict
 from datetime import datetime, time, timedelta, timezone
 from pathlib import Path
+import logging
 from typing import Any, Callable, Dict, List, Optional
 from uuid import uuid4
 
+logger = logging.getLogger(__name__)
 from tools.calendar.contracts import (
     CalendarConnection,
     CalendarConnectionStatus,
