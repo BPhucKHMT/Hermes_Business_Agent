@@ -59,9 +59,9 @@ echo "✅ Đã cài đặt xong công cụ Research & Browser."
 echo ""
 
 # ------------------------------------------------------------------------------
-# 3. Synchronize Plugins and SOUL Persona
+# 3. Synchronize Plugins and SOUL Persona (Default and All Profiles)
 # ------------------------------------------------------------------------------
-echo "🔌 [3/6] Đồng bộ Plugins và SOUL.md vào Runtime (~/.hermes)..."
+echo "🔌 [3/6] Đồng bộ Plugins và SOUL.md vào Runtime & Tất cả Profiles..."
 mkdir -p "${HERMES_HOME}/plugins"
 mkdir -p "${HERMES_HOME}/uploads"
 mkdir -p "${HERMES_HOME}/deliverables/general"
@@ -69,25 +69,47 @@ mkdir -p "${HERMES_HOME}/deliverables/general"
 # Copy all plugins
 cp -r "${SRC_DIR}/.hermes/plugins/"* "${HERMES_HOME}/plugins/"
 
-# Copy neutral SOUL
+# Copy neutral SOUL to default runtime
 if [ -f "${SRC_DIR}/SOUL.md" ]; then
     cp "${SRC_DIR}/SOUL.md" "${HERMES_HOME}/SOUL.md"
 fi
-echo "✅ Đã sao chép 4 Plugins và SOUL.md mới nhất."
+
+# Also copy/sync SOUL to all profiles in ~/.hermes/profiles/
+if [ -d "${HERMES_HOME}/profiles" ]; then
+    for prof_dir in "${HERMES_HOME}/profiles"/*; do
+        if [ -d "${prof_dir}" ]; then
+            prof_name="$(basename "${prof_dir}")"
+            if [ "${prof_name}" = "protein-bar" ] && [ -f "${SRC_DIR}/workspaces/protein-bar/SOUL.md" ]; then
+                cp "${SRC_DIR}/workspaces/protein-bar/SOUL.md" "${prof_dir}/SOUL.md"
+                echo "  -> Đã đồng bộ SOUL.md trung tính cho profile: ${prof_name}"
+            elif [ -f "${SRC_DIR}/SOUL.md" ]; then
+                cp "${SRC_DIR}/SOUL.md" "${prof_dir}/SOUL.md"
+                echo "  -> Đã đồng bộ SOUL.md cho profile: ${prof_name}"
+            fi
+        fi
+    done
+fi
+echo "✅ Đã sao chép 4 Plugins và SOUL.md cho mọi profile."
 echo ""
 
 # ------------------------------------------------------------------------------
-# 4. Configure ~/.hermes/config.yaml for Linux Production
+# 4. Configure config.yaml for Default and ALL Profiles
 # ------------------------------------------------------------------------------
-echo "⚙️ [4/6] Cấu hình config.yaml (Skills path, Plugins, Web Tavily)..."
+echo "⚙️ [4/6] Cấu hình config.yaml cho Default và Toàn bộ Profiles..."
 python3 -c "
 import yaml
 from pathlib import Path
 
-config_path = Path.home() / '.hermes/config.yaml'
-if not config_path.exists():
-    print('config.yaml not found, skipping yaml patching.')
-else:
+home = Path.home() / '.hermes'
+config_files = [home / 'config.yaml']
+
+profiles_dir = home / 'profiles'
+if profiles_dir.is_dir():
+    for p in profiles_dir.iterdir():
+        if p.is_dir() and (p / 'config.yaml').is_file():
+            config_files.append(p / 'config.yaml')
+
+for config_path in config_files:
     with open(config_path, 'r', encoding='utf-8') as f:
         cfg = yaml.safe_load(f) or {}
 
@@ -122,7 +144,7 @@ else:
     with open(config_path, 'w', encoding='utf-8') as f:
         yaml.safe_dump(cfg, f, allow_unicode=True)
 
-    print('✅ Đã cập nhật config.yaml chuẩn xác 100%.')
+    print(f'  ✅ Đã cập nhật thành công: {config_path.relative_to(home)}')
 "
 echo ""
 
@@ -266,7 +288,7 @@ except Exception as e:
 
 print('5. Kiểm tra Research & Web Scraper:')
 try:
-    from skills.research.scripts.render_report import render_html_report
+    from skills.research.scripts.render_report import render_html
     print('   ✅ Research Report Generator: SẴN SÀNG')
 except Exception as e:
     print(f'   ❌ Research Generator: LỖI ({e})')

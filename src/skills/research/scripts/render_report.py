@@ -542,6 +542,9 @@ def write_report(dossier_path: Path, output_path: Path) -> Path:
     return output_path
 
 
+render_html_report = render_html
+
+
 def main() -> None:
     parser = ArgumentParser()
     parser.add_argument("dossier", type=Path)
