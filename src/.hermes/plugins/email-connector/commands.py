@@ -31,17 +31,30 @@ def handle_connect_gmail(
         return DM_REDIRECT_TEXT
     except LookupError:
         return _unavailable("missing_caller_context")
+    if client is not None:
+        try:
+            response = client.start_oauth(caller)
+            url = (
+                response.get("result", {}).get("authorization_url")
+                if response.get("ok")
+                else None
+            )
+            if url:
+                return f"Mở liên kết này để kết nối Google (Gmail, Calendar, YouTube): {url}"
+        except Exception:
+            pass
 
-    response = client.start_oauth(caller)
-    url = (
-        response.get("result", {}).get("authorization_url")
-        if response.get("ok")
-        else None
-    )
-    if not url:
-        return _unavailable(response.get("error", {}).get("code", "oauth_start_failed"))
-    return f"Mở liên kết này để kết nối Google (Gmail, Calendar, YouTube): {url}"
+    try:
+        user_id = getattr(caller, "user_id", None) or getattr(caller, "chat_id", None)
+        if user_id:
+            from tools.composio.commands import handle_connect_google
+            res = handle_connect_google(user_id)
+            if "http" in res:
+                return res
+    except Exception:
+        pass
 
+    return _unavailable("oauth_start_failed")
 
 def handle_mail_status(
     raw_args: str = "",
@@ -59,11 +72,23 @@ def handle_mail_status(
     except LookupError:
         return _unavailable("missing_caller_context")
 
-    response = client.connections(caller)
-    if not response.get("ok"):
-        return _unavailable(response.get("error", {}).get("code", "status_failed"))
-    return json.dumps(response["result"], ensure_ascii=False)
+    if client is not None:
+        try:
+            response = client.connections(caller)
+            if response.get("ok"):
+                return json.dumps(response["result"], ensure_ascii=False)
+        except Exception:
+            pass
 
+    try:
+        user_id = getattr(caller, "user_id", None) or getattr(caller, "chat_id", None)
+        if user_id:
+            from tools.composio.commands import handle_google_status
+            return handle_google_status(user_id)
+    except Exception:
+        pass
+
+    return _unavailable("status_failed")
 
 def handle_disconnect_gmail(
     raw_args: str = "",

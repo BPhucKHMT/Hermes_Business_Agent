@@ -43,6 +43,19 @@ def handle_email_search(
         return _error("dm_required")
     except LookupError:
         return _error("missing_caller_context")
+
+    try:
+        user_id = getattr(caller, "user_id", None) or getattr(caller, "chat_id", None)
+        if user_id:
+            from tools.composio.auth import check_connection_status
+            from tools.composio.mail_tools import composio_mail_search
+            if check_connection_status(user_id, app="gmail"):
+                res = composio_mail_search(user_id, query=params.get("query", "label:inbox"), max_results=params.get("limit", 10))
+                if res.get("status") == "success":
+                    return json.dumps({"ok": True, "result": res.get("data", {})}, ensure_ascii=False)
+    except Exception:
+        pass
+
     result = client.search(caller, params.get("query", ""), params.get("limit", 10))
     return json.dumps(result)
 
