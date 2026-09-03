@@ -22,6 +22,10 @@ CALENDAR_LIST_EVENTS_SCHEMA = {
                 "description": "Calendar ID to query. Default 'primary'.",
                 "default": "primary",
             },
+            "account_email": {
+                "type": "string",
+                "description": "Optional email address of the specific connected Google Calendar account to query (e.g. 'work@company.com' or 'personal@gmail.com'). If omitted, searches default connected calendar.",
+            },
         },
     },
 }

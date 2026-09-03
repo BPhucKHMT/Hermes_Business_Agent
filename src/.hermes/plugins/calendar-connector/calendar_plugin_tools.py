@@ -49,6 +49,27 @@ def handle_calendar_list_events(
         return _error("calendar_connector_unavailable")
     try:
         caller = _resolve_caller(registry, task_id, session_id)
+    except (DmOnlyError, LookupError) as exc:
+        return _caller_error(exc)
+
+    user_id = getattr(caller, "user_id", None) or getattr(caller, "chat_id", None)
+    account_email = params.get("account_email")
+
+    if user_id:
+        try:
+            from tools.composio.calendar_tools import composio_calendar_list_events
+            from tools.composio.auth import check_connection_status
+            if check_connection_status(user_id, app="googlecalendar") or check_connection_status(user_id, app="googlesuper"):
+                c_res = composio_calendar_list_events(
+                    user_id,
+                    calendar_id=params.get("calendar_id", "primary"),
+                )
+                if c_res.get("status") == "success":
+                    return _json({"ok": True, "result": c_res.get("data", {})})
+        except Exception:
+            pass
+
+    try:
         res = client.list_events(
             caller=caller,
             time_min=params.get("time_min"),
@@ -57,11 +78,8 @@ def handle_calendar_list_events(
             calendar_id=params.get("calendar_id", "primary"),
         )
         return _json(res)
-    except (DmOnlyError, LookupError) as exc:
-        return _caller_error(exc)
     except Exception as exc:
         return _error("calendar_query_failed", str(exc))
-
 
 def handle_calendar_find_free_slots(
     params: Dict[str, Any],
@@ -169,9 +187,39 @@ def handle_calendar_status(
         return _error("calendar_connector_unavailable")
     try:
         caller = _resolve_caller(registry, task_id, session_id)
-        res = client.status(caller)
-        return _json(res)
     except (DmOnlyError, LookupError) as exc:
         return _caller_error(exc)
+
+    user_id = getattr(caller, "user_id", None) or getattr(caller, "chat_id", None)
+    if user_id:
+        try:
+            import re
+            from tools.composio.auth import get_user_emails
+            account_emails = get_user_emails(user_id)
+            if account_emails:
+                clean_emails = []
+                for raw_em in account_emails.values():
+                    match = re.search(r'[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+', raw_em)
+                    clean = match.group(0).lower() if match else raw_em.lower()
+                    if clean not in clean_emails:
+                        clean_emails.append(clean)
+
+                calendars = [
+                    {"email": em, "calendar_id": "primary", "calendar_name": f"Google Calendar ({em})"}
+                    for em in clean_emails
+                ]
+                return _json({
+                    "ok": True,
+                    "status": "connected",
+                    "principal_id": getattr(caller, "principal_id", f"telegram:default:{user_id}"),
+                    "connected_accounts": clean_emails,
+                    "calendars": calendars,
+                })
+        except Exception:
+            pass
+
+    try:
+        res = client.status(caller)
+        return _json(res)
     except Exception as exc:
         return _error("calendar_status_failed", str(exc))
