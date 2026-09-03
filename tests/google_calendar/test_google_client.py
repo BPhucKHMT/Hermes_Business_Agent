@@ -54,3 +54,42 @@ def test_google_calendar_client_create_event_mock() -> None:
     assert created.status == "confirmed"
     assert "evt-" in created.event_id
     assert created.html_link.startswith("https://www.google.com/calendar/event")
+
+
+def test_google_calendar_client_create_event_http() -> None:
+    class FakeHttp:
+        def __init__(self):
+            self.posted = None
+
+        def post(self, url, headers, body):
+            self.posted = (url, headers, body)
+            return {
+                "id": "real-evt-999",
+                "summary": "Project web",
+                "start": {"dateTime": "2026-09-04T13:00:00+07:00"},
+                "end": {"dateTime": "2026-09-04T15:00:00+07:00"},
+                "htmlLink": "https://calendar.google.com/event?id=999",
+            }
+
+    fake_http = FakeHttp()
+    client = GoogleCalendarClient(http_client=fake_http)
+    draft = EventDraft(
+        draft_id="drf-222",
+        idempotency_key="key-222",
+        principal_id="telegram:default:123",
+        calendar_id="primary",
+        summary="Project web",
+        description="",
+        location="THREE O’CLOCK – Phạm Ngọc Thạch",
+        start_time="2026-09-04T13:00:00+07:00",
+        end_time="2026-09-04T15:00:00+07:00",
+        attendees=(),
+        created_at="2026-09-03T12:00:00Z",
+    )
+
+    created = client.create_event({"access_token": "valid-token"}, "primary", draft)
+    assert created.summary == "Project web"
+    assert created.event_id == "real-evt-999"
+    assert fake_http.posted is not None
+    url, headers, body = fake_http.posted
+    assert b"Project web" in body

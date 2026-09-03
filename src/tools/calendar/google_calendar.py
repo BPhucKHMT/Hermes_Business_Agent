@@ -192,8 +192,8 @@ class GoogleCalendarClient:
         }
         if draft.attendees:
             payload["attendees"] = [{"email": email} for email in draft.attendees]
+        body_bytes = json.dumps(payload, ensure_ascii=False).encode("utf-8")
         res_data = self._request_json(token_data, url, method="POST", body_bytes=body_bytes)
-
         return self._item_to_event(calendar_id, res_data)
 
     def delete_event(
