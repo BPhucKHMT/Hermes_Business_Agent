@@ -60,13 +60,22 @@ def handle_google_status(telegram_user_id: Union[int, str]) -> str:
     )
 
 
-def handle_disconnect_google(telegram_user_id: Union[int, str]) -> str:
-    """Disconnect and revoke Google access for the user."""
+def handle_disconnect_google(
+    telegram_user_id: Union[int, str],
+    target: str = "",
+) -> str:
+    """Disconnect and revoke Google access for the user, optionally targeting an email or connection ID."""
+    target_clean = target.strip()
     try:
-        disconnect_user(telegram_user_id, app="gmail")
-        disconnect_user(telegram_user_id, app="googlecalendar")
+        disconnect_user(telegram_user_id, app="", target_identifier=target_clean)
+        if target_clean and target_clean.lower() != "all":
+            return (
+                f"🔒 **Đã ngắt kết nối tài khoản `{target_clean}` thành công!**\n\n"
+                "Phiên ủy quyền của tài khoản này đã được xóa khỏi hệ thống. "
+                "Các tài khoản khác (nếu có) vẫn tiếp tục hoạt động bình thường."
+            )
         return (
-            "🔒 **Đã ngắt kết nối Google thành công!**\n\n"
+            "🔒 **Đã ngắt kết nối toàn bộ tài khoản Google thành công!**\n\n"
             "Toàn bộ phiên ủy quyền Gmail và Google Calendar của bạn đã được xóa khỏi hệ thống. "
             "Hermes sẽ không thể truy cập email hay lịch của bạn nữa trừ khi bạn cấp quyền lại qua `/connect-google`."
         )

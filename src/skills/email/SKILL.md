@@ -50,21 +50,22 @@ examples:
 6. **Zero token or secret exposure**: Refresh tokens, secret references, and raw credentials must never appear in chat responses, logs, tool arguments, or persisted memory.
 ## Available Tools and Commands
 
-- `email_search(query="...")`: Search accessible email threads matching a query.
-- `email_get_thread(thread_id="...")`: Retrieve the full readable text of a specific email thread.
-- `email_send(recipient="...", subject="...", body="...")`: Send an outbound email directly from the caller's Gmail account.
-- `email_create_draft(recipient="...", subject="...", body="...")`: Create an email draft in the caller's Gmail account.
-- `email_reply(thread_id="...", body="...")`: Reply to an existing email thread.
+- `email_search(query="...", account_email="...")`: Search accessible Gmail threads. If the user specifies which mailbox to search (e.g. 'baophuc1204vn@gmail.com' or 'nguyenlam.baophuc@gmail.com'), pass that address in `account_email`.
+- `email_get_thread(thread_id="...", account_email="...")`: Retrieve the full readable text of a specific email thread.
+- `email_send(recipient="...", subject="...", body="...", account_email="...")`: Send an outbound email directly from the caller's Gmail account (specify `account_email` if sending from a specific connected mailbox).
+- `email_create_draft(recipient="...", subject="...", body="...", account_email="...")`: Create an email draft in the caller's Gmail account.
+- `email_reply(thread_id="...", body="...", account_email="...")`: Reply to an existing email thread.
 - `email_connection_status()`: Check the status of connected mailboxes for the current caller.
 - `/connect_gmail` or `/connect-google`: Send in DM to generate a secure Google OAuth connection link.
 - `/mail_status`: Inspect connected mailbox accounts and status.
-- `/disconnect_gmail`: Revoke and disconnect a linked Gmail account.
+- `/disconnect_gmail` or `/disconnect-google [email]`: Revoke and disconnect linked Gmail accounts.
 ## Workflow and Execution
 
 1. **Understand Intent**: Determine whether the user wants to search recent messages, inspect a specific thread, or manage mailbox connections.
 2. **Verify Session Boundary**:
    - In DM chats: Execute search or thread retrieval against caller-owned personal mailboxes or accessible shared mailboxes.
    - In Group chats: Only query authorized shared business mailboxes. If the user asks for personal mail, immediately inform them to open a private DM session with Hermes.
+   - **Multi-Mailbox Selection**: If the user mentions or asks to check a specific connected email account (e.g. 'baophuc1204vn@gmail.com' or 'nguyenlam.baophuc@gmail.com'), you MUST pass that email in the `account_email` parameter of `email_search`, `email_get_thread`, or `email_send`.
 3. **Execute Grounded Retrieval**:
    - Formulate targeted search queries (e.g. `from:supplier`, `newer_than:7d`, `subject:invoice`).
    - Call `email_search` to find relevant thread IDs and metadata.

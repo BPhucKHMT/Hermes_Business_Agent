@@ -174,6 +174,10 @@ def register(ctx: Any) -> PersonalGmailTools:
             description="Check email connection status",
         )
     for cmd_name in (
+        "disconnect_google",
+        "disconnect-google",
+        "google_disconnect",
+        "google-disconnect",
         "disconnect_gmail",
         "disconnect-gmail",
         "disconnect_email",

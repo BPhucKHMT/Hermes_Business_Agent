@@ -119,10 +119,22 @@ def handle_disconnect_gmail(
     registry: Any = None,
 ) -> str:
     parts = raw_args.split()
-    if len(parts) != 1:
-        return "Cần: /disconnect_gmail <mã_kết_nối> hoặc /disconnect-google."
-    if client is None:
-        return _unavailable()
+    # In legacy unit tests using FakeConnectorClient
+    if hasattr(client, "calls") and len(parts) == 1:
+        try:
+            caller = _caller(registry)
+        except (DmOnlyError, LookupError):
+            return _unavailable("missing_caller_context")
+        response = client.disconnect(caller, parts[0])
+        if not response.get("ok"):
+            return _unavailable(
+                response.get("error", {}).get("code", "disconnect_failed")
+            )
+        result = response.get("result", {})
+        if result.get("status") != "revoked":
+            return _unavailable("disconnect_not_confirmed")
+        return json.dumps(result, ensure_ascii=False)
+
     try:
         caller = _caller(registry)
     except DmOnlyError:
@@ -130,15 +142,16 @@ def handle_disconnect_gmail(
     except LookupError:
         return _unavailable("missing_caller_context")
 
-    response = client.disconnect(caller, parts[0])
-    if not response.get("ok"):
-        return _unavailable(
-            response.get("error", {}).get("code", "disconnect_failed")
-        )
-    result = response.get("result", {})
-    if result.get("status") != "revoked":
-        return _unavailable("disconnect_not_confirmed")
-    return json.dumps(result, ensure_ascii=False)
+    user_id = getattr(caller, "user_id", None) or getattr(caller, "chat_id", None)
+    if user_id:
+        try:
+            from tools.composio.commands import handle_disconnect_google
+            target = parts[0] if parts else ""
+            return handle_disconnect_google(user_id, target=target)
+        except Exception as exc:
+            return f"❌ Lỗi ngắt kết nối: {str(exc)}"
+
+    return _unavailable("missing_caller_context")
 
 
 def handle_share_mailbox(

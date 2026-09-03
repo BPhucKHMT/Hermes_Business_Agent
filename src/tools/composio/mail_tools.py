@@ -166,3 +166,33 @@ def composio_mail_reply(
         return {"status": "success", "data": getattr(result, "data", result)}
     except Exception as exc:
         return {"status": "error", "message": f"Lỗi khi trả lời email: {str(exc)}"}
+def composio_mail_get_thread(
+    telegram_user_id: Union[int, str],
+    thread_id: str,
+    account_email: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Retrieve full message contents of a specific Gmail thread ID."""
+    if not check_connection_status(telegram_user_id, app="gmail"):
+        return {
+            "status": "error",
+            "error_code": "NOT_CONNECTED",
+            "message": "Bạn chưa kết nối tài khoản Gmail. Vui lòng dùng lệnh /connect-google để liên kết tài khoản.",
+        }
+
+    user_id = format_user_id(telegram_user_id)
+    client = get_composio_client()
+    session = client.create(user_id=user_id, multi_account={"enable": True})
+    acc_id = resolve_account_id(telegram_user_id, account_email)
+
+    kwargs: Dict[str, Any] = {
+        "tool_slug": "GMAIL_FETCH_MESSAGE_BY_THREAD_ID",
+        "arguments": {"thread_id": thread_id},
+    }
+    if acc_id:
+        kwargs["account"] = acc_id
+
+    try:
+        result = session.execute(**kwargs)
+        return {"status": "success", "data": getattr(result, "data", result)}
+    except Exception as exc:
+        return {"status": "error", "message": f"Lỗi khi đọc chuỗi email: {str(exc)}"}

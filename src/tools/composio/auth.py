@@ -148,25 +148,57 @@ def list_user_connections(telegram_user_id: Union[int, str]) -> list[dict]:
 def disconnect_user(
     telegram_user_id: Union[int, str],
     app: str = "gmail",
+    target_identifier: Optional[str] = None,
 ) -> bool:
-    """Revoke and delete connected accounts for a specific user."""
+    """Revoke and delete connected accounts for a specific user, optionally targeting an email or connection ID."""
     user_id = format_user_id(telegram_user_id)
     client = get_composio_client()
 
-    app_name = app.lower()
+    app_name = app.lower() if app else ""
     if app_name in ("google_calendar", "calendar"):
         app_name = "googlecalendar"
+
+    target = target_identifier.lower().strip() if target_identifier else ""
+    account_emails = get_user_emails(telegram_user_id)
 
     try:
         accounts = client.connected_accounts.list(user_ids=[user_id])
         items = getattr(accounts, "items", accounts)
+        deleted_any = False
+
         for item in items:
+            item_id = getattr(item, "id", None)
+            if not item_id:
+                continue
+
+            item_email = account_emails.get(item_id, "").lower()
+            # If target specified, only delete matching account ID or email
+            if target and target != "all":
+                if target != item_id.lower() and target not in item_email:
+                    continue
+
             toolkit = getattr(item, "toolkit", None)
             slug = getattr(toolkit, "slug", "") if toolkit else ""
             if not app_name or slug.lower() == app_name or app_name in slug.lower():
-                item_id = getattr(item, "id", None)
-                if item_id:
-                    client.connected_accounts.delete(connected_account_id=item_id)
+                try:
+                    client.connected_accounts.delete(item_id)
+                    deleted_any = True
+                except Exception:
+                    pass
+
+        # Clear cache for deleted accounts
+        cache_path = Path(os.path.expanduser("~/.hermes/composio_account_emails.json"))
+        if cache_path.is_file():
+            try:
+                if not target or target == "all":
+                    cache_path.unlink(missing_ok=True)
+                else:
+                    cache = json.loads(cache_path.read_text(encoding="utf-8"))
+                    new_cache = {k: v for k, v in cache.items() if target != k.lower() and target not in v.lower()}
+                    cache_path.write_text(json.dumps(new_cache, ensure_ascii=False), encoding="utf-8")
+            except Exception:
+                pass
+
         return True
     except Exception:
         return False

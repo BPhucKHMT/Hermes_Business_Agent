@@ -12,6 +12,8 @@ from plugin_tools import (
     handle_email_send,
     handle_email_create_draft,
     handle_email_reply,
+    handle_email_search,
+    handle_email_get_thread,
 )
 from schemas import (
     EMAIL_SEND_SCHEMA,
@@ -96,3 +98,67 @@ def test_handle_email_reply_success():
         assert res["ok"] is True
         assert res["result"]["id"] == "reply_789"
         mock_reply.assert_called_once_with("7275339077", thread_id="thread_abc123", body="Đồng ý với điều khoản")
+def test_handle_email_search_with_account_email():
+    caller = FakeCaller()
+    registry = FakeRegistry(caller)
+
+    with patch("tools.composio.auth.check_connection_status", return_value=True), \
+         patch("tools.composio.mail_tools.composio_mail_search") as mock_search:
+        mock_search.return_value = {"status": "success", "data": {"messages": [{"id": "m1"}]}}
+        res_raw = handle_email_search(
+            {"query": "in:inbox", "account_email": "baophuc1204vn@gmail.com"},
+            client=object(),
+            registry=registry,
+        )
+        res = json.loads(res_raw)
+        assert res["ok"] is True
+        mock_search.assert_called_once_with(
+            "7275339077",
+            query="in:inbox",
+            max_results=10,
+            account_email="baophuc1204vn@gmail.com",
+        )
+
+
+def test_handle_email_search_auto_detects_account_email():
+    caller = FakeCaller()
+    registry = FakeRegistry(caller)
+
+    with patch("tools.composio.auth.check_connection_status", return_value=True), \
+         patch("tools.composio.mail_tools.composio_mail_search") as mock_search:
+        mock_search.return_value = {"status": "success", "data": {"messages": []}}
+        res_raw = handle_email_search(
+            {"query": "in:inbox to:nguyenlam.baophuc@gmail.com"},
+            client=object(),
+            registry=registry,
+        )
+        res = json.loads(res_raw)
+        assert res["ok"] is True
+        mock_search.assert_called_once_with(
+            "7275339077",
+            query="in:inbox to:nguyenlam.baophuc@gmail.com",
+            max_results=10,
+            account_email="nguyenlam.baophuc@gmail.com",
+        )
+
+
+def test_handle_email_get_thread_success():
+    caller = FakeCaller()
+    registry = FakeRegistry(caller)
+
+    with patch("tools.composio.auth.check_connection_status", return_value=True), \
+         patch("tools.composio.mail_tools.composio_mail_get_thread") as mock_th:
+        mock_th.return_value = {"status": "success", "data": {"threadId": "th_123", "messages": []}}
+        res_raw = handle_email_get_thread(
+            {"thread_id": "th_123", "account_email": "baophuc1204vn@gmail.com"},
+            client=object(),
+            registry=registry,
+        )
+        res = json.loads(res_raw)
+        assert res["ok"] is True
+        assert res["result"]["threadId"] == "th_123"
+        mock_th.assert_called_once_with(
+            "7275339077",
+            thread_id="th_123",
+            account_email="baophuc1204vn@gmail.com",
+        )
