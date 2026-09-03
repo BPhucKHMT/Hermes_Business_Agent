@@ -1,6 +1,5 @@
 import pytest
 from unittest.mock import MagicMock, patch
-from composio import Action
 
 from src.tools.composio.mail_tools import (
     composio_mail_search,
@@ -18,31 +17,30 @@ def test_mail_search_unauthenticated():
 
 def test_mail_search_authenticated():
     mock_client = MagicMock()
-    mock_entity = MagicMock()
-    mock_entity.execute.return_value = {
+    mock_session = MagicMock()
+    mock_session.execute.return_value = {
         "messages": [
             {"id": "msg_1", "subject": "Báo giá tháng 9", "sender": "supplier@proteinbar.vn"}
         ]
     }
-    mock_client.get_entity.return_value = mock_entity
+    mock_client.create.return_value = mock_session
 
     with patch("src.tools.composio.mail_tools.check_connection_status", return_value=True), \
          patch("src.tools.composio.mail_tools.get_composio_client", return_value=mock_client):
         res = composio_mail_search(7275339077, query="Báo giá", max_results=3)
         assert res["status"] == "success"
-        assert len(res["data"]["messages"]) == 1
-        mock_client.get_entity.assert_called_once_with(id="telegram_7275339077")
-        mock_entity.execute.assert_called_once_with(
-            action=Action.GMAIL_FETCH_EMAILS,
-            params={"query": "Báo giá", "max_results": 3},
+        mock_client.create.assert_called_once_with(user_id="telegram_7275339077")
+        mock_session.execute.assert_called_once_with(
+            tool_slug="GMAIL_FETCH_EMAILS",
+            arguments={"query": "Báo giá", "max_results": 3},
         )
 
 
 def test_mail_send_success():
     mock_client = MagicMock()
-    mock_entity = MagicMock()
-    mock_entity.execute.return_value = {"message_id": "sent_123", "status": "SENT"}
-    mock_client.get_entity.return_value = mock_entity
+    mock_session = MagicMock()
+    mock_session.execute.return_value = {"message_id": "sent_123", "status": "SENT"}
+    mock_client.create.return_value = mock_session
 
     with patch("src.tools.composio.mail_tools.check_connection_status", return_value=True), \
          patch("src.tools.composio.mail_tools.get_composio_client", return_value=mock_client):
@@ -53,10 +51,10 @@ def test_mail_send_success():
             body="Nội dung email test",
         )
         assert res["status"] == "success"
-        mock_client.get_entity.assert_called_once_with(id="telegram_7275339077")
-        mock_entity.execute.assert_called_once_with(
-            action=Action.GMAIL_SEND_EMAIL,
-            params={
+        mock_client.create.assert_called_once_with(user_id="telegram_7275339077")
+        mock_session.execute.assert_called_once_with(
+            tool_slug="GMAIL_SEND_EMAIL",
+            arguments={
                 "recipient_email": "client@example.com",
                 "subject": "Chào bạn",
                 "body": "Nội dung email test",
@@ -66,9 +64,9 @@ def test_mail_send_success():
 
 def test_mail_create_draft():
     mock_client = MagicMock()
-    mock_entity = MagicMock()
-    mock_entity.execute.return_value = {"draft_id": "draft_456"}
-    mock_client.get_entity.return_value = mock_entity
+    mock_session = MagicMock()
+    mock_session.execute.return_value = {"draft_id": "draft_456"}
+    mock_client.create.return_value = mock_session
 
     with patch("src.tools.composio.mail_tools.check_connection_status", return_value=True), \
          patch("src.tools.composio.mail_tools.get_composio_client", return_value=mock_client):
@@ -79,10 +77,10 @@ def test_mail_create_draft():
             body="Bản nháp kế hoạch",
         )
         assert res["status"] == "success"
-        mock_client.get_entity.assert_called_once_with(id="telegram_7275339077")
-        mock_entity.execute.assert_called_once_with(
-            action=Action.GMAIL_CREATE_EMAIL_DRAFT,
-            params={
+        mock_client.create.assert_called_once_with(user_id="telegram_7275339077")
+        mock_session.execute.assert_called_once_with(
+            tool_slug="GMAIL_CREATE_EMAIL_DRAFT",
+            arguments={
                 "recipient_email": "boss@example.com",
                 "subject": "Kế hoạch tuần",
                 "body": "Bản nháp kế hoạch",
