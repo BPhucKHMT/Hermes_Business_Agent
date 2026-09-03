@@ -216,3 +216,16 @@
 - Consequences: 100% data privacy between users, minimal operational burden, and clean separation between read-only intake (H009) and future outbound sending (H011).
 - Revisit when: Multi-workspace delegation requires granular per-message forwarding policies.
 
+## D024 — Unified Composio Google Workspace Engine with Complete Legacy OAuth Cutover
+
+- Date: 2026-09-03
+- Status: accepted
+- Context: Maintaining standalone custom OAuth HTTP servers (ports 8766 and 8765) and Azure Key Vault secret plumbing caused operational failures on Linux VPS (lacking public callback URLs, Azure Key Vault credential errors, and local SQLite state desynchronization). Composio provides an official enterprise OAuth proxy and SDK with full support for Gmail and Google Calendar tools.
+- Decision:
+  1) Eliminate all local background OAuth listeners on ports 8766 and 8765.
+  2) Completely purge obsolete `src/tools/email/` (10 files, ~2,500 LOC) and `src/tools/calendar/oauth.py`, consolidating Google Workspace interactions into `src/tools/composio/`.
+  3) Use dynamic profile email resolution (`GOOGLESUPER_GET_PROFILE` and `get_user_emails()`) with zero hardcoded credentials or email addresses.
+  4) Support both `googlesuper` and `googlecalendar` tool slugs (`GOOGLESUPER_EVENTS_LIST`, `GOOGLESUPER_FIND_FREE_SLOTS`, `GOOGLESUPER_CREATE_EVENT`) with transparent fallback.
+  5) Unify commands under `/connect-google` (single all-in-one authentication link for Gmail + Calendar) and provide interactive multi-account selection menu under `/disconnect-google`.
+- Consequences: Eliminates VPS network port friction, reduces repo footprint by >4,200 lines of dead code and test scaffolding, provides 100% dynamic multi-account isolation, and keeps all 18 repository test suites at 100% pass rate.
+- Revisit when: Dedicated on-premise Google Workspace private tenant requires custom GCP enterprise app credentials bypassing Composio.

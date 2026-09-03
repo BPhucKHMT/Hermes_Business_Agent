@@ -466,3 +466,27 @@
   - Python bytecode compilation (`compileall`) exited with 0 errors across `src` and `tests`.
   - Gateway successfully updated and restarted.
   - Report authored in `docs/progress/2026-09-02-senior-engineer-code-audit-and-refactor.md`.
+## 2026-09-03 Composio Google Workspace Cutover, Dead Code Purge & Harness Token Tooling
+
+- Executed complete clean cutover from legacy standalone OAuth listeners (ports 8766 and 8765) to Composio v3 SDK:
+  - **Eliminated Legacy Background Ports:** Fully disabled background OAuth listeners on ports 8766 (Gmail) and 8765 (Calendar), releasing all socket bindings.
+  - **Purged Obsolete Code (-4,234 lines):**
+    - Completely removed `src/tools/email/` (10 files: `service.py`, `oauth.py`, `secrets.py`, `gmail.py`, `store.py`, `contracts.py`, `policy.py`, `cli.py`, `env.py`, `__init__.py`).
+    - Removed `src/tools/calendar/oauth.py` (legacy PKCE manager).
+    - Removed 8 obsolete unit test files in `tests/email/` and cleaned legacy backup files (`src/.env.bak*`, `tests_temp/`).
+  - **Re-architected Email Test Suites:** Added 3 modern, Composio-backed test suites (`test_composio_email_adapter.py`, `test_email_commands.py`, `test_email_tools.py`) ensuring `tests/verify_email_intake.py` Layer 1 and Layer 2 pass with 30/30 tests.
+  - **Decoupled Cross-Tool Dependencies:** Refactored `calendar/service.py`, `youtube/service.py`, `email-connector/client.py`, and `setup_production.sh` to remove all `tools.email` imports.
+  - **Unified Single-Link Authentication:** `/connect-google` now provides a single all-in-one link (`googlesuper` toolkit) that grants simultaneous access to Gmail and Google Calendar.
+  - **Dynamic Multi-Account Resolution (Zero Hardcoding):**
+    - Upgraded `get_user_emails` to dynamically resolve user profile email addresses via `GOOGLESUPER_GET_PROFILE` and `GOOGLESUPER_EVENTS_LIST`.
+    - Fully removed any hardcoded email fallbacks across all plugin tools.
+    - Updated `/disconnect-google` with an interactive selection menu for multi-account management.
+    - Routed `/calendar-status` command and `calendar_status` tool directly to dynamic Composio status.
+  - **Composio Calendar Tool Compatibility:** Added automatic dual-slug execution (`GOOGLESUPER_*` with `GOOGLECALENDAR_*` fallback) across `composio_calendar_list_events`, `composio_calendar_create_event`, and `composio_calendar_find_free_slots`.
+- Coding Harness Optimization (OMP / Windows):
+  - **RTK (Rust Token Killer):** Repaired PATH resolution by copying `rtk.exe` (v0.45.0) to `.bun\bin\`, enabling automatic 50% bash output compression in OMP.
+  - **Caveman Proxy Daemon:** Configured `caveman-proxy.vbs` in the Windows Startup folder (`shell:startup`) with `CAVEMAN_NATIVE_IDLE_TIMEOUT=0` and `CAVEMAN_MODE=compress`, running silently on port 8787 on system boot.
+  - **Caveman Skill:** Installed `caveman` skill at `C:\Users\ADMIN\.claude\skills\caveman\SKILL.md` for on-demand prompt/response token reduction (~75%).
+- Verification Results:
+  - All 18/18 test suites across the repository passed 100% cleanly.
+  - Gateway plugins synced to `AppData\Local\hermes\plugins` and gateway daemon successfully restarted.
