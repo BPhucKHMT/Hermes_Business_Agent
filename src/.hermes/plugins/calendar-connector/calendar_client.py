@@ -124,23 +124,13 @@ class CalendarConnectorClient:
         return self.service.status(caller)
     def start_oauth(self, caller: Any) -> Dict[str, Any]:
         user_id = getattr(caller, "user_id", None) or getattr(caller, "chat_id", None)
-        if user_id:
-            try:
-                from tools.composio.auth import initiate_google_connection
-                url = initiate_google_connection(user_id, toolkit="googlecalendar")
-                return {"ok": True, "result": {"authorization_url": url, "request_id": f"composio-{user_id}"}}
-            except Exception:
-                pass
-
-        from tools.calendar.oauth import CalendarOAuthManager
-        oauth_mgr = CalendarOAuthManager(
-            client_id=os.environ.get("EMAIL_GOOGLE_CLIENT_ID", ""),
-            client_secret="",
-            redirect_uri=os.environ.get("EMAIL_OAUTH_REDIRECT_URI", ""),
-            store=self.service.store,
-        )
-        res = oauth_mgr.create_authorization_start(caller.principal_id)
-        return {"ok": True, "result": {"authorization_url": res.url, "request_id": res.request_id}}
+        user_key = user_id or getattr(caller, "principal_id", "default")
+        try:
+            from tools.composio.auth import initiate_google_connection
+            url = initiate_google_connection(user_key, toolkit="googlecalendar")
+            return {"ok": True, "result": {"authorization_url": url, "request_id": f"composio-{user_key}"}}
+        except Exception as exc:
+            return {"ok": False, "error": {"code": "oauth_start_failed", "message": str(exc)}}
     def disconnect(self, caller: Any) -> Dict[str, Any]:
         with self.service.store._connect() as conn:
             conn.execute("DELETE FROM calendar_connections WHERE principal_id = ?;", (caller.principal_id,))
