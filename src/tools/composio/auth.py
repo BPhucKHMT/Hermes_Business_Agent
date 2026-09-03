@@ -1,5 +1,6 @@
 """Multi-user authentication management using Composio v3 SDK."""
 
+import os
 from typing import Union, Optional
 from .client import format_user_id, get_composio_client
 
@@ -51,6 +52,41 @@ def check_connection_status(
         return False
     except Exception:
         return False
+def get_user_email(telegram_user_id: Union[int, str]) -> Optional[str]:
+    """Retrieve or cache the connected email address for the user."""
+    import json
+    from pathlib import Path
+    cache_path = Path(os.path.expanduser("~/.hermes/composio_user_emails.json"))
+    uid_str = str(telegram_user_id).strip()
+    cache = {}
+    if cache_path.is_file():
+        try:
+            cache = json.loads(cache_path.read_text(encoding="utf-8"))
+        except Exception:
+            cache = {}
+
+    if uid_str in cache and cache[uid_str]:
+        return cache[uid_str]
+
+    try:
+        user_id = format_user_id(telegram_user_id)
+        client = get_composio_client()
+        session = client.create(user_id=user_id)
+        res = session.execute(tool_slug="GMAIL_FETCH_EMAILS", arguments={"max_results": 1})
+        data = getattr(res, "data", res)
+        msgs = data.get("messages", []) if isinstance(data, dict) else []
+        if msgs and msgs[0].get("to"):
+            email = msgs[0]["to"]
+            cache[uid_str] = email
+            try:
+                cache_path.parent.mkdir(parents=True, exist_ok=True)
+                cache_path.write_text(json.dumps(cache, ensure_ascii=False), encoding="utf-8")
+            except Exception:
+                pass
+            return email
+    except Exception:
+        pass
+    return None
 def list_user_connections(telegram_user_id: Union[int, str]) -> list[dict]:
     """Retrieve detailed list of active connected accounts for the user."""
     user_id = format_user_id(telegram_user_id)

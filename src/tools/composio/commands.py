@@ -6,6 +6,7 @@ from .auth import (
     check_connection_status,
     disconnect_user,
     list_user_connections,
+    get_user_email,
 )
 
 
@@ -25,25 +26,23 @@ def handle_connect_google(telegram_user_id: Union[int, str]) -> str:
 
 
 def handle_google_status(telegram_user_id: Union[int, str]) -> str:
-    """Report the current Google connection status for the user with connected accounts list."""
+    """Report the current Google connection status for the user with connected email."""
     connections = list_user_connections(telegram_user_id)
 
     if connections:
-        lines = [
-            f"✅ **Trạng thái Tài khoản Google:** ĐÃ KẾT NỐI ({len(connections)} tài khoản hoạt động)\n",
-            "📋 **Danh sách kết nối của bạn:**"
-        ]
-        for idx, conn in enumerate(connections, 1):
-            tk = conn.get("toolkit", "Google Workspace").capitalize()
-            cid = conn.get("id", "")
-            lines.append(f"  {idx}. **{tk}** (Mã kết nối: `{cid}`)")
+        email = get_user_email(telegram_user_id)
+        email_str = f"📧 **Tài khoản:** `{email}`\n" if email else ""
 
-        lines.extend([
-            "\n• **Gmail:** Sẵn sàng đọc/gửi/soạn nháp thư.",
-            "• **Google Calendar:** Sẵn sàng tra cứu và lên lịch họp.",
+        lines = [
+            f"✅ **Trạng thái Tài khoản Google:** ĐÃ KẾT NỐI\n",
+            email_str,
+            f"📋 **Dịch vụ đang hoạt động:**",
+            "  • **Gmail:** Sẵn sàng đọc, gửi và soạn nháp thư.",
+            "  • **Google Calendar:** Sẵn sàng tra cứu và lên lịch họp.",
+            f"\n*(Tổng số phiên kết nối đang duy trì: {len(connections)})*",
             "\n💡 *Bạn có thể ngắt kết nối bất kỳ lúc nào bằng lệnh `/disconnect-google`.*"
-        ])
-        return "\n".join(lines)
+        ]
+        return "\n".join(l for l in lines if l)
 
     return (
         "⚠️ **Trạng thái Tài khoản Google:** CHƯA KẾT NỐI (DISCONNECTED)\n\n"
