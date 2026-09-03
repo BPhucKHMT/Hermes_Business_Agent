@@ -242,14 +242,15 @@ from pathlib import Path
 src = Path('${SRC_DIR}')
 sys.path.insert(0, str(src))
 
-print('1. Kiểm tra Email Service:')
+print('1. Kiểm tra Google Workspace Service (Composio Gmail & Calendar):')
 try:
-    from tools.email.service import build_service_from_env
-    svc = build_service_from_env()
-    print('   ✅ EmailConnectorService: SẴN SÀNG')
+    from tools.composio.client import format_user_id, get_composio_client
+    from tools.composio.auth import initiate_google_connection, check_connection_status
+    from tools.composio.mail_tools import composio_mail_search
+    from tools.composio.calendar_tools import composio_calendar_list_events
+    print('   ✅ Google Workspace (Composio): SẴN SÀNG')
 except Exception as e:
-    print(f'   ❌ EmailConnectorService: LỖI ({e})')
-
+    print(f'   ❌ Google Workspace (Composio): LỖI ({e})')
 print('2. Kiểm tra Calendar Service:')
 try:
     from tools.calendar.service import CalendarService
@@ -296,15 +297,13 @@ try:
 except Exception as e:
     print(f'   ❌ Research Generator: LỖI ({e})')
 
-print('6. Kiểm tra Composio Integration (Gmail & Calendar):')
+print('6. Kiểm tra Legacy Email Connector Fallback:')
 try:
-    from tools.composio.client import format_user_id
-    from tools.composio.auth import initiate_google_connection
-    from tools.composio.mail_tools import composio_mail_search
-    from tools.composio.calendar_tools import composio_calendar_list_events
-    print('   ✅ Composio Integration: SẴN SÀNG')
+    from tools.email.service import build_service_from_env
+    svc = build_service_from_env()
+    print('   ✅ Legacy Email Fallback: SẴN SÀNG')
 except Exception as e:
-    print(f'   ❌ Composio Integration: LỖI ({e})')
+    print(f'   ⚠️ Legacy Email Fallback: Bỏ qua ({e}) - Đang sử dụng Composio chính thức')
 "
 
 echo ""

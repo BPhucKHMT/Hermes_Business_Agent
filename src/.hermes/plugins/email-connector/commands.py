@@ -44,30 +44,13 @@ def handle_connect_gmail(
             return _unavailable(response.get("error", {}).get("code", "oauth_start_failed"))
         return f"Mở liên kết này để kết nối Google (Gmail, Calendar, YouTube): {url}"
 
-    # In live runtime: prioritize Composio
+    # In live runtime: exclusively use Composio Google Workspace
     user_id = getattr(caller, "user_id", None) or getattr(caller, "chat_id", None)
-    if user_id:
-        try:
-            from tools.composio.commands import handle_connect_google
-            res = handle_connect_google(user_id)
-            if "http" in res or "Google" in res or "Lỗi" in res:
-                return res
-        except Exception as exc:
-            return f"❌ Lỗi kết nối Composio: {str(exc)}"
+    if not user_id:
+        return _unavailable("missing_caller_context")
 
-    try:
-        response = client.start_oauth(caller)
-        url = (
-            response.get("result", {}).get("authorization_url")
-            if response.get("ok")
-            else None
-        )
-        if url:
-            return f"Mở liên kết này để kết nối Google (Gmail, Calendar, YouTube): {url}"
-    except Exception:
-        pass
-
-    return _unavailable("oauth_start_failed")
+    from tools.composio.commands import handle_connect_google
+    return handle_connect_google(user_id)
 
 
 def handle_mail_status(
@@ -93,23 +76,13 @@ def handle_mail_status(
             return _unavailable(response.get("error", {}).get("code", "status_failed"))
         return json.dumps(response["result"], ensure_ascii=False)
 
-    # In live runtime: prioritize Composio
+    # In live runtime: exclusively use Composio Google Workspace
     user_id = getattr(caller, "user_id", None) or getattr(caller, "chat_id", None)
-    if user_id:
-        try:
-            from tools.composio.commands import handle_google_status
-            return handle_google_status(user_id)
-        except Exception:
-            pass
+    if not user_id:
+        return _unavailable("missing_caller_context")
 
-    try:
-        response = client.connections(caller)
-        if response.get("ok"):
-            return json.dumps(response["result"], ensure_ascii=False)
-    except Exception:
-        pass
-
-    return _unavailable("status_failed")
+    from tools.composio.commands import handle_google_status
+    return handle_google_status(user_id)
 
 
 def handle_disconnect_gmail(
@@ -135,23 +108,14 @@ def handle_disconnect_gmail(
             return _unavailable("disconnect_not_confirmed")
         return json.dumps(result, ensure_ascii=False)
 
-    try:
-        caller = _caller(registry)
-    except DmOnlyError:
-        return DM_REDIRECT_TEXT
-    except LookupError:
+    # In live runtime: exclusively use Composio Google Workspace
+    user_id = getattr(caller, "user_id", None) or getattr(caller, "chat_id", None)
+    if not user_id:
         return _unavailable("missing_caller_context")
 
-    user_id = getattr(caller, "user_id", None) or getattr(caller, "chat_id", None)
-    if user_id:
-        try:
-            from tools.composio.commands import handle_disconnect_google
-            target = parts[0] if parts else ""
-            return handle_disconnect_google(user_id, target=target)
-        except Exception as exc:
-            return f"❌ Lỗi ngắt kết nối: {str(exc)}"
-
-    return _unavailable("missing_caller_context")
+    from tools.composio.commands import handle_disconnect_google
+    target = parts[0] if parts else ""
+    return handle_disconnect_google(user_id, target=target)
 
 
 def handle_share_mailbox(

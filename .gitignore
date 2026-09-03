@@ -19,6 +19,7 @@ coverage/
 Thumbs.db
 .vscode/
 .idea/
+.runtime/
 src/.runtime/
 
 /docs/

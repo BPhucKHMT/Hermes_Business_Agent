@@ -76,24 +76,10 @@ _oauth_thread = None
 
 
 def _start_oauth_server_background(service: Any) -> None:
-    global _oauth_server, _oauth_thread
-    if _oauth_server is not None:
-        return
-    import os
-    import threading
-    port = int(os.environ.get("EMAIL_CONNECTOR_PORT", "8766"))
-    host = os.environ.get("EMAIL_CONNECTOR_HOST", "0.0.0.0")
-    try:
-        from tools.email.service import create_http_server
-        _oauth_server = create_http_server(service, host=host, port=port)
-        _oauth_thread = threading.Thread(
-            target=_oauth_server.serve_forever, daemon=True, name="gmail-oauth-listener"
-        )
-        _oauth_thread.start()
-        logger.info("Started background Gmail OAuth callback server on %s:%d", host, port)
-    except Exception as exc:
-        logger.warning("Could not start background OAuth callback server on %s:%d: %s", host, port, exc)
-
+    """Obsolete: OAuth is managed exclusively via Composio cloud broker.
+    No background HTTP server is bound to local ports.
+    """
+    pass
 
 def register(ctx: Any) -> PersonalGmailTools:
     guard = PersonalGmailTools()
