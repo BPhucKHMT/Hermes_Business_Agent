@@ -1,6 +1,7 @@
 """Composio Google Calendar tools with strict host-bound user isolation."""
 
 from typing import Union, Dict, Any, Optional, List
+from composio import Action
 from .client import format_user_id, get_composio_client
 from .auth import check_connection_status
 
@@ -19,12 +20,12 @@ def composio_calendar_list_events(
 
     user_id = format_user_id(telegram_user_id)
     client = get_composio_client()
+    entity = client.get_entity(id=user_id)
 
     try:
-        result = client.tools.execute(
-            action="GOOGLECALENDAR_FIND_EVENT",
+        result = entity.execute(
+            action=Action.GOOGLECALENDAR_FIND_EVENT,
             params={"calendar_id": calendar_id},
-            user_id=user_id,
         )
         return {"status": "success", "data": result}
     except Exception as exc:
@@ -50,6 +51,7 @@ def composio_calendar_create_event(
 
     user_id = format_user_id(telegram_user_id)
     client = get_composio_client()
+    entity = client.get_entity(id=user_id)
 
     params: Dict[str, Any] = {
         "calendar_id": calendar_id,
@@ -63,10 +65,9 @@ def composio_calendar_create_event(
         params["attendees"] = attendees
 
     try:
-        result = client.tools.execute(
-            action="GOOGLECALENDAR_CREATE_EVENT",
+        result = entity.execute(
+            action=Action.GOOGLECALENDAR_CREATE_EVENT,
             params=params,
-            user_id=user_id,
         )
         return {"status": "success", "data": result}
     except Exception as exc:
@@ -88,12 +89,12 @@ def composio_calendar_find_free_slots(
 
     user_id = format_user_id(telegram_user_id)
     client = get_composio_client()
+    entity = client.get_entity(id=user_id)
 
     try:
-        result = client.tools.execute(
-            action="GOOGLECALENDAR_FIND_FREE_SLOTS",
+        result = entity.execute(
+            action=Action.GOOGLECALENDAR_FIND_FREE_SLOTS,
             params={"date": date_str, "calendar_id": calendar_id},
-            user_id=user_id,
         )
         return {"status": "success", "data": result}
     except Exception as exc:

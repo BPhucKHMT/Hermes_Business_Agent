@@ -1,5 +1,6 @@
 import pytest
 from unittest.mock import MagicMock, patch
+from composio import Action
 
 from src.tools.composio.calendar_tools import (
     composio_calendar_list_events,
@@ -17,31 +18,35 @@ def test_calendar_list_unauthenticated():
 
 def test_calendar_list_events_success():
     mock_client = MagicMock()
-    mock_client.tools.execute.return_value = {
+    mock_entity = MagicMock()
+    mock_entity.execute.return_value = {
         "items": [
             {"id": "ev_1", "summary": "Họp chiến lược Protein Bar", "start": "2026-09-04T10:00:00"}
         ]
     }
+    mock_client.get_entity.return_value = mock_entity
 
     with patch("src.tools.composio.calendar_tools.check_connection_status", return_value=True), \
          patch("src.tools.composio.calendar_tools.get_composio_client", return_value=mock_client):
         res = composio_calendar_list_events(7275339077, calendar_id="primary")
         assert res["status"] == "success"
         assert len(res["data"]["items"]) == 1
-        mock_client.tools.execute.assert_called_once_with(
-            action="GOOGLECALENDAR_FIND_EVENT",
+        mock_client.get_entity.assert_called_once_with(id="telegram_7275339077")
+        mock_entity.execute.assert_called_once_with(
+            action=Action.GOOGLECALENDAR_FIND_EVENT,
             params={"calendar_id": "primary"},
-            user_id="telegram_7275339077",
         )
 
 
 def test_calendar_create_event_success():
     mock_client = MagicMock()
-    mock_client.tools.execute.return_value = {
+    mock_entity = MagicMock()
+    mock_entity.execute.return_value = {
         "id": "new_ev_123",
         "htmlLink": "https://calendar.google.com/event?id=new_ev_123",
         "status": "confirmed",
     }
+    mock_client.get_entity.return_value = mock_entity
 
     with patch("src.tools.composio.calendar_tools.check_connection_status", return_value=True), \
          patch("src.tools.composio.calendar_tools.get_composio_client", return_value=mock_client):
@@ -54,8 +59,9 @@ def test_calendar_create_event_success():
             attendees=["partner@supplier.com"],
         )
         assert res["status"] == "success"
-        mock_client.tools.execute.assert_called_once_with(
-            action="GOOGLECALENDAR_CREATE_EVENT",
+        mock_client.get_entity.assert_called_once_with(id="telegram_7275339077")
+        mock_entity.execute.assert_called_once_with(
+            action=Action.GOOGLECALENDAR_CREATE_EVENT,
             params={
                 "calendar_id": "primary",
                 "summary": "Gặp gỡ đối tác Whey Protein",
@@ -64,22 +70,23 @@ def test_calendar_create_event_success():
                 "description": "Thảo luận nhập hàng đạm thực vật",
                 "attendees": ["partner@supplier.com"],
             },
-            user_id="telegram_7275339077",
         )
 
 
 def test_calendar_find_free_slots_success():
     mock_client = MagicMock()
-    mock_client.tools.execute.return_value = {
+    mock_entity = MagicMock()
+    mock_entity.execute.return_value = {
         "free_slots": [{"start": "2026-09-05T09:00:00", "end": "2026-09-05T11:00:00"}]
     }
+    mock_client.get_entity.return_value = mock_entity
 
     with patch("src.tools.composio.calendar_tools.check_connection_status", return_value=True), \
          patch("src.tools.composio.calendar_tools.get_composio_client", return_value=mock_client):
         res = composio_calendar_find_free_slots(7275339077, date_str="2026-09-05")
         assert res["status"] == "success"
-        mock_client.tools.execute.assert_called_once_with(
-            action="GOOGLECALENDAR_FIND_FREE_SLOTS",
+        mock_client.get_entity.assert_called_once_with(id="telegram_7275339077")
+        mock_entity.execute.assert_called_once_with(
+            action=Action.GOOGLECALENDAR_FIND_FREE_SLOTS,
             params={"date": "2026-09-05", "calendar_id": "primary"},
-            user_id="telegram_7275339077",
         )

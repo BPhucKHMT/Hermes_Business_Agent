@@ -1,6 +1,7 @@
 """Composio Gmail tools with strict host-bound user isolation."""
 
 from typing import Union, Dict, Any
+from composio import Action
 from .client import format_user_id, get_composio_client
 from .auth import check_connection_status
 
@@ -20,12 +21,12 @@ def composio_mail_search(
 
     user_id = format_user_id(telegram_user_id)
     client = get_composio_client()
+    entity = client.get_entity(id=user_id)
 
     try:
-        result = client.tools.execute(
-            action="GMAIL_FETCH_EMAILS",
+        result = entity.execute(
+            action=Action.GMAIL_FETCH_EMAILS,
             params={"query": query, "max_results": max_results},
-            user_id=user_id,
         )
         return {"status": "success", "data": result}
     except Exception as exc:
@@ -48,16 +49,16 @@ def composio_mail_send(
 
     user_id = format_user_id(telegram_user_id)
     client = get_composio_client()
+    entity = client.get_entity(id=user_id)
 
     try:
-        result = client.tools.execute(
-            action="GMAIL_SEND_EMAIL",
+        result = entity.execute(
+            action=Action.GMAIL_SEND_EMAIL,
             params={
                 "recipient_email": recipient,
                 "subject": subject,
                 "body": body,
             },
-            user_id=user_id,
         )
         return {"status": "success", "data": result}
     except Exception as exc:
@@ -80,16 +81,16 @@ def composio_mail_create_draft(
 
     user_id = format_user_id(telegram_user_id)
     client = get_composio_client()
+    entity = client.get_entity(id=user_id)
 
     try:
-        result = client.tools.execute(
-            action="GMAIL_CREATE_EMAIL_DRAFT",
+        result = entity.execute(
+            action=Action.GMAIL_CREATE_EMAIL_DRAFT,
             params={
                 "recipient_email": recipient,
                 "subject": subject,
                 "body": body,
             },
-            user_id=user_id,
         )
         return {"status": "success", "data": result}
     except Exception as exc:

@@ -9,20 +9,21 @@ def initiate_google_connection(
     toolkit: str = "gmail",
     callback_url: Optional[str] = None,
 ) -> str:
-    """Generate a magic OAuth authorization URL for a specific Telegram user.
-
-    The user will tap this link on mobile or desktop to link their Google account.
-    """
+    """Generate a magic OAuth authorization URL for a specific Telegram user."""
     user_id = format_user_id(telegram_user_id)
     client = get_composio_client()
-    session = client.create(user_id=user_id)
+    entity = client.get_entity(id=user_id)
+
+    app_name = toolkit.lower()
+    if app_name in ("google_calendar", "calendar"):
+        app_name = "googlecalendar"
 
     kwargs = {}
     if callback_url:
-        kwargs["callback_url"] = callback_url
+        kwargs["redirect_url"] = callback_url
 
-    connection_request = session.authorize(toolkit, **kwargs)
-    return connection_request.redirect_url
+    connection_request = entity.initiate_connection(app_name=app_name, **kwargs)
+    return getattr(connection_request, "redirect_url", getattr(connection_request, "redirectUrl", ""))
 
 
 def check_connection_status(
@@ -32,17 +33,21 @@ def check_connection_status(
     """Check if the given user currently has an ACTIVE connected account for the app."""
     user_id = format_user_id(telegram_user_id)
     client = get_composio_client()
+    entity = client.get_entity(id=user_id)
+
+    app_name = app.lower()
+    if app_name in ("google_calendar", "calendar"):
+        app_name = "googlecalendar"
 
     try:
-        accounts = client.connected_accounts.get(user_id=user_id, app=app)
-        if not accounts:
+        conn = entity.get_connection(app=app_name)
+        if not conn:
             return False
-        for acc in accounts:
-            status = getattr(acc, "status", None)
-            if isinstance(status, str) and status.upper() == "ACTIVE":
-                return True
-            if isinstance(acc, dict) and acc.get("status", "").upper() == "ACTIVE":
-                return True
+        status = getattr(conn, "status", getattr(conn, "connectionStatus", None))
+        if isinstance(status, str) and status.upper() == "ACTIVE":
+            return True
+        if isinstance(conn, dict) and conn.get("status", "").upper() == "ACTIVE":
+            return True
         return False
     except Exception:
         return False
@@ -55,15 +60,19 @@ def disconnect_user(
     """Revoke and delete connected accounts for a specific user."""
     user_id = format_user_id(telegram_user_id)
     client = get_composio_client()
+    entity = client.get_entity(id=user_id)
+
+    app_name = app.lower()
+    if app_name in ("google_calendar", "calendar"):
+        app_name = "googlecalendar"
 
     try:
-        accounts = client.connected_accounts.get(user_id=user_id, app=app)
-        if not accounts:
+        conn = entity.get_connection(app=app_name)
+        if not conn:
             return True
-        for acc in accounts:
-            acc_id = getattr(acc, "id", None) or (acc.get("id") if isinstance(acc, dict) else None)
-            if acc_id:
-                client.connected_accounts.delete(connected_account_id=acc_id)
+        conn_id = getattr(conn, "id", getattr(conn, "connectedAccountId", None))
+        if conn_id:
+            client.connected_accounts.delete(connected_account_id=conn_id)
         return True
     except Exception:
         return False
