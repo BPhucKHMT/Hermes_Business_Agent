@@ -63,6 +63,7 @@ def handle_calendar_list_events(
                 c_res = composio_calendar_list_events(
                     user_id,
                     calendar_id=params.get("calendar_id", "primary"),
+                    account_email=account_email,
                 )
                 if c_res.get("status") == "success":
                     return _json({"ok": True, "result": c_res.get("data", {})})
@@ -166,36 +167,6 @@ def handle_calendar_confirm_event(
         if not draft_id:
             return _error("draft_id_required")
 
-        user_id = getattr(caller, "user_id", None) or getattr(caller, "chat_id", None)
-        if user_id and client is not None and hasattr(client, "service"):
-            try:
-                from tools.composio.calendar_tools import composio_calendar_create_event
-                from tools.composio.auth import check_connection_status
-                from tools.calendar.contracts import EventDraftStatus
-                if check_connection_status(user_id, app="googlecalendar") or check_connection_status(user_id, app="googlesuper"):
-                    draft = client.service.store.get_draft(draft_id)
-                    if draft and draft.status == EventDraftStatus.DRAFT:
-                        c_res = composio_calendar_create_event(
-                            user_id,
-                            summary=draft.summary,
-                            start_datetime=draft.start_time,
-                            description=draft.description,
-                            attendees=list(draft.attendees) if draft.attendees else None,
-                            calendar_id=draft.calendar_id or "primary",
-                        )
-                        if c_res.get("status") == "success":
-                            event_data = c_res.get("data", {})
-                            evt_id = event_data.get("id") or f"composio-{draft_id}"
-                            client.service.store.transition_draft_status(
-                                draft_id=draft_id,
-                                from_status=EventDraftStatus.DRAFT,
-                                to_status=EventDraftStatus.COMMITTED,
-                                committed_event_id=evt_id,
-                            )
-                            return _json({"ok": True, "result": {"event": event_data, "confirmed": True}})
-            except Exception:
-                pass
-
         res = client.confirm_event(caller=caller, draft_id=draft_id)
         return _json(res)
     except (DmOnlyError, LookupError) as exc:
@@ -235,17 +206,18 @@ def handle_calendar_status(
                     if clean not in clean_emails:
                         clean_emails.append(clean)
 
-                calendars = [
-                    {"email": em, "calendar_id": "primary", "calendar_name": f"Google Calendar ({em})"}
-                    for em in clean_emails
-                ]
-                return _json({
-                    "ok": True,
-                    "status": "connected",
-                    "principal_id": getattr(caller, "principal_id", f"telegram:default:{user_id}"),
-                    "connected_accounts": clean_emails,
-                    "calendars": calendars,
-                })
+                if clean_emails:
+                    calendars = [
+                        {"email": em, "calendar_id": "primary", "calendar_name": f"Google Calendar ({em})"}
+                        for em in clean_emails
+                    ]
+                    return _json({
+                        "ok": True,
+                        "status": "connected",
+                        "principal_id": getattr(caller, "principal_id", f"telegram:default:{user_id}"),
+                        "connected_accounts": clean_emails,
+                        "calendars": calendars,
+                    })
         except Exception:
             pass
 

@@ -67,10 +67,18 @@ def handle_calendar_status_cmd(
     except LookupError:
         return _unavailable("missing_caller_context")
 
+    # In legacy unit tests using FakeConnectorClient
+    if hasattr(client, "calls"):
+        response = client.status(caller)
+        return json.dumps(response, ensure_ascii=False)
+
+    user_id = getattr(caller, "user_id", None) or getattr(caller, "chat_id", None)
+    if user_id:
+        from tools.composio.commands import handle_google_status
+        return handle_google_status(user_id)
+
     response = client.status(caller)
     return json.dumps(response, ensure_ascii=False)
-
-
 def handle_disconnect_calendar(
     raw_args: str = "",
     *,

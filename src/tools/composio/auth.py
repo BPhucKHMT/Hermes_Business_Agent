@@ -85,20 +85,44 @@ def get_user_emails(telegram_user_id: Union[int, str]) -> Dict[str, str]:
                 if acc_id in cache:
                     account_emails[acc_id] = cache[acc_id]
                 else:
-                    if session is None:
-                        session = client.create(user_id=user_id, multi_account={"enable": True})
+                    email_found = None
+                    # 1. Try GOOGLESUPER_GET_PROFILE
                     try:
-                        res = session.execute(tool_slug="GMAIL_FETCH_EMAILS", arguments={"max_results": 1}, account=acc_id)
-                        data = getattr(res, "data", res)
-                        msgs = data.get("messages", []) if isinstance(data, dict) else []
-                        if msgs and msgs[0].get("to"):
-                            em = msgs[0]["to"]
-                            cache[acc_id] = em
-                            account_emails[acc_id] = em
-                            cache_updated = True
+                        sess = client.create(user_id=user_id, toolkits=["googlesuper"], multi_account={"enable": True})
+                        prof = sess.execute(tool_slug="GOOGLESUPER_GET_PROFILE", arguments={"user_id": "me"}, account=acc_id)
+                        p_data = getattr(prof, "data", prof)
+                        if isinstance(p_data, dict) and p_data.get("emailAddress"):
+                            email_found = p_data["emailAddress"]
                     except Exception:
                         pass
 
+                    # 2. Try GOOGLESUPER_EVENTS_LIST summary
+                    if not email_found:
+                        try:
+                            sess = client.create(user_id=user_id, toolkits=["googlesuper"], multi_account={"enable": True})
+                            ev_res = sess.execute(tool_slug="GOOGLESUPER_EVENTS_LIST", arguments={"calendar_id": "primary", "max_results": 1}, account=acc_id)
+                            e_data = getattr(ev_res, "data", ev_res)
+                            if isinstance(e_data, dict) and "@" in str(e_data.get("summary", "")):
+                                email_found = e_data["summary"]
+                        except Exception:
+                            pass
+
+                    # 3. Try GMAIL_FETCH_EMAILS fallback
+                    if not email_found:
+                        try:
+                            sess = client.create(user_id=user_id, toolkits=["gmail"], multi_account={"enable": True})
+                            res = sess.execute(tool_slug="GMAIL_FETCH_EMAILS", arguments={"max_results": 1}, account=acc_id)
+                            data = getattr(res, "data", res)
+                            msgs = data.get("messages", []) if isinstance(data, dict) else []
+                            if msgs and msgs[0].get("to"):
+                                email_found = msgs[0]["to"]
+                        except Exception:
+                            pass
+
+                    if email_found:
+                        cache[acc_id] = email_found
+                        account_emails[acc_id] = email_found
+                        cache_updated = True
         if cache_updated:
             try:
                 cache_path.parent.mkdir(parents=True, exist_ok=True)
