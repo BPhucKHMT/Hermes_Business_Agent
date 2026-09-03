@@ -27,8 +27,14 @@ def test_handle_google_status_disconnected():
         assert "chưa kết nối" in msg.lower() or "not connected" in msg.lower()
         assert "/connect-google" in msg
 
-
 def test_handle_disconnect_google():
-    with patch("src.tools.composio.commands.disconnect_user", return_value=True):
-        msg = handle_disconnect_google(7275339077)
+    with patch("src.tools.composio.commands.get_user_emails", return_value={"ca_1": "test@gmail.com"}), \
+         patch("src.tools.composio.commands.disconnect_user", return_value=(True, ["test@gmail.com"])):
+        msg = handle_disconnect_google(7275339077, target="all")
         assert "hủy kết nối" in msg.lower() or "ngắt kết nối" in msg.lower() or "thành công" in msg.lower()
+
+
+def test_handle_disconnect_google_menu_multiple_accounts():
+    with patch("src.tools.composio.commands.get_user_emails", return_value={"ca_1": "a@gmail.com", "ca_2": "b@gmail.com"}):
+        msg = handle_disconnect_google(7275339077, target="")
+        assert "vui lòng chọn" in msg.lower() or "/disconnect-google 1" in msg

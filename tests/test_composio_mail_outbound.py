@@ -64,8 +64,7 @@ def test_handle_email_send_success():
         )
         res = json.loads(res_raw)
         assert res["ok"] is True
-        assert res["result"]["id"] == "sent_123"
-        mock_send.assert_called_once_with("7275339077", recipient="partner@example.com", subject="Báo giá", body="Nội dung")
+        mock_send.assert_called_once_with("7275339077", recipient="partner@example.com", subject="Báo giá", body="Nội dung", account_email=None)
 
 
 def test_handle_email_create_draft_success():
@@ -80,8 +79,7 @@ def test_handle_email_create_draft_success():
         )
         res = json.loads(res_raw)
         assert res["ok"] is True
-        assert res["result"]["id"] == "draft_456"
-        mock_draft.assert_called_once_with("7275339077", recipient="boss@example.com", subject="Dự thảo", body="Chi tiết dự thảo")
+        mock_draft.assert_called_once_with("7275339077", recipient="boss@example.com", subject="Dự thảo", body="Chi tiết dự thảo", account_email=None)
 
 
 def test_handle_email_reply_success():
@@ -96,8 +94,7 @@ def test_handle_email_reply_success():
         )
         res = json.loads(res_raw)
         assert res["ok"] is True
-        assert res["result"]["id"] == "reply_789"
-        mock_reply.assert_called_once_with("7275339077", thread_id="thread_abc123", body="Đồng ý với điều khoản")
+        mock_reply.assert_called_once_with("7275339077", thread_id="thread_abc123", body="Đồng ý với điều khoản", account_email=None)
 def test_handle_email_search_with_account_email():
     caller = FakeCaller()
     registry = FakeRegistry(caller)

@@ -1,26 +1,8 @@
 """Composio Gmail tools with strict host-bound user isolation and multi-account support (v3 SDK)."""
 
-from typing import Union, Dict, Any, Optional
+from typing import Union, Dict, Any, Optional, List
 from .client import format_user_id, get_composio_client
-from .auth import check_connection_status, get_user_emails
-
-
-def resolve_account_id(
-    telegram_user_id: Union[int, str],
-    account_email: Optional[str] = None,
-) -> Optional[str]:
-    """Find the specific Composio account ID matching the requested email, or None."""
-    if not account_email:
-        return None
-    try:
-        emails = get_user_emails(telegram_user_id)
-        target = account_email.lower().strip()
-        for acc_id, em in emails.items():
-            if target in em.lower():
-                return acc_id
-    except Exception:
-        pass
-    return None
+from .auth import check_connection_status, get_user_emails, resolve_account_target
 
 
 def composio_mail_search(
@@ -40,7 +22,8 @@ def composio_mail_search(
     user_id = format_user_id(telegram_user_id)
     client = get_composio_client()
     session = client.create(user_id=user_id, multi_account={"enable": True})
-    acc_id = resolve_account_id(telegram_user_id, account_email)
+    acc_id, resolved_email = resolve_account_target(telegram_user_id, account_email)
+    all_emails = list(dict.fromkeys(get_user_emails(telegram_user_id).values()))
 
     kwargs: Dict[str, Any] = {
         "tool_slug": "GMAIL_FETCH_EMAILS",
@@ -51,9 +34,52 @@ def composio_mail_search(
 
     try:
         result = session.execute(**kwargs)
-        return {"status": "success", "data": getattr(result, "data", result)}
+        return {
+            "status": "success",
+            "active_mailbox": resolved_email or "default",
+            "all_connected_mailboxes": all_emails,
+            "data": getattr(result, "data", result),
+        }
     except Exception as exc:
         return {"status": "error", "message": f"Lỗi khi tìm kiếm email: {str(exc)}"}
+
+
+def composio_mail_get_thread(
+    telegram_user_id: Union[int, str],
+    thread_id: str,
+    account_email: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Retrieve full message contents of a specific Gmail thread ID."""
+    if not check_connection_status(telegram_user_id, app="gmail"):
+        return {
+            "status": "error",
+            "error_code": "NOT_CONNECTED",
+            "message": "Bạn chưa kết nối tài khoản Gmail. Vui lòng dùng lệnh /connect-google để liên kết tài khoản.",
+        }
+
+    user_id = format_user_id(telegram_user_id)
+    client = get_composio_client()
+    session = client.create(user_id=user_id, multi_account={"enable": True})
+    acc_id, resolved_email = resolve_account_target(telegram_user_id, account_email)
+    all_emails = list(dict.fromkeys(get_user_emails(telegram_user_id).values()))
+
+    kwargs: Dict[str, Any] = {
+        "tool_slug": "GMAIL_FETCH_MESSAGE_BY_THREAD_ID",
+        "arguments": {"thread_id": thread_id},
+    }
+    if acc_id:
+        kwargs["account"] = acc_id
+
+    try:
+        result = session.execute(**kwargs)
+        return {
+            "status": "success",
+            "active_mailbox": resolved_email or "default",
+            "all_connected_mailboxes": all_emails,
+            "data": getattr(result, "data", result),
+        }
+    except Exception as exc:
+        return {"status": "error", "message": f"Lỗi khi đọc chuỗi email: {str(exc)}"}
 
 
 def composio_mail_send(
@@ -74,7 +100,8 @@ def composio_mail_send(
     user_id = format_user_id(telegram_user_id)
     client = get_composio_client()
     session = client.create(user_id=user_id, multi_account={"enable": True})
-    acc_id = resolve_account_id(telegram_user_id, account_email)
+    acc_id, resolved_email = resolve_account_target(telegram_user_id, account_email)
+    all_emails = list(dict.fromkeys(get_user_emails(telegram_user_id).values()))
 
     kwargs: Dict[str, Any] = {
         "tool_slug": "GMAIL_SEND_EMAIL",
@@ -89,7 +116,12 @@ def composio_mail_send(
 
     try:
         result = session.execute(**kwargs)
-        return {"status": "success", "data": getattr(result, "data", result)}
+        return {
+            "status": "success",
+            "active_mailbox": resolved_email or "default",
+            "all_connected_mailboxes": all_emails,
+            "data": getattr(result, "data", result),
+        }
     except Exception as exc:
         return {"status": "error", "message": f"Lỗi khi gửi email: {str(exc)}"}
 
@@ -112,7 +144,8 @@ def composio_mail_create_draft(
     user_id = format_user_id(telegram_user_id)
     client = get_composio_client()
     session = client.create(user_id=user_id, multi_account={"enable": True})
-    acc_id = resolve_account_id(telegram_user_id, account_email)
+    acc_id, resolved_email = resolve_account_target(telegram_user_id, account_email)
+    all_emails = list(dict.fromkeys(get_user_emails(telegram_user_id).values()))
 
     kwargs: Dict[str, Any] = {
         "tool_slug": "GMAIL_CREATE_EMAIL_DRAFT",
@@ -127,7 +160,12 @@ def composio_mail_create_draft(
 
     try:
         result = session.execute(**kwargs)
-        return {"status": "success", "data": getattr(result, "data", result)}
+        return {
+            "status": "success",
+            "active_mailbox": resolved_email or "default",
+            "all_connected_mailboxes": all_emails,
+            "data": getattr(result, "data", result),
+        }
     except Exception as exc:
         return {"status": "error", "message": f"Lỗi khi tạo bản nháp email: {str(exc)}"}
 
@@ -149,7 +187,8 @@ def composio_mail_reply(
     user_id = format_user_id(telegram_user_id)
     client = get_composio_client()
     session = client.create(user_id=user_id, multi_account={"enable": True})
-    acc_id = resolve_account_id(telegram_user_id, account_email)
+    acc_id, resolved_email = resolve_account_target(telegram_user_id, account_email)
+    all_emails = list(dict.fromkeys(get_user_emails(telegram_user_id).values()))
 
     kwargs: Dict[str, Any] = {
         "tool_slug": "GMAIL_REPLY_TO_THREAD",
@@ -163,36 +202,11 @@ def composio_mail_reply(
 
     try:
         result = session.execute(**kwargs)
-        return {"status": "success", "data": getattr(result, "data", result)}
+        return {
+            "status": "success",
+            "active_mailbox": resolved_email or "default",
+            "all_connected_mailboxes": all_emails,
+            "data": getattr(result, "data", result),
+        }
     except Exception as exc:
         return {"status": "error", "message": f"Lỗi khi trả lời email: {str(exc)}"}
-def composio_mail_get_thread(
-    telegram_user_id: Union[int, str],
-    thread_id: str,
-    account_email: Optional[str] = None,
-) -> Dict[str, Any]:
-    """Retrieve full message contents of a specific Gmail thread ID."""
-    if not check_connection_status(telegram_user_id, app="gmail"):
-        return {
-            "status": "error",
-            "error_code": "NOT_CONNECTED",
-            "message": "Bạn chưa kết nối tài khoản Gmail. Vui lòng dùng lệnh /connect-google để liên kết tài khoản.",
-        }
-
-    user_id = format_user_id(telegram_user_id)
-    client = get_composio_client()
-    session = client.create(user_id=user_id, multi_account={"enable": True})
-    acc_id = resolve_account_id(telegram_user_id, account_email)
-
-    kwargs: Dict[str, Any] = {
-        "tool_slug": "GMAIL_FETCH_MESSAGE_BY_THREAD_ID",
-        "arguments": {"thread_id": thread_id},
-    }
-    if acc_id:
-        kwargs["account"] = acc_id
-
-    try:
-        result = session.execute(**kwargs)
-        return {"status": "success", "data": getattr(result, "data", result)}
-    except Exception as exc:
-        return {"status": "error", "message": f"Lỗi khi đọc chuỗi email: {str(exc)}"}

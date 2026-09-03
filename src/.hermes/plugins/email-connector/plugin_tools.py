@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import json
+import re
 from typing import Any, Dict
-
 from caller import CallerContextRegistry, DmOnlyError
 
 
@@ -52,15 +52,10 @@ def handle_email_search(
     query = params.get("query", "label:inbox")
     account_email = params.get("account_email")
 
-    # Smart auto-detection of account_email if user mentioned an email in query
     if not account_email and query:
-        for part in query.split():
-            if "@" in part:
-                clean_email = part.replace("to:", "").replace("from:", "").replace("in:", "").strip()
-                if "@" in clean_email and "." in clean_email:
-                    account_email = clean_email
-                    break
-
+        match = re.search(r'[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+', query)
+        if match:
+            account_email = match.group(0)
     try:
         user_id = getattr(caller, "user_id", None) or getattr(caller, "chat_id", None)
         if user_id:
@@ -74,7 +69,12 @@ def handle_email_search(
                     account_email=account_email,
                 )
                 if res.get("status") == "success":
-                    return json.dumps({"ok": True, "result": res.get("data", {})}, ensure_ascii=False)
+                    return json.dumps({
+                        "ok": True,
+                        "active_mailbox": res.get("active_mailbox"),
+                        "all_connected_mailboxes": res.get("all_connected_mailboxes"),
+                        "result": res.get("data", {}),
+                    }, ensure_ascii=False)
     except Exception:
         pass
 
@@ -115,7 +115,12 @@ def handle_email_get_thread(
             if check_connection_status(user_id, app="gmail"):
                 res = composio_mail_get_thread(user_id, thread_id=thread_id, account_email=account_email)
                 if res.get("status") == "success":
-                    return json.dumps({"ok": True, "result": res.get("data", {})}, ensure_ascii=False)
+                    return json.dumps({
+                        "ok": True,
+                        "active_mailbox": res.get("active_mailbox"),
+                        "all_connected_mailboxes": res.get("all_connected_mailboxes"),
+                        "result": res.get("data", {}),
+                    }, ensure_ascii=False)
         except Exception:
             pass
 
@@ -165,6 +170,7 @@ def handle_email_send(
     recipient = str(params.get("recipient", "")).strip()
     subject = str(params.get("subject", "")).strip()
     body = str(params.get("body", "")).strip()
+    account_email = params.get("account_email")
 
     if not recipient or not subject or not body:
         return _error("missing_required_fields", "recipient, subject, và body là bắt buộc.")
@@ -172,9 +178,20 @@ def handle_email_send(
     user_id = getattr(caller, "user_id", None) or getattr(caller, "chat_id", None)
     try:
         from tools.composio.mail_tools import composio_mail_send
-        res = composio_mail_send(user_id, recipient=recipient, subject=subject, body=body)
+        res = composio_mail_send(
+            user_id,
+            recipient=recipient,
+            subject=subject,
+            body=body,
+            account_email=account_email,
+        )
         if res.get("status") == "success":
-            return json.dumps({"ok": True, "result": res.get("data", {})}, ensure_ascii=False)
+            return json.dumps({
+                "ok": True,
+                "active_mailbox": res.get("active_mailbox"),
+                "all_connected_mailboxes": res.get("all_connected_mailboxes"),
+                "result": res.get("data", {}),
+            }, ensure_ascii=False)
         return _error("mail_send_failed", res.get("message", "Lỗi gửi email qua Composio"))
     except Exception as exc:
         return _error("mail_send_failed", str(exc))
@@ -200,6 +217,7 @@ def handle_email_create_draft(
     recipient = str(params.get("recipient", "")).strip()
     subject = str(params.get("subject", "")).strip()
     body = str(params.get("body", "")).strip()
+    account_email = params.get("account_email")
 
     if not recipient or not subject or not body:
         return _error("missing_required_fields", "recipient, subject, và body là bắt buộc.")
@@ -207,9 +225,20 @@ def handle_email_create_draft(
     user_id = getattr(caller, "user_id", None) or getattr(caller, "chat_id", None)
     try:
         from tools.composio.mail_tools import composio_mail_create_draft
-        res = composio_mail_create_draft(user_id, recipient=recipient, subject=subject, body=body)
+        res = composio_mail_create_draft(
+            user_id,
+            recipient=recipient,
+            subject=subject,
+            body=body,
+            account_email=account_email,
+        )
         if res.get("status") == "success":
-            return json.dumps({"ok": True, "result": res.get("data", {})}, ensure_ascii=False)
+            return json.dumps({
+                "ok": True,
+                "active_mailbox": res.get("active_mailbox"),
+                "all_connected_mailboxes": res.get("all_connected_mailboxes"),
+                "result": res.get("data", {}),
+            }, ensure_ascii=False)
         return _error("mail_draft_failed", res.get("message", "Lỗi tạo bản nháp qua Composio"))
     except Exception as exc:
         return _error("mail_draft_failed", str(exc))
@@ -234,6 +263,7 @@ def handle_email_reply(
 
     thread_id = str(params.get("thread_id", "")).strip()
     body = str(params.get("body", "")).strip()
+    account_email = params.get("account_email")
 
     if not thread_id or not body:
         return _error("missing_required_fields", "thread_id và body là bắt buộc.")
@@ -241,9 +271,19 @@ def handle_email_reply(
     user_id = getattr(caller, "user_id", None) or getattr(caller, "chat_id", None)
     try:
         from tools.composio.mail_tools import composio_mail_reply
-        res = composio_mail_reply(user_id, thread_id=thread_id, body=body)
+        res = composio_mail_reply(
+            user_id,
+            thread_id=thread_id,
+            body=body,
+            account_email=account_email,
+        )
         if res.get("status") == "success":
-            return json.dumps({"ok": True, "result": res.get("data", {})}, ensure_ascii=False)
+            return json.dumps({
+                "ok": True,
+                "active_mailbox": res.get("active_mailbox"),
+                "all_connected_mailboxes": res.get("all_connected_mailboxes"),
+                "result": res.get("data", {}),
+            }, ensure_ascii=False)
         return _error("mail_reply_failed", res.get("message", "Lỗi trả lời email qua Composio"))
     except Exception as exc:
         return _error("mail_reply_failed", str(exc))

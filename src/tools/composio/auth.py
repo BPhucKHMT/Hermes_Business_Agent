@@ -1,7 +1,10 @@
 """Multi-user authentication management using Composio v3 SDK."""
 
 import os
-from typing import Union, Optional, Dict, List
+import re
+import json
+from pathlib import Path
+from typing import Union, Optional, Dict, List, Tuple
 from .client import format_user_id, get_composio_client
 
 
@@ -13,7 +16,7 @@ def initiate_google_connection(
     """Generate a magic OAuth authorization URL for a specific Telegram user."""
     user_id = format_user_id(telegram_user_id)
     client = get_composio_client()
-    session = client.create(user_id=user_id)
+    session = client.create(user_id=user_id, multi_account={"enable": True})
 
     app_name = toolkit.lower()
     if app_name in ("google_calendar", "calendar"):
@@ -52,11 +55,10 @@ def check_connection_status(
         return False
     except Exception:
         return False
+
+
 def get_user_emails(telegram_user_id: Union[int, str]) -> Dict[str, str]:
     """Retrieve mapping of {account_id: email_address} for all active accounts."""
-    import json
-    from pathlib import Path
-
     cache_path = Path(os.path.expanduser("~/.hermes/composio_account_emails.json"))
     cache: Dict[str, str] = {}
     if cache_path.is_file():
@@ -108,6 +110,58 @@ def get_user_emails(telegram_user_id: Union[int, str]) -> Dict[str, str]:
     return account_emails
 
 
+def resolve_account_target(
+    telegram_user_id: Union[int, str],
+    account_target: Optional[str] = None,
+) -> Tuple[Optional[str], Optional[str]]:
+    """Resolve an account target (email, username, index, or nanoid) to (account_id, resolved_email)."""
+    account_emails = get_user_emails(telegram_user_id)
+    if not account_emails:
+        return None, None
+
+    if not account_target or not str(account_target).strip():
+        first_id, first_em = next(iter(account_emails.items()))
+        return first_id, first_em
+
+    target = str(account_target).strip()
+
+    # 1. Check if target is a 1-based index (e.g. '1', '2')
+    if target.isdigit():
+        idx = int(target) - 1
+        distinct_map = {}
+        for acc_id, em in account_emails.items():
+            if em not in distinct_map:
+                distinct_map[em] = acc_id
+        items = list(distinct_map.items())
+        if 0 <= idx < len(items):
+            return items[idx][1], items[idx][0]
+
+    # 2. Extract clean email via regex if surrounded by operators or braces
+    email_match = re.search(r'[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+', target)
+    clean_target = email_match.group(0).lower() if email_match else target.lower()
+
+    # 3. Exact match on account ID (nanoid)
+    for acc_id, em in account_emails.items():
+        if clean_target == acc_id.lower():
+            return acc_id, em
+
+    # 4. Exact match on full email
+    for acc_id, em in account_emails.items():
+        if clean_target == em.lower():
+            return acc_id, em
+
+    # 5. Username or substring match
+    clean_keyword = re.sub(r'[^a-zA-Z0-9_.-]', '', clean_target)
+    for acc_id, em in account_emails.items():
+        em_user = em.split('@')[0].lower()
+        if clean_keyword and (clean_keyword in em_user or em_user in clean_keyword or clean_keyword in em.lower()):
+            return acc_id, em
+
+    # Default fallback to first available if target not found
+    first_id, first_em = next(iter(account_emails.items()))
+    return first_id, first_em
+
+
 def get_user_email(telegram_user_id: Union[int, str]) -> Optional[str]:
     """Retrieve primary email address or None."""
     emails = get_user_emails(telegram_user_id)
@@ -149,8 +203,11 @@ def disconnect_user(
     telegram_user_id: Union[int, str],
     app: str = "gmail",
     target_identifier: Optional[str] = None,
-) -> bool:
-    """Revoke and delete connected accounts for a specific user, optionally targeting an email or connection ID."""
+) -> Tuple[bool, List[str]]:
+    """Revoke and delete connected accounts for a specific user, optionally targeting an email or connection ID.
+
+    Returns (success, list_of_disconnected_emails).
+    """
     user_id = format_user_id(telegram_user_id)
     client = get_composio_client()
 
@@ -160,29 +217,37 @@ def disconnect_user(
 
     target = target_identifier.lower().strip() if target_identifier else ""
     account_emails = get_user_emails(telegram_user_id)
+    disconnected_emails: List[str] = []
+
+    target_acc_id = None
+    target_email = None
+    if target and target != "all":
+        target_acc_id, target_email = resolve_account_target(telegram_user_id, target)
 
     try:
         accounts = client.connected_accounts.list(user_ids=[user_id])
         items = getattr(accounts, "items", accounts)
-        deleted_any = False
 
         for item in items:
             item_id = getattr(item, "id", None)
             if not item_id:
                 continue
 
-            item_email = account_emails.get(item_id, "").lower()
-            # If target specified, only delete matching account ID or email
+            item_email = account_emails.get(item_id, "")
             if target and target != "all":
-                if target != item_id.lower() and target not in item_email:
+                if target_acc_id and item_id != target_acc_id and (not target_email or target_email.lower() != item_email.lower()):
                     continue
+                elif not target_acc_id:
+                    if target != item_id.lower() and target not in item_email.lower():
+                        continue
 
             toolkit = getattr(item, "toolkit", None)
             slug = getattr(toolkit, "slug", "") if toolkit else ""
             if not app_name or slug.lower() == app_name or app_name in slug.lower():
                 try:
                     client.connected_accounts.delete(item_id)
-                    deleted_any = True
+                    if item_email and item_email not in disconnected_emails:
+                        disconnected_emails.append(item_email)
                 except Exception:
                     pass
 
@@ -194,11 +259,14 @@ def disconnect_user(
                     cache_path.unlink(missing_ok=True)
                 else:
                     cache = json.loads(cache_path.read_text(encoding="utf-8"))
-                    new_cache = {k: v for k, v in cache.items() if target != k.lower() and target not in v.lower()}
+                    new_cache = {
+                        k: v for k, v in cache.items()
+                        if (target_acc_id and k != target_acc_id) and (not target_email or v.lower() != target_email.lower())
+                    }
                     cache_path.write_text(json.dumps(new_cache, ensure_ascii=False), encoding="utf-8")
             except Exception:
                 pass
 
-        return True
+        return True, disconnected_emails
     except Exception:
-        return False
+        return False, []

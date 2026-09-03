@@ -45,7 +45,7 @@ def test_initiate_google_connection(monkeypatch):
     with patch("src.tools.composio.auth.get_composio_client", return_value=mock_client):
         url = initiate_google_connection(7275339077, toolkit="gmail")
         assert url == "https://connect.composio.dev/auth/test_auth_link"
-        mock_client.create.assert_called_once_with(user_id="telegram_7275339077")
+        mock_client.create.assert_called_once_with(user_id="telegram_7275339077", multi_account={"enable": True})
         mock_session.authorize.assert_called_once_with("gmail")
 
 

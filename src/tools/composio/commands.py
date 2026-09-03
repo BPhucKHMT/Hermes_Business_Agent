@@ -7,6 +7,7 @@ from .auth import (
     disconnect_user,
     list_user_connections,
     get_user_email,
+    get_user_emails,
 )
 
 
@@ -64,18 +65,48 @@ def handle_disconnect_google(
     telegram_user_id: Union[int, str],
     target: str = "",
 ) -> str:
-    """Disconnect and revoke Google access for the user, optionally targeting an email or connection ID."""
-    target_clean = target.strip()
+    """Disconnect and revoke Google access for the user with interactive selection menu."""
+
+    account_emails = get_user_emails(telegram_user_id)
+    if not account_emails:
+        return "⚠️ Bạn chưa kết nối tài khoản Google nào với Hermes."
+
+    distinct_emails = list(dict.fromkeys(account_emails.values()))
+    target_clean = target.strip().lower()
+
+    # If no target specified and multiple distinct accounts exist -> present interactive selection menu
+    if not target_clean and len(distinct_emails) > 1:
+        lines = [
+            f"📋 **Bạn đang kết nối {len(distinct_emails)} hòm thư Google:**",
+        ]
+        for idx, em in enumerate(distinct_emails, 1):
+            lines.append(f"  {idx}. `{em}`")
+        lines.extend([
+            "\n👉 **Vui lòng chọn hòm thư bạn muốn ngắt kết nối:**",
+            f"• Gõ: `/disconnect-google 1` hoặc `/disconnect-google {distinct_emails[0]}`",
+            f"• Gõ: `/disconnect-google 2` hoặc `/disconnect-google {distinct_emails[1]}`",
+            "\n👉 **Hoặc nếu muốn ngắt kết nối TẤT CẢ các tài khoản cùng lúc:**",
+            "• Gõ: `/disconnect-google all`"
+        ])
+        return "\n".join(lines)
+
+    # Perform disconnection
     try:
-        disconnect_user(telegram_user_id, app="", target_identifier=target_clean)
-        if target_clean and target_clean.lower() != "all":
-            return (
-                f"🔒 **Đã ngắt kết nối tài khoản `{target_clean}` thành công!**\n\n"
-                "Phiên ủy quyền của tài khoản này đã được xóa khỏi hệ thống. "
-                "Các tài khoản khác (nếu có) vẫn tiếp tục hoạt động bình thường."
+        success, disconnected = disconnect_user(telegram_user_id, app="", target_identifier=target_clean)
+        if not success:
+            return "❌ Lỗi khi ngắt kết nối tài khoản. Vui lòng thử lại sau."
+
+        if target_clean and target_clean != "all":
+            disc_label = ", ".join(f"`{d}`" for d in disconnected) if disconnected else f"`{target.strip()}`"
+            remaining = [em for em in distinct_emails if em not in disconnected]
+            rem_msg = (
+                f"\n💡 *Tài khoản còn lại:* {', '.join(f'`{r}`' for r in remaining)} vẫn đang hoạt động bình thường."
+                if remaining else "\n💡 *Bạn đã ngắt kết nối hết toàn bộ tài khoản Google.*"
             )
+            return f"🔒 **Đã ngắt kết nối thành công tài khoản:** {disc_label}\n{rem_msg}"
+
         return (
-            "🔒 **Đã ngắt kết nối toàn bộ tài khoản Google thành công!**\n\n"
+            "🔒 **Đã ngắt kết nối TOÀN BỘ tài khoản Google thành công!**\n\n"
             "Toàn bộ phiên ủy quyền Gmail và Google Calendar của bạn đã được xóa khỏi hệ thống. "
             "Hermes sẽ không thể truy cập email hay lịch của bạn nữa trừ khi bạn cấp quyền lại qua `/connect-google`."
         )
