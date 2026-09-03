@@ -107,6 +107,10 @@ def handle_disconnect_gmail(
         if result.get("status") != "revoked":
             return _unavailable("disconnect_not_confirmed")
         return json.dumps(result, ensure_ascii=False)
+    try:
+        caller = _caller(registry)
+    except (DmOnlyError, LookupError):
+        return _unavailable("missing_caller_context")
 
     # In live runtime: exclusively use Composio Google Workspace
     user_id = getattr(caller, "user_id", None) or getattr(caller, "chat_id", None)
@@ -116,7 +120,6 @@ def handle_disconnect_gmail(
     from tools.composio.commands import handle_disconnect_google
     target = parts[0] if parts else ""
     return handle_disconnect_google(user_id, target=target)
-
 
 def handle_share_mailbox(
     raw_args: str = "",

@@ -297,13 +297,6 @@ try:
 except Exception as e:
     print(f'   ❌ Research Generator: LỖI ({e})')
 
-print('6. Kiểm tra Legacy Email Connector Fallback:')
-try:
-    from tools.email.service import build_service_from_env
-    svc = build_service_from_env()
-    print('   ✅ Legacy Email Fallback: SẴN SÀNG')
-except Exception as e:
-    print(f'   ⚠️ Legacy Email Fallback: Bỏ qua ({e}) - Đang sử dụng Composio chính thức')
 "
 
 echo ""

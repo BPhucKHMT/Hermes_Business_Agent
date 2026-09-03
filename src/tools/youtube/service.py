@@ -40,33 +40,17 @@ class YouTubeService:
         if not conn:
             return {"mock_mode": True}
         try:
-            from tools.email.service import build_service_from_env
-            email_svc = build_service_from_env()
-            candidates = list(email_svc.store.list_connections(principal_id))
-            candidates.sort(key=lambda c: getattr(c, "created_at", "") or "", reverse=True)
-
-            selected = None
-            for c in candidates:
-                if c.secret_ref:
-                    t_data = email_svc.secret_store.get_json(c.secret_ref)
-                    if t_data and ("token" in t_data or "access_token" in t_data):
-                        selected = t_data
-                        # If this connection specifically has youtube scopes, use it immediately
-                        granted = c.granted_scopes
-                        if any("youtube" in s for s in granted):
-                            break
-            if selected:
-                import os
-                return {
-                    "access_token": selected.get("token") or selected.get("access_token"),
-                    "refresh_token": selected.get("refresh_token"),
-                    "token_uri": selected.get("token_uri", "https://oauth2.googleapis.com/token"),
-                    "client_id": selected.get("client_id") or os.environ.get("EMAIL_GOOGLE_CLIENT_ID"),
-                    "client_secret": selected.get("client_secret") or os.environ.get("EMAIL_GOOGLE_CLIENT_SECRET"),
-                    "scopes": selected.get("scopes", []),
-                }
+            from tools.composio.auth import list_user_connections
+            conns = list_user_connections(principal_id)
+            for c in conns:
+                if c.get("status") == "ACTIVE":
+                    return {
+                        "access_token": c.get("id"),
+                        "account_email": c.get("email"),
+                        "mock_mode": False,
+                    }
         except Exception as exc:
-            logger.debug("Failed to resolve email token for youtube: %s", exc)
+            logger.debug("Failed to resolve composio token for youtube: %s", exc)
         return {"access_token": "mock_yt_token", "mock_mode": True}
 
     def get_channel_status(self, caller: Any) -> Dict[str, Any]:
