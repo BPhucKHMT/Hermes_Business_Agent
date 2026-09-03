@@ -50,6 +50,9 @@ echo "🔍 [2/6] Cài đặt công cụ Research & Browser Engine (Tavily + Play
 # Install Playwright Chromium for web scraping & dynamic site intelligence
 "${UV_BIN}" run python -m playwright install --with-deps chromium 2>/dev/null || true
 
+# Install composio-core for Google Workspace (Gmail & Calendar) multi-user integration
+"${UV_BIN}" pip install composio-core 2>/dev/null || pip install --quiet composio-core 2>/dev/null || true
+
 # Install agent-browser if npm is available
 if command -v npm >/dev/null 2>&1; then
     echo "Installing agent-browser..."
@@ -292,6 +295,16 @@ try:
     print('   ✅ Research Report Generator: SẴN SÀNG')
 except Exception as e:
     print(f'   ❌ Research Generator: LỖI ({e})')
+
+print('6. Kiểm tra Composio Integration (Gmail & Calendar):')
+try:
+    from tools.composio.client import format_user_id
+    from tools.composio.auth import initiate_google_connection
+    from tools.composio.mail_tools import composio_mail_search
+    from tools.composio.calendar_tools import composio_calendar_list_events
+    print('   ✅ Composio Integration: SẴN SÀNG')
+except Exception as e:
+    print(f'   ❌ Composio Integration: LỖI ({e})')
 "
 
 echo ""
