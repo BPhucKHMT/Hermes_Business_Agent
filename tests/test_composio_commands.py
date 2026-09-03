@@ -16,13 +16,13 @@ def test_handle_connect_google():
 
 
 def test_handle_google_status_connected():
-    with patch("src.tools.composio.commands.check_connection_status", return_value=True):
+    with patch("src.tools.composio.commands.list_user_connections", return_value=[{"id": "ca_1", "toolkit": "gmail", "status": "ACTIVE"}]):
         msg = handle_google_status(7275339077)
         assert "đã kết nối" in msg.lower() or "active" in msg.lower()
 
 
 def test_handle_google_status_disconnected():
-    with patch("src.tools.composio.commands.check_connection_status", return_value=False):
+    with patch("src.tools.composio.commands.list_user_connections", return_value=[]):
         msg = handle_google_status(7275339077)
         assert "chưa kết nối" in msg.lower() or "not connected" in msg.lower()
         assert "/connect-google" in msg

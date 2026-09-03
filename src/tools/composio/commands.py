@@ -5,6 +5,7 @@ from .auth import (
     initiate_google_connection,
     check_connection_status,
     disconnect_user,
+    list_user_connections,
 )
 
 
@@ -24,20 +25,29 @@ def handle_connect_google(telegram_user_id: Union[int, str]) -> str:
 
 
 def handle_google_status(telegram_user_id: Union[int, str]) -> str:
-    """Report the current Google connection status for the user."""
-    is_gmail_active = check_connection_status(telegram_user_id, app="gmail")
-    is_cal_active = check_connection_status(telegram_user_id, app="googlecalendar")
+    """Report the current Google connection status for the user with connected accounts list."""
+    connections = list_user_connections(telegram_user_id)
 
-    if is_gmail_active or is_cal_active:
-        return (
-            "✅ **Trạng thái Tài khoản Google:** ĐÃ KẾT NỐI (ACTIVE)\n\n"
-            "• **Gmail:** Sẵn sàng đọc/gửi mail.\n"
-            "• **Google Calendar:** Sẵn sàng tra cứu và lên lịch họp.\n\n"
-            "💡 *Dữ liệu của bạn được cách ly 100% và chỉ có bạn mới truy cập được.*"
-        )
+    if connections:
+        lines = [
+            f"✅ **Trạng thái Tài khoản Google:** ĐÃ KẾT NỐI ({len(connections)} tài khoản hoạt động)\n",
+            "📋 **Danh sách kết nối của bạn:**"
+        ]
+        for idx, conn in enumerate(connections, 1):
+            tk = conn.get("toolkit", "Google Workspace").capitalize()
+            cid = conn.get("id", "")
+            lines.append(f"  {idx}. **{tk}** (Mã kết nối: `{cid}`)")
+
+        lines.extend([
+            "\n• **Gmail:** Sẵn sàng đọc/gửi/soạn nháp thư.",
+            "• **Google Calendar:** Sẵn sàng tra cứu và lên lịch họp.",
+            "\n💡 *Bạn có thể ngắt kết nối bất kỳ lúc nào bằng lệnh `/disconnect-google`.*"
+        ])
+        return "\n".join(lines)
+
     return (
         "⚠️ **Trạng thái Tài khoản Google:** CHƯA KẾT NỐI (DISCONNECTED)\n\n"
-        "Bạn chưa liên kết tài khoản Google với Hermes.\n"
+        "Hiện tại bạn chưa liên kết tài khoản Google nào với Hermes.\n"
         "Hãy gửi lệnh `/connect-google` để nhận đường link đăng nhập nhanh chóng!"
     )
 
