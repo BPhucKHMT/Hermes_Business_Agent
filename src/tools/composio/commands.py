@@ -12,18 +12,35 @@ from .auth import (
 
 
 def handle_connect_google(telegram_user_id: Union[int, str]) -> str:
-    """Generate a response containing the magic authorization link for the user."""
+    """Generate response containing authorization links for both Gmail and Google Calendar."""
     try:
-        url = initiate_google_connection(telegram_user_id, toolkit="gmail")
+        url_gmail = initiate_google_connection(telegram_user_id, toolkit="gmail")
+        url_cal = initiate_google_connection(telegram_user_id, toolkit="googlecalendar")
         return (
-            "🔗 **Liên kết Tài khoản Google (Gmail & Google Calendar)**\n\n"
-            "Vui lòng nhấn vào đường link bảo mật bên dưới để cấp quyền cho Hermes:\n"
-            f"{url}\n\n"
-            "💡 *Sau khi đăng nhập thành công trên điện thoại hoặc trình duyệt, "
-            "Hermes sẽ tự động kích hoạt tính năng đọc/gửi email và quản lý lịch trình cho riêng bạn!*"
+            "🔗 **Liên kết Tài khoản Google (Gmail & Calendar)**\n\n"
+            "Vui lòng nhấn vào đường link bên dưới để cấp quyền cho Hermes:\n\n"
+            f"1. 📧 **Kết nối Gmail (Đọc/Gửi email):**\n{url_gmail}\n\n"
+            f"2. 📅 **Kết nối Google Calendar (Tra cứu/Tạo lịch):**\n{url_cal}\n\n"
+            "💡 *Bạn có thể đăng nhập cùng một tài khoản hoặc hai tài khoản khác nhau tùy ý! "
+            "Sau khi đăng nhập trên trình duyệt, Hermes sẽ tự động nhận diện và kích hoạt tính năng ngay lập tức.*"
         )
     except Exception as exc:
         return f"❌ Lỗi khi tạo link liên kết tài khoản: {str(exc)}"
+
+
+def handle_connect_calendar(telegram_user_id: Union[int, str]) -> str:
+    """Generate response containing the magic authorization link specifically for Google Calendar."""
+    try:
+        url_cal = initiate_google_connection(telegram_user_id, toolkit="googlecalendar")
+        return (
+            "📅 **Liên kết Google Calendar**\n\n"
+            "Vui lòng nhấn vào đường link bảo mật bên dưới để kết nối Calendar cho Hermes:\n"
+            f"{url_cal}\n\n"
+            "💡 *Sau khi đăng nhập tài khoản Google bạn muốn dùng cho Calendar, "
+            "Hermes sẽ tự động kích hoạt tính năng tra cứu và quản lý lịch trình cho riêng bạn!*"
+        )
+    except Exception as exc:
+        return f"❌ Lỗi khi tạo link liên kết Calendar: {str(exc)}"
 
 
 def handle_google_status(telegram_user_id: Union[int, str]) -> str:
