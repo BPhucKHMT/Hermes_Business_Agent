@@ -1,7 +1,6 @@
-"""Composio Google Calendar tools with strict host-bound user isolation."""
+"""Composio Google Calendar tools with strict host-bound user isolation (v3 SDK)."""
 
 from typing import Union, Dict, Any, Optional, List
-from composio import Action
 from .client import format_user_id, get_composio_client
 from .auth import check_connection_status
 
@@ -20,14 +19,14 @@ def composio_calendar_list_events(
 
     user_id = format_user_id(telegram_user_id)
     client = get_composio_client()
-    entity = client.get_entity(id=user_id)
+    session = client.create(user_id=user_id)
 
     try:
-        result = entity.execute(
-            action=Action.GOOGLECALENDAR_FIND_EVENT,
-            params={"calendar_id": calendar_id},
+        result = session.execute(
+            tool_slug="GOOGLECALENDAR_FIND_EVENT",
+            arguments={"calendar_id": calendar_id},
         )
-        return {"status": "success", "data": result}
+        return {"status": "success", "data": getattr(result, "data", result)}
     except Exception as exc:
         return {"status": "error", "message": f"Lỗi khi đọc lịch trình: {str(exc)}"}
 
@@ -51,7 +50,7 @@ def composio_calendar_create_event(
 
     user_id = format_user_id(telegram_user_id)
     client = get_composio_client()
-    entity = client.get_entity(id=user_id)
+    session = client.create(user_id=user_id)
 
     params: Dict[str, Any] = {
         "calendar_id": calendar_id,
@@ -65,11 +64,11 @@ def composio_calendar_create_event(
         params["attendees"] = attendees
 
     try:
-        result = entity.execute(
-            action=Action.GOOGLECALENDAR_CREATE_EVENT,
-            params=params,
+        result = session.execute(
+            tool_slug="GOOGLECALENDAR_CREATE_EVENT",
+            arguments=params,
         )
-        return {"status": "success", "data": result}
+        return {"status": "success", "data": getattr(result, "data", result)}
     except Exception as exc:
         return {"status": "error", "message": f"Lỗi khi tạo lịch hẹn: {str(exc)}"}
 
@@ -89,13 +88,13 @@ def composio_calendar_find_free_slots(
 
     user_id = format_user_id(telegram_user_id)
     client = get_composio_client()
-    entity = client.get_entity(id=user_id)
+    session = client.create(user_id=user_id)
 
     try:
-        result = entity.execute(
-            action=Action.GOOGLECALENDAR_FIND_FREE_SLOTS,
-            params={"date": date_str, "calendar_id": calendar_id},
+        result = session.execute(
+            tool_slug="GOOGLECALENDAR_FIND_FREE_SLOTS",
+            arguments={"date": date_str, "calendar_id": calendar_id},
         )
-        return {"status": "success", "data": result}
+        return {"status": "success", "data": getattr(result, "data", result)}
     except Exception as exc:
         return {"status": "error", "message": f"Lỗi khi tìm khoảng thời gian trống: {str(exc)}"}

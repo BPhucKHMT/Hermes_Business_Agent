@@ -1,6 +1,6 @@
 """Telegram slash command handlers for Composio Google Workspace integration."""
 
-from typing import Union
+from typing import Union, Dict, List
 from .auth import (
     initiate_google_connection,
     check_connection_status,
@@ -26,24 +26,33 @@ def handle_connect_google(telegram_user_id: Union[int, str]) -> str:
 
 
 def handle_google_status(telegram_user_id: Union[int, str]) -> str:
-    """Report the current Google connection status for the user with connected email."""
+    """Report the current Google connection status for the user with all connected emails."""
     connections = list_user_connections(telegram_user_id)
 
     if connections:
-        email = get_user_email(telegram_user_id)
-        email_str = f"📧 **Tài khoản:** `{email}`\n" if email else ""
+        # Group accounts by email
+        email_map: Dict[str, list[str]] = {}
+        for conn in connections:
+            em = conn.get("email") or "Chưa xác định địa chỉ"
+            cid = conn.get("id", "")
+            email_map.setdefault(em, []).append(cid)
 
         lines = [
-            f"✅ **Trạng thái Tài khoản Google:** ĐÃ KẾT NỐI\n",
-            email_str,
-            f"📋 **Dịch vụ đang hoạt động:**",
+            f"✅ **Trạng thái Tài khoản Google:** ĐÃ KẾT NỐI ({len(email_map)} hòm thư)\n",
+            "📧 **Danh sách các tài khoản Email đã liên kết:**"
+        ]
+        for idx, (em, cids) in enumerate(email_map.items(), 1):
+            cids_str = ", ".join(f"`{c}`" for c in cids)
+            lines.append(f"  {idx}. **`{em}`** (Phiên: {cids_str})")
+
+        lines.extend([
+            "\n📋 **Dịch vụ đang hoạt động:**",
             "  • **Gmail:** Sẵn sàng đọc, gửi và soạn nháp thư.",
             "  • **Google Calendar:** Sẵn sàng tra cứu và lên lịch họp.",
-            f"\n*(Tổng số phiên kết nối đang duy trì: {len(connections)})*",
+            f"\n*(Tổng số phiên kết nối: {len(connections)})*",
             "\n💡 *Bạn có thể ngắt kết nối bất kỳ lúc nào bằng lệnh `/disconnect-google`.*"
-        ]
-        return "\n".join(l for l in lines if l)
-
+        ])
+        return "\n".join(lines)
     return (
         "⚠️ **Trạng thái Tài khoản Google:** CHƯA KẾT NỐI (DISCONNECTED)\n\n"
         "Hiện tại bạn chưa liên kết tài khoản Google nào với Hermes.\n"

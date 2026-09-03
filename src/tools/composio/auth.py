@@ -1,7 +1,7 @@
 """Multi-user authentication management using Composio v3 SDK."""
 
 import os
-from typing import Union, Optional
+from typing import Union, Optional, Dict, List
 from .client import format_user_id, get_composio_client
 
 
@@ -52,45 +52,75 @@ def check_connection_status(
         return False
     except Exception:
         return False
-def get_user_email(telegram_user_id: Union[int, str]) -> Optional[str]:
-    """Retrieve or cache the connected email address for the user."""
+def get_user_emails(telegram_user_id: Union[int, str]) -> Dict[str, str]:
+    """Retrieve mapping of {account_id: email_address} for all active accounts."""
     import json
     from pathlib import Path
-    cache_path = Path(os.path.expanduser("~/.hermes/composio_user_emails.json"))
-    uid_str = str(telegram_user_id).strip()
-    cache = {}
+
+    cache_path = Path(os.path.expanduser("~/.hermes/composio_account_emails.json"))
+    cache: Dict[str, str] = {}
     if cache_path.is_file():
         try:
             cache = json.loads(cache_path.read_text(encoding="utf-8"))
         except Exception:
             cache = {}
 
-    if uid_str in cache and cache[uid_str]:
-        return cache[uid_str]
+    user_id = format_user_id(telegram_user_id)
+    client = get_composio_client()
+    account_emails: Dict[str, str] = {}
 
     try:
-        user_id = format_user_id(telegram_user_id)
-        client = get_composio_client()
-        session = client.create(user_id=user_id)
-        res = session.execute(tool_slug="GMAIL_FETCH_EMAILS", arguments={"max_results": 1})
-        data = getattr(res, "data", res)
-        msgs = data.get("messages", []) if isinstance(data, dict) else []
-        if msgs and msgs[0].get("to"):
-            email = msgs[0]["to"]
-            cache[uid_str] = email
+        accounts = client.connected_accounts.list(user_ids=[user_id])
+        items = getattr(accounts, "items", accounts)
+        session = None
+
+        cache_updated = False
+        for item in items:
+            status = getattr(item, "status", "")
+            if isinstance(status, str) and status.upper() == "ACTIVE":
+                acc_id = getattr(item, "id", "")
+                if acc_id in cache:
+                    account_emails[acc_id] = cache[acc_id]
+                else:
+                    if session is None:
+                        session = client.create(user_id=user_id, multi_account={"enable": True})
+                    try:
+                        res = session.execute(tool_slug="GMAIL_FETCH_EMAILS", arguments={"max_results": 1}, account=acc_id)
+                        data = getattr(res, "data", res)
+                        msgs = data.get("messages", []) if isinstance(data, dict) else []
+                        if msgs and msgs[0].get("to"):
+                            em = msgs[0]["to"]
+                            cache[acc_id] = em
+                            account_emails[acc_id] = em
+                            cache_updated = True
+                    except Exception:
+                        pass
+
+        if cache_updated:
             try:
                 cache_path.parent.mkdir(parents=True, exist_ok=True)
                 cache_path.write_text(json.dumps(cache, ensure_ascii=False), encoding="utf-8")
             except Exception:
                 pass
-            return email
     except Exception:
         pass
+
+    return account_emails
+
+
+def get_user_email(telegram_user_id: Union[int, str]) -> Optional[str]:
+    """Retrieve primary email address or None."""
+    emails = get_user_emails(telegram_user_id)
+    if emails:
+        return list(emails.values())[0]
     return None
+
+
 def list_user_connections(telegram_user_id: Union[int, str]) -> list[dict]:
-    """Retrieve detailed list of active connected accounts for the user."""
+    """Retrieve detailed list of active connected accounts for the user including emails."""
     user_id = format_user_id(telegram_user_id)
     client = get_composio_client()
+    account_emails = get_user_emails(telegram_user_id)
     results = []
 
     try:
@@ -99,13 +129,15 @@ def list_user_connections(telegram_user_id: Union[int, str]) -> list[dict]:
         for item in items:
             status = getattr(item, "status", "")
             if isinstance(status, str) and status.upper() == "ACTIVE":
+                acc_id = getattr(item, "id", "")
                 toolkit = getattr(item, "toolkit", None)
                 slug = getattr(toolkit, "slug", "") if toolkit else ""
                 results.append({
-                    "id": getattr(item, "id", ""),
+                    "id": acc_id,
                     "toolkit": slug,
                     "status": status,
                     "created_at": getattr(item, "created_at", ""),
+                    "email": account_emails.get(acc_id, ""),
                 })
     except Exception:
         pass
