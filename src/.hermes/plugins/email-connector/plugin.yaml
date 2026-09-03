@@ -1,8 +1,8 @@
 name: email-connector
 label: Generic Multi-User Email Connector
 kind: standalone
-version: 0.1.0
-description: Read-only per-user Gmail search with private/shared delivery isolation.
+version: 0.2.0
+description: Complete Mail MCP with multi-user Gmail search, thread inspection, sending, drafting, and replying.
 author: Hermes project team
 platforms:
   - linux
@@ -12,6 +12,9 @@ provides_tools:
   - email_search
   - email_get_thread
   - email_connection_status
+  - email_send
+  - email_create_draft
+  - email_reply
 provides_hooks:
   - pre_gateway_dispatch
   - pre_tool_call

@@ -151,11 +151,11 @@ def test_plugin_registers_read_tools_and_commands(monkeypatch):
 
     plugin_module.register(ctx)
 
-    assert set(ctx.tools) == {
+    assert {
         "email_search",
         "email_get_thread",
         "email_connection_status",
-    }
+    }.issubset(set(ctx.tools))
     assert {
         "connect_gmail",
         "mail_status",

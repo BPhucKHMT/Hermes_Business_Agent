@@ -1,7 +1,6 @@
-"""Composio Gmail tools with strict host-bound user isolation."""
+"""Composio Gmail tools with strict host-bound user isolation (v3 SDK)."""
 
 from typing import Union, Dict, Any
-from composio import Action
 from .client import format_user_id, get_composio_client
 from .auth import check_connection_status
 
@@ -21,14 +20,14 @@ def composio_mail_search(
 
     user_id = format_user_id(telegram_user_id)
     client = get_composio_client()
-    entity = client.get_entity(id=user_id)
+    session = client.create(user_id=user_id)
 
     try:
-        result = entity.execute(
-            action=Action.GMAIL_FETCH_EMAILS,
-            params={"query": query, "max_results": max_results},
+        result = session.execute(
+            tool_slug="GMAIL_FETCH_EMAILS",
+            arguments={"query": query, "max_results": max_results},
         )
-        return {"status": "success", "data": result}
+        return {"status": "success", "data": getattr(result, "data", result)}
     except Exception as exc:
         return {"status": "error", "message": f"Lỗi khi tìm kiếm email: {str(exc)}"}
 
@@ -49,18 +48,18 @@ def composio_mail_send(
 
     user_id = format_user_id(telegram_user_id)
     client = get_composio_client()
-    entity = client.get_entity(id=user_id)
+    session = client.create(user_id=user_id)
 
     try:
-        result = entity.execute(
-            action=Action.GMAIL_SEND_EMAIL,
-            params={
+        result = session.execute(
+            tool_slug="GMAIL_SEND_EMAIL",
+            arguments={
                 "recipient_email": recipient,
                 "subject": subject,
                 "body": body,
             },
         )
-        return {"status": "success", "data": result}
+        return {"status": "success", "data": getattr(result, "data", result)}
     except Exception as exc:
         return {"status": "error", "message": f"Lỗi khi gửi email: {str(exc)}"}
 
@@ -81,17 +80,47 @@ def composio_mail_create_draft(
 
     user_id = format_user_id(telegram_user_id)
     client = get_composio_client()
-    entity = client.get_entity(id=user_id)
+    session = client.create(user_id=user_id)
 
     try:
-        result = entity.execute(
-            action=Action.GMAIL_CREATE_EMAIL_DRAFT,
-            params={
+        result = session.execute(
+            tool_slug="GMAIL_CREATE_EMAIL_DRAFT",
+            arguments={
                 "recipient_email": recipient,
                 "subject": subject,
                 "body": body,
             },
         )
-        return {"status": "success", "data": result}
+        return {"status": "success", "data": getattr(result, "data", result)}
     except Exception as exc:
         return {"status": "error", "message": f"Lỗi khi tạo bản nháp email: {str(exc)}"}
+
+
+def composio_mail_reply(
+    telegram_user_id: Union[int, str],
+    thread_id: str,
+    body: str,
+) -> Dict[str, Any]:
+    """Reply to an existing Gmail thread from the user's Gmail account."""
+    if not check_connection_status(telegram_user_id, app="gmail"):
+        return {
+            "status": "error",
+            "error_code": "NOT_CONNECTED",
+            "message": "Bạn chưa kết nối tài khoản Gmail. Vui lòng dùng lệnh /connect-google để liên kết tài khoản.",
+        }
+
+    user_id = format_user_id(telegram_user_id)
+    client = get_composio_client()
+    session = client.create(user_id=user_id)
+
+    try:
+        result = session.execute(
+            tool_slug="GMAIL_REPLY_TO_THREAD",
+            arguments={
+                "thread_id": thread_id,
+                "body": body,
+            },
+        )
+        return {"status": "success", "data": getattr(result, "data", result)}
+    except Exception as exc:
+        return {"status": "error", "message": f"Lỗi khi trả lời email: {str(exc)}"}

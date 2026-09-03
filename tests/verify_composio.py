@@ -60,6 +60,7 @@ def layer_2() -> None:
         "tests/test_composio_mail.py",
         "tests/test_composio_calendar.py",
         "tests/test_composio_commands.py",
+        "tests/test_composio_mail_outbound.py",
     ]
 
     for test_file in test_files:

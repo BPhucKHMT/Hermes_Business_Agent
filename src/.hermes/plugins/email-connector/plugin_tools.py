@@ -15,6 +15,7 @@ def _error(code: str, message: str = "") -> str:
             err["hint"] = "Tài khoản Google/Gmail chưa được kết nối hoặc token đã hết hạn. Hãy dùng lệnh /connect_google để kết nối lại."
     return json.dumps({"ok": False, "error": err}, ensure_ascii=False)
 
+
 def _resolve_caller(
     registry: CallerContextRegistry | Any,
     task_id: str,
@@ -102,3 +103,107 @@ def handle_email_connection_status(
     except LookupError:
         return _error("missing_caller_context")
     return json.dumps(client.connections(caller))
+
+
+def handle_email_send(
+    params: Dict[str, Any],
+    *,
+    client: Any = None,
+    registry: Any = None,
+    task_id: str = "",
+    session_id: str = "",
+    **kwargs: Any,
+) -> str:
+    del kwargs
+    try:
+        caller = _resolve_caller(registry, task_id, session_id)
+    except DmOnlyError:
+        return _error("dm_required")
+    except LookupError:
+        return _error("missing_caller_context")
+
+    recipient = str(params.get("recipient", "")).strip()
+    subject = str(params.get("subject", "")).strip()
+    body = str(params.get("body", "")).strip()
+
+    if not recipient or not subject or not body:
+        return _error("missing_required_fields", "recipient, subject, và body là bắt buộc.")
+
+    user_id = getattr(caller, "user_id", None) or getattr(caller, "chat_id", None)
+    try:
+        from tools.composio.mail_tools import composio_mail_send
+        res = composio_mail_send(user_id, recipient=recipient, subject=subject, body=body)
+        if res.get("status") == "success":
+            return json.dumps({"ok": True, "result": res.get("data", {})}, ensure_ascii=False)
+        return _error("mail_send_failed", res.get("message", "Lỗi gửi email qua Composio"))
+    except Exception as exc:
+        return _error("mail_send_failed", str(exc))
+
+
+def handle_email_create_draft(
+    params: Dict[str, Any],
+    *,
+    client: Any = None,
+    registry: Any = None,
+    task_id: str = "",
+    session_id: str = "",
+    **kwargs: Any,
+) -> str:
+    del kwargs
+    try:
+        caller = _resolve_caller(registry, task_id, session_id)
+    except DmOnlyError:
+        return _error("dm_required")
+    except LookupError:
+        return _error("missing_caller_context")
+
+    recipient = str(params.get("recipient", "")).strip()
+    subject = str(params.get("subject", "")).strip()
+    body = str(params.get("body", "")).strip()
+
+    if not recipient or not subject or not body:
+        return _error("missing_required_fields", "recipient, subject, và body là bắt buộc.")
+
+    user_id = getattr(caller, "user_id", None) or getattr(caller, "chat_id", None)
+    try:
+        from tools.composio.mail_tools import composio_mail_create_draft
+        res = composio_mail_create_draft(user_id, recipient=recipient, subject=subject, body=body)
+        if res.get("status") == "success":
+            return json.dumps({"ok": True, "result": res.get("data", {})}, ensure_ascii=False)
+        return _error("mail_draft_failed", res.get("message", "Lỗi tạo bản nháp qua Composio"))
+    except Exception as exc:
+        return _error("mail_draft_failed", str(exc))
+
+
+def handle_email_reply(
+    params: Dict[str, Any],
+    *,
+    client: Any = None,
+    registry: Any = None,
+    task_id: str = "",
+    session_id: str = "",
+    **kwargs: Any,
+) -> str:
+    del kwargs
+    try:
+        caller = _resolve_caller(registry, task_id, session_id)
+    except DmOnlyError:
+        return _error("dm_required")
+    except LookupError:
+        return _error("missing_caller_context")
+
+    thread_id = str(params.get("thread_id", "")).strip()
+    body = str(params.get("body", "")).strip()
+
+    if not thread_id or not body:
+        return _error("missing_required_fields", "thread_id và body là bắt buộc.")
+
+    user_id = getattr(caller, "user_id", None) or getattr(caller, "chat_id", None)
+    try:
+        from tools.composio.mail_tools import composio_mail_reply
+        res = composio_mail_reply(user_id, thread_id=thread_id, body=body)
+        if res.get("status") == "success":
+            return json.dumps({"ok": True, "result": res.get("data", {})}, ensure_ascii=False)
+        return _error("mail_reply_failed", res.get("message", "Lỗi trả lời email qua Composio"))
+    except Exception as exc:
+        return _error("mail_reply_failed", str(exc))
