@@ -89,11 +89,11 @@ def layer_2() -> None:
 
     import shutil
     uv_candidate = shutil.which("uv") or (str(Path.home() / ".local/bin/uv") if (Path.home() / ".local/bin/uv").is_file() else ("C:/Users/ADMIN/.local/bin/uv.exe" if Path("C:/Users/ADMIN/.local/bin/uv.exe").is_file() else None))
+    targets = [str(ROOT / "tests/google_calendar"), str(ROOT / "tests/test_calendar_e2e.py")]
     if uv_candidate:
-        command = [str(uv_candidate), "run", "--frozen", "python", "-m", "pytest", str(ROOT / "tests/google_calendar"), "-q", "--basetemp", str(basetemp)]
+        command = [str(uv_candidate), "run", "--frozen", "python", "-m", "pytest", *targets, "-q", "--basetemp", str(basetemp)]
     else:
-        command = [sys.executable, "-m", "pytest", str(ROOT / "tests/google_calendar"), "-q", "--basetemp", str(basetemp)]
-
+        command = [sys.executable, "-m", "pytest", *targets, "-q", "--basetemp", str(basetemp)]
     completed = subprocess.run(
         command,
         cwd=SRC,
