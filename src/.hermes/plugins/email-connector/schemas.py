@@ -3,8 +3,8 @@ EMAIL_SEARCH_SCHEMA = {
     "description": (
         "Search accessible Gmail threads for the authenticated user using Gmail search "
         "syntax (e.g. 'from:supplier@example.com newer_than:7d' or 'in:inbox'). "
-        "If the user wants to check a specific connected email account (e.g. 'baophuc1204vn@gmail.com' "
-        "or 'nguyenlam.baophuc@gmail.com'), pass that address in 'account_email'."
+        "If the user wants to check a specific connected email account (e.g. 'work@company.com' "
+        "or 'personal@gmail.com'), pass that address in 'account_email'."
     ),
     "parameters": {
         "type": "object",
@@ -22,7 +22,7 @@ EMAIL_SEARCH_SCHEMA = {
                 "type": "string",
                 "description": (
                     "Optional email address of the specific connected mailbox to search "
-                    "(e.g. 'baophuc1204vn@gmail.com' or 'nguyenlam.baophuc@gmail.com'). "
+                    "(e.g. 'work@company.com' or 'personal@gmail.com'). "
                     "If omitted, searches the default connected mailbox."
                 ),
             },
