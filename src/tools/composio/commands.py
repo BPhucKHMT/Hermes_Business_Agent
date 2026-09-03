@@ -81,39 +81,47 @@ def handle_disconnect_google(
     target: str = "",
 ) -> str:
     """Disconnect and revoke Google access for the user with interactive selection menu."""
-
-    account_emails = get_user_emails(telegram_user_id)
-    if not account_emails:
+    connections = list_user_connections(telegram_user_id)
+    if not connections:
         return "⚠️ Bạn chưa kết nối tài khoản Google nào với Hermes."
 
-    distinct_emails = list(dict.fromkeys(account_emails.values()))
     target_clean = target.strip().lower()
 
-    # If no target specified and multiple distinct accounts exist -> present interactive selection menu
-    if not target_clean and len(distinct_emails) > 1:
+    # If no target specified and multiple connections exist -> present interactive selection menu
+    if not target_clean and len(connections) > 1:
         lines = [
-            f"📋 **Bạn đang kết nối {len(distinct_emails)} hòm thư Google:**",
+            f"📋 **Bạn đang kết nối {len(connections)} phiên dịch vụ Google:**",
         ]
-        for idx, em in enumerate(distinct_emails, 1):
-            lines.append(f"  {idx}. `{em}`")
+        for idx, conn in enumerate(connections, 1):
+            lbl = conn.get("email") or conn.get("id") or "Google Account"
+            tk = conn.get("toolkit") or "Workspace"
+            cid = conn.get("id", "")
+            lines.append(f"  {idx}. **{lbl}** ({tk} - Mã: `{cid}`)")
         lines.extend([
-            "\n👉 **Vui lòng chọn hòm thư bạn muốn ngắt kết nối:**",
-            f"• Gõ: `/disconnect-google 1` hoặc `/disconnect-google {distinct_emails[0]}`",
-            f"• Gõ: `/disconnect-google 2` hoặc `/disconnect-google {distinct_emails[1]}`",
-            "\n👉 **Hoặc nếu muốn ngắt kết nối TẤT CẢ các tài khoản cùng lúc:**",
+            "\n👉 **Vui lòng chọn tài khoản bạn muốn ngắt kết nối:**",
+            "• Gõ: `/disconnect-google 1` để gỡ tài khoản số 1",
+            "• Hoặc gõ: `/disconnect-google <địa_chỉ_email>` để gỡ email đó",
+            "\n👉 **Nếu muốn ngắt kết nối TẤT CẢ các tài khoản cùng lúc:**",
             "• Gõ: `/disconnect-google all`"
         ])
         return "\n".join(lines)
 
+    # Resolve target if it's a 1-based index (e.g. "1", "2")
+    target_id = target_clean
+    if target_clean.isdigit():
+        idx = int(target_clean) - 1
+        if 0 <= idx < len(connections):
+            target_id = connections[idx].get("id", target_clean)
+
     # Perform disconnection
     try:
-        success, disconnected = disconnect_user(telegram_user_id, app="", target_identifier=target_clean)
+        success, disconnected = disconnect_user(telegram_user_id, app="", target_identifier=target_id)
         if not success:
             return "❌ Lỗi khi ngắt kết nối tài khoản. Vui lòng thử lại sau."
 
         if target_clean and target_clean != "all":
             disc_label = ", ".join(f"`{d}`" for d in disconnected) if disconnected else f"`{target.strip()}`"
-            remaining = [em for em in distinct_emails if em not in disconnected]
+            remaining = [c.get("email") or c.get("id") for c in connections if c.get("id") != target_id and (not disconnected or c.get("email") not in disconnected)]
             rem_msg = (
                 f"\n💡 *Tài khoản còn lại:* {', '.join(f'`{r}`' for r in remaining)} vẫn đang hoạt động bình thường."
                 if remaining else "\n💡 *Bạn đã ngắt kết nối hết toàn bộ tài khoản Google.*"
