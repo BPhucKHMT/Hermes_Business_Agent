@@ -10,10 +10,9 @@ from .client import format_user_id, get_composio_client
 
 def initiate_google_connection(
     telegram_user_id: Union[int, str],
-    toolkit: str = "gmail",
+    toolkit: str = "googlesuper",
     callback_url: Optional[str] = None,
 ) -> str:
-    """Generate a magic OAuth authorization URL for a specific Telegram user."""
     user_id = format_user_id(telegram_user_id)
     client = get_composio_client()
     session = client.create(user_id=user_id, multi_account={"enable": True})
@@ -50,6 +49,8 @@ def check_connection_status(
             toolkit = getattr(item, "toolkit", None)
             slug = getattr(toolkit, "slug", "") if toolkit else ""
             if isinstance(status, str) and status.upper() == "ACTIVE":
+                if slug.lower() == "googlesuper":
+                    return True
                 if not app_name or slug.lower() == app_name or app_name in slug.lower():
                     return True
         return False
@@ -186,9 +187,10 @@ def list_user_connections(telegram_user_id: Union[int, str]) -> list[dict]:
                 acc_id = getattr(item, "id", "")
                 toolkit = getattr(item, "toolkit", None)
                 slug = getattr(toolkit, "slug", "") if toolkit else ""
+                tk_label = "Google Workspace (Gmail & Calendar)" if slug.lower() == "googlesuper" else slug
                 results.append({
                     "id": acc_id,
-                    "toolkit": slug,
+                    "toolkit": tk_label,
                     "status": status,
                     "created_at": getattr(item, "created_at", ""),
                     "email": account_emails.get(acc_id, ""),

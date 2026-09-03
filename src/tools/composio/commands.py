@@ -12,17 +12,15 @@ from .auth import (
 
 
 def handle_connect_google(telegram_user_id: Union[int, str]) -> str:
-    """Generate response containing authorization links for both Gmail and Google Calendar."""
+    """Generate response containing a single all-in-one Google Workspace authorization link (Gmail, Calendar, Drive)."""
     try:
-        url_gmail = initiate_google_connection(telegram_user_id, toolkit="gmail")
-        url_cal = initiate_google_connection(telegram_user_id, toolkit="googlecalendar")
+        url_super = initiate_google_connection(telegram_user_id, toolkit="googlesuper")
         return (
-            "🔗 **Liên kết Tài khoản Google (Gmail & Calendar)**\n\n"
-            "Vui lòng nhấn vào đường link bên dưới để cấp quyền cho Hermes:\n\n"
-            f"1. 📧 **Kết nối Gmail (Đọc/Gửi email):**\n{url_gmail}\n\n"
-            f"2. 📅 **Kết nối Google Calendar (Tra cứu/Tạo lịch):**\n{url_cal}\n\n"
-            "💡 *Bạn có thể đăng nhập cùng một tài khoản hoặc hai tài khoản khác nhau tùy ý! "
-            "Sau khi đăng nhập trên trình duyệt, Hermes sẽ tự động nhận diện và kích hoạt tính năng ngay lập tức.*"
+            "🔗 **Liên kết Tài khoản Google Trọn Gói (Gmail & Calendar)**\n\n"
+            "Vui lòng nhấn vào đường link bên dưới để cấp quyền trọn gói 1 lần duy nhất cho Hermes:\n\n"
+            f"👉 {url_super}\n\n"
+            "💡 *Chỉ cần đăng nhập 1 lần duy nhất, tài khoản của bạn sẽ được kích hoạt đồng thời "
+            "cả Gmail (đọc, gửi, soạn nháp) và Google Calendar (tra cứu, lên lịch họp)!*"
         )
     except Exception as exc:
         return f"❌ Lỗi khi tạo link liên kết tài khoản: {str(exc)}"
