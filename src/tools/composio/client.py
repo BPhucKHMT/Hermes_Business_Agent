@@ -12,22 +12,32 @@ except ImportError:
 _client_instance: Optional[Composio] = None
 
 
-def format_user_id(telegram_user_id: Union[int, str, None]) -> str:
-    """Format and validate a Telegram user ID into a safe Composio entity user_id.
+def format_user_id(user_identifier: Union[int, str, None], platform: str = "telegram") -> str:
+    """Format and validate a user identifier into a safe, platform-scoped Composio entity user_id.
 
-    Prevents empty values and guarantees proper scoping prefix.
+    Supports multiple messaging platforms (Telegram, WhatsApp, Discord, Slack) and prevents cross-platform collision.
     """
-    if telegram_user_id is None:
-        raise ValueError("telegram_user_id cannot be None")
-    uid_str = str(telegram_user_id).strip()
+    if user_identifier is None:
+        raise ValueError("user_identifier cannot be None")
+    uid_str = str(user_identifier).strip()
     if not uid_str:
-        raise ValueError("telegram_user_id cannot be empty")
-    if uid_str.startswith("telegram:"):
-        uid_str = uid_str.split(":")[-1]
-    elif uid_str.startswith("telegram_"):
-        uid_str = uid_str.replace("telegram_", "")
-    return f"telegram_{uid_str}"
+        raise ValueError("user_identifier cannot be empty")
 
+    detected_platform = platform
+    if ":" in uid_str:
+        parts = uid_str.split(":")
+        if parts[0].lower() in {"telegram", "whatsapp", "discord", "slack", "signal"}:
+            detected_platform = parts[0].lower()
+            uid_str = parts[-1]
+    elif "_" in uid_str:
+        parts = uid_str.split("_", 1)
+        if parts[0].lower() in {"telegram", "whatsapp", "discord", "slack", "signal"}:
+            detected_platform = parts[0].lower()
+            uid_str = parts[1]
+
+    import re
+    clean_id = re.sub(r'[^a-zA-Z0-9_-]', '', uid_str)
+    return f"{detected_platform}_{clean_id}"
 
 def get_composio_client(force_refresh: bool = False) -> Composio:
     """Retrieve or initialize the Composio client singleton.
