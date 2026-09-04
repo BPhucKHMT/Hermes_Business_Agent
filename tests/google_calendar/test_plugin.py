@@ -118,3 +118,111 @@ def test_calendar_handler_success() -> None:
     res = json.loads(raw)
     assert res["ok"] is True
     assert len(res["result"]["events"]) == 1
+def test_calendar_get_event_handler(monkeypatch) -> None:
+    caller = SimpleNamespace(principal_id="telegram:default:12345", user_id=12345)
+    registry = FakeRegistry(caller=caller)
+
+    with monkeypatch.context() as m:
+        m.setattr(
+            "tools.composio.calendar_tools.composio_calendar_get_event",
+            lambda user_id, event_id, calendar_id="primary", account_email=None: {
+                "status": "success",
+                "active_account": "baophuc1204vn@gmail.com",
+                "data": {"id": event_id, "summary": "One-on-One Sync"},
+            },
+        )
+        raw = plugin_tools.handle_calendar_get_event(
+            {"event_id": "ev-101", "account_email": "baophuc1204vn@gmail.com"},
+            client=FakeClient(),
+            registry=registry,
+            session_id="session-1",
+        )
+        res = json.loads(raw)
+        assert res["ok"] is True
+        assert res["result"]["event"]["id"] == "ev-101"
+        assert res["result"]["active_account"] == "baophuc1204vn@gmail.com"
+
+
+def test_calendar_create_event_handler(monkeypatch) -> None:
+    caller = SimpleNamespace(principal_id="telegram:default:12345", user_id=12345)
+    registry = FakeRegistry(caller=caller)
+
+    with monkeypatch.context() as m:
+        m.setattr(
+            "tools.composio.calendar_tools.composio_calendar_create_event",
+            lambda user_id, **kwargs: {
+                "status": "success",
+                "active_account": "baophuc1204vn@gmail.com",
+                "data": {"id": "ev-created-1", "htmlLink": "https://calendar.google.com/evt1"},
+            },
+        )
+        raw = plugin_tools.handle_calendar_create_event(
+            {
+                "summary": "Direct Booking",
+                "start_time": "2026-09-04T14:00:00+07:00",
+                "end_time": "2026-09-04T14:30:00+07:00",
+                "account_email": "baophuc1204vn@gmail.com",
+            },
+            client=FakeClient(),
+            registry=registry,
+            session_id="session-1",
+        )
+        res = json.loads(raw)
+        assert res["ok"] is True
+        assert res["result"]["event_id"] == "ev-created-1"
+        assert res["result"]["status"] == "confirmed"
+
+
+def test_calendar_update_event_handler(monkeypatch) -> None:
+    caller = SimpleNamespace(principal_id="telegram:default:12345", user_id=12345)
+    registry = FakeRegistry(caller=caller)
+
+    with monkeypatch.context() as m:
+        m.setattr(
+            "tools.composio.calendar_tools.composio_calendar_patch_event",
+            lambda user_id, **kwargs: {
+                "status": "success",
+                "active_account": "baophuc1204vn@gmail.com",
+                "data": {"id": kwargs["event_id"], "start": {"dateTime": kwargs["start_time"]}},
+            },
+        )
+        raw = plugin_tools.handle_calendar_update_event(
+            {
+                "event_id": "ev-reschedule-1",
+                "start_time": "2026-09-04T15:00:00+07:00",
+                "end_time": "2026-09-04T15:30:00+07:00",
+                "account_email": "baophuc1204vn@gmail.com",
+            },
+            client=FakeClient(),
+            registry=registry,
+            session_id="session-1",
+        )
+        res = json.loads(raw)
+        assert res["ok"] is True
+        assert res["result"]["status"] == "updated"
+        assert res["result"]["event_id"] == "ev-reschedule-1"
+
+
+def test_calendar_delete_event_handler(monkeypatch) -> None:
+    caller = SimpleNamespace(principal_id="telegram:default:12345", user_id=12345)
+    registry = FakeRegistry(caller=caller)
+
+    with monkeypatch.context() as m:
+        m.setattr(
+            "tools.composio.calendar_tools.composio_calendar_delete_event",
+            lambda user_id, event_id, calendar_id="primary", account_email=None: {
+                "status": "success",
+                "active_account": "baophuc1204vn@gmail.com",
+                "data": {"status": "success"},
+            },
+        )
+        raw = plugin_tools.handle_calendar_delete_event(
+            {"event_id": "ev-delete-1", "account_email": "baophuc1204vn@gmail.com"},
+            client=FakeClient(),
+            registry=registry,
+            session_id="session-1",
+        )
+        res = json.loads(raw)
+        assert res["ok"] is True
+        assert res["result"]["status"] == "deleted"
+        assert res["result"]["event_id"] == "ev-delete-1"
