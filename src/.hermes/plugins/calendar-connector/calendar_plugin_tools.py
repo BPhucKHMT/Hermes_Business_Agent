@@ -64,12 +64,27 @@ def handle_calendar_list_events(
                     user_id,
                     calendar_id=params.get("calendar_id", "primary"),
                     account_email=account_email,
+                    time_min=params.get("time_min"),
+                    time_max=params.get("time_max"),
+                    query=params.get("query"),
+                    limit=params.get("limit", 20),
                 )
                 if c_res.get("status") == "success":
-                    return _json({"ok": True, "result": c_res.get("data", {})})
-        except Exception:
-            pass
-
+                    raw_data = c_res.get("data", {})
+                    items = raw_data.get("items", []) if isinstance(raw_data, dict) else []
+                    return _json({
+                        "ok": True,
+                        "result": {
+                            "events": items,
+                            "count": len(items),
+                            "summary": raw_data.get("summary") if isinstance(raw_data, dict) else "",
+                            "active_account": c_res.get("active_account"),
+                            "all_connected_accounts": c_res.get("all_connected_accounts", []),
+                        },
+                    })
+                return _error("calendar_query_failed", c_res.get("message", "Lỗi khi đọc lịch"))
+        except Exception as exc:
+            return _error("calendar_query_failed", str(exc))
     try:
         res = client.list_events(
             caller=caller,
@@ -99,6 +114,30 @@ def handle_calendar_find_free_slots(
         date_str = params.get("date", "")
         if not date_str:
             return _error("date_parameter_required")
+        user_id = getattr(caller, "user_id", None) or getattr(caller, "chat_id", None)
+        account_email = params.get("account_email")
+        if user_id:
+            try:
+                from tools.composio.calendar_tools import composio_calendar_find_free_slots
+                from tools.composio.auth import check_connection_status
+                if check_connection_status(user_id, app="googlecalendar") or check_connection_status(user_id, app="googlesuper"):
+                    c_res = composio_calendar_find_free_slots(
+                        user_id,
+                        date_str=date_str,
+                        duration_minutes=params.get("duration_minutes", 30),
+                        calendar_id=params.get("calendar_id", "primary"),
+                        account_email=account_email,
+                    )
+                    if c_res.get("status") == "success":
+                        return _json({
+                            "ok": True,
+                            "result": c_res.get("data", {}),
+                            "active_account": c_res.get("active_account"),
+                        })
+                    return _error("free_slots_search_failed", c_res.get("message", "Lỗi tìm khoảng trống"))
+            except Exception as exc:
+                return _error("free_slots_search_failed", str(exc))
+
         res = client.find_free_slots(
             caller=caller,
             date_str=date_str,

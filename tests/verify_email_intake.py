@@ -67,8 +67,10 @@ def layer_2() -> None:
 
     basetemp_dir = ROOT / ".runtime/tmp/pytest_tmp"
     basetemp_dir.mkdir(parents=True, exist_ok=True)
+    venv_py = SRC / ".venv" / "Scripts" / "python.exe"
+    py_exec = str(venv_py) if venv_py.is_file() else sys.executable
     cmd = [
-        sys.executable,
+        py_exec,
         "-m",
         "pytest",
         "-p",

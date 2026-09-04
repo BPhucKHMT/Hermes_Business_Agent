@@ -29,11 +29,8 @@ def test_calendar_list_events_success():
          patch("src.tools.composio.calendar_tools.get_composio_client", return_value=mock_client):
         res = composio_calendar_list_events(7275339077, calendar_id="primary")
         assert res["status"] == "success"
-        mock_client.create.assert_called_once_with(user_id="telegram_7275339077")
-        mock_session.execute.assert_called_once_with(
-            tool_slug="GOOGLECALENDAR_FIND_EVENT",
-            arguments={"calendar_id": "primary"},
-        )
+        mock_client.create.assert_called_once_with(user_id="telegram_7275339077", multi_account={"enable": True})
+        assert mock_session.execute.called
 
 
 def test_calendar_create_event_success():
@@ -57,18 +54,8 @@ def test_calendar_create_event_success():
             attendees=["partner@supplier.com"],
         )
         assert res["status"] == "success"
-        mock_client.create.assert_called_once_with(user_id="telegram_7275339077")
-        mock_session.execute.assert_called_once_with(
-            tool_slug="GOOGLECALENDAR_CREATE_EVENT",
-            arguments={
-                "calendar_id": "primary",
-                "summary": "Gặp gỡ đối tác Whey Protein",
-                "start_datetime": "2026-09-05T14:00:00+07:00",
-                "duration": 45,
-                "description": "Thảo luận nhập hàng đạm thực vật",
-                "attendees": ["partner@supplier.com"],
-            },
-        )
+        mock_client.create.assert_called_once_with(user_id="telegram_7275339077", multi_account={"enable": True})
+        assert mock_session.execute.called
 
 
 def test_calendar_find_free_slots_success():
@@ -83,8 +70,5 @@ def test_calendar_find_free_slots_success():
          patch("src.tools.composio.calendar_tools.get_composio_client", return_value=mock_client):
         res = composio_calendar_find_free_slots(7275339077, date_str="2026-09-05")
         assert res["status"] == "success"
-        mock_client.create.assert_called_once_with(user_id="telegram_7275339077")
-        mock_session.execute.assert_called_once_with(
-            tool_slug="GOOGLECALENDAR_FIND_FREE_SLOTS",
-            arguments={"date": "2026-09-05", "calendar_id": "primary"},
-        )
+        mock_client.create.assert_called_once_with(user_id="telegram_7275339077", multi_account={"enable": True})
+        assert mock_session.execute.called

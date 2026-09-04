@@ -68,6 +68,52 @@ class CalendarService:
         if not time_min:
             time_min = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
+        access_token = token_data.get("access_token", "")
+        if isinstance(access_token, str) and (access_token.startswith("ca_") or "composio" in access_token):
+            try:
+                from tools.composio.calendar_tools import composio_calendar_list_events
+                user_id = getattr(caller, "user_id", None) or getattr(caller, "chat_id", None) or getattr(caller, "principal_id", "")
+                account_email = token_data.get("account_email")
+                c_res = composio_calendar_list_events(
+                    user_id,
+                    calendar_id=calendar_id,
+                    account_email=account_email,
+                    time_min=time_min,
+                    time_max=time_max,
+                    limit=limit,
+                )
+                if c_res.get("status") == "success":
+                    raw_data = c_res.get("data", {})
+                    items = raw_data.get("items", []) if isinstance(raw_data, dict) else []
+                    events = []
+                    for it in items:
+                        st = it.get("start", {})
+                        st_val = st.get("dateTime") or st.get("date") or ""
+                        et = it.get("end", {})
+                        et_val = et.get("dateTime") or et.get("date") or ""
+                        events.append(CalendarEvent(
+                            event_id=it.get("id", ""),
+                            calendar_id=calendar_id,
+                            summary=it.get("summary", ""),
+                            start_time=st_val,
+                            end_time=et_val,
+                            html_link=it.get("htmlLink") or it.get("display_url") or "",
+                            status=it.get("status", "confirmed"),
+                            location=it.get("location", ""),
+                            description=it.get("description", ""),
+                            attendees=tuple(a.get("email", "") for a in it.get("attendees", []) if isinstance(a, dict) and a.get("email")),
+                            is_all_day=bool(st.get("date") and not st.get("dateTime")),
+                        ))
+                    self.store.record_audit(
+                        principal_id=caller.principal_id,
+                        action="list_events",
+                        target_id=calendar_id,
+                        details={"count": len(events), "time_min": time_min, "time_max": time_max},
+                    )
+                    return events
+            except Exception:
+                pass
+
         events = self.google_client.list_events(
             token_data=token_data,
             calendar_id=calendar_id,
@@ -238,11 +284,45 @@ class CalendarService:
             raise ValueError(f"cannot_confirm_draft_in_status_{draft.status.value}")
 
         token_data = self.token_resolver(caller.principal_id)
-        created_event = self.google_client.create_event(
-            token_data=token_data,
-            calendar_id=draft.calendar_id,
-            draft=draft,
-        )
+        access_token = token_data.get("access_token", "")
+        if isinstance(access_token, str) and (access_token.startswith("ca_") or "composio" in access_token):
+            from tools.composio.calendar_tools import composio_calendar_create_event
+            user_id = getattr(caller, "user_id", None) or getattr(caller, "chat_id", None) or getattr(caller, "principal_id", "")
+            account_email = token_data.get("account_email")
+            c_res = composio_calendar_create_event(
+                user_id,
+                summary=draft.summary,
+                start_datetime=draft.start_time,
+                end_datetime=draft.end_time,
+                description=draft.description,
+                location=draft.location,
+                attendees=list(draft.attendees) if draft.attendees else None,
+                calendar_id=draft.calendar_id,
+                account_email=account_email,
+            )
+            if c_res.get("status") == "success":
+                data = c_res.get("data", {})
+                created_id = str(data.get("id") or data.get("event_id") or "composio_evt")
+                created_event = CalendarEvent(
+                    event_id=created_id,
+                    calendar_id=draft.calendar_id,
+                    summary=draft.summary,
+                    start_time=draft.start_time,
+                    end_time=draft.end_time,
+                    html_link=data.get("htmlLink") or data.get("display_url") or "",
+                    status="confirmed",
+                    location=draft.location,
+                    description=draft.description,
+                    attendees=draft.attendees,
+                )
+            else:
+                raise RuntimeError(c_res.get("message", "composio_create_event_failed"))
+        else:
+            created_event = self.google_client.create_event(
+                token_data=token_data,
+                calendar_id=draft.calendar_id,
+                draft=draft,
+            )
 
         self.store.transition_draft_status(
             draft_id=draft_id,

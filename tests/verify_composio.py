@@ -66,9 +66,10 @@ def layer_2() -> None:
     for test_file in test_files:
         assert (ROOT / test_file).is_file(), f"Missing test file: {test_file}"
 
+    venv_py = SRC / ".venv" / "Scripts" / "python.exe"
+    py_exec = str(venv_py) if venv_py.is_file() else sys.executable
     proc = subprocess.run(
-        [sys.executable, "-m", "pytest", *test_files, "-v"],
-        cwd=str(ROOT),
+        [py_exec, "-m", "pytest", *test_files, "-v"],
         capture_output=True,
         text=True,
     )
