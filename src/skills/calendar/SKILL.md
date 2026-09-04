@@ -21,7 +21,7 @@ Manage meetings, appointments, and daily agendas from Telegram with strict priva
 
 1. **Agenda Lookup & Event Listing (`calendar_list_events`):**
    - Query events for today, tomorrow, or a custom time range (e.g. `time_min`, `time_max`, `query`).
-   - Supports filtering by specific account via `account_email` (e.g. `'baophuc1204vn@gmail.com'`).
+   - Supports filtering by specific account via `account_email` (e.g. `'work@company.com'` or `'personal@gmail.com'`).
    - Returns event titles, start/end times, locations, and attendee lists.
 
 2. **Event Inspection (`calendar_get_event`):**
