@@ -5,8 +5,10 @@ from src.tools.composio.calendar_tools import (
     composio_calendar_list_events,
     composio_calendar_create_event,
     composio_calendar_find_free_slots,
+    composio_calendar_get_event,
+    composio_calendar_patch_event,
+    composio_calendar_delete_event,
 )
-
 
 def test_calendar_list_unauthenticated():
     with patch("src.tools.composio.calendar_tools.check_connection_status", return_value=False):
@@ -69,6 +71,51 @@ def test_calendar_find_free_slots_success():
     with patch("src.tools.composio.calendar_tools.check_connection_status", return_value=True), \
          patch("src.tools.composio.calendar_tools.get_composio_client", return_value=mock_client):
         res = composio_calendar_find_free_slots(7275339077, date_str="2026-09-05")
+        assert res["status"] == "success"
+        mock_client.create.assert_called_once_with(user_id="telegram_7275339077", multi_account={"enable": True})
+        assert mock_session.execute.called
+def test_calendar_get_event_success():
+    mock_client = MagicMock()
+    mock_session = MagicMock()
+    mock_session.execute.return_value = {"id": "ev_123", "summary": "Test Event"}
+    mock_client.create.return_value = mock_session
+
+    with patch("src.tools.composio.calendar_tools.check_connection_status", return_value=True), \
+         patch("src.tools.composio.calendar_tools.get_composio_client", return_value=mock_client):
+        res = composio_calendar_get_event(7275339077, event_id="ev_123")
+        assert res["status"] == "success"
+        mock_client.create.assert_called_once_with(user_id="telegram_7275339077", multi_account={"enable": True})
+        assert mock_session.execute.called
+
+
+def test_calendar_patch_event_success():
+    mock_client = MagicMock()
+    mock_session = MagicMock()
+    mock_session.execute.return_value = {"id": "ev_123", "summary": "Rescheduled Event"}
+    mock_client.create.return_value = mock_session
+
+    with patch("src.tools.composio.calendar_tools.check_connection_status", return_value=True), \
+         patch("src.tools.composio.calendar_tools.get_composio_client", return_value=mock_client):
+        res = composio_calendar_patch_event(
+            7275339077,
+            event_id="ev_123",
+            start_time="2026-09-04T15:00:00+07:00",
+            end_time="2026-09-04T15:30:00+07:00",
+        )
+        assert res["status"] == "success"
+        mock_client.create.assert_called_once_with(user_id="telegram_7275339077", multi_account={"enable": True})
+        assert mock_session.execute.called
+
+
+def test_calendar_delete_event_success():
+    mock_client = MagicMock()
+    mock_session = MagicMock()
+    mock_session.execute.return_value = {"status": "success"}
+    mock_client.create.return_value = mock_session
+
+    with patch("src.tools.composio.calendar_tools.check_connection_status", return_value=True), \
+         patch("src.tools.composio.calendar_tools.get_composio_client", return_value=mock_client):
+        res = composio_calendar_delete_event(7275339077, event_id="ev_123")
         assert res["status"] == "success"
         mock_client.create.assert_called_once_with(user_id="telegram_7275339077", multi_account={"enable": True})
         assert mock_session.execute.called

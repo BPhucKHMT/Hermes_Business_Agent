@@ -4,6 +4,9 @@ from tools.composio.calendar_tools import (
     composio_calendar_list_events,
     composio_calendar_create_event,
     composio_calendar_find_free_slots,
+    composio_calendar_get_event,
+    composio_calendar_patch_event,
+    composio_calendar_delete_event,
 )
 
 
@@ -117,3 +120,59 @@ def test_calendar_find_free_slots_with_target_account(mock_composio):
     mock_composio["client"].create.assert_called_with(user_id="telegram_7275339077", multi_account={"enable": True})
     call_kwargs = mock_composio["session"].execute.call_args.kwargs
     assert call_kwargs.get("account") == "ca_acc2"
+def test_calendar_get_event_success(mock_composio):
+    mock_composio["resolve"].return_value = ("ca_acc2", "baophuc1204vn@gmail.com")
+    mock_composio["session"].execute.return_value = MagicMock(data={"id": "evt_999", "summary": "One-on-One"})
+
+    res = composio_calendar_get_event(
+        telegram_user_id=7275339077,
+        event_id="evt_999",
+        calendar_id="primary",
+        account_email="baophuc1204vn@gmail.com",
+    )
+
+    assert res["status"] == "success"
+    assert res["active_account"] == "baophuc1204vn@gmail.com"
+    call_kwargs = mock_composio["session"].execute.call_args.kwargs
+    assert call_kwargs.get("account") == "ca_acc2"
+    assert call_kwargs["arguments"]["event_id"] == "evt_999"
+
+
+def test_calendar_patch_event_reschedule(mock_composio):
+    mock_composio["resolve"].return_value = ("ca_acc2", "baophuc1204vn@gmail.com")
+    mock_composio["session"].execute.return_value = MagicMock(data={"id": "evt_999", "summary": "Project web (Rescheduled)"})
+
+    res = composio_calendar_patch_event(
+        telegram_user_id=7275339077,
+        event_id="evt_999",
+        start_time="2026-09-04T14:00:00+07:00",
+        end_time="2026-09-04T14:30:00+07:00",
+        summary="Project web (Rescheduled)",
+        account_email="baophuc1204vn@gmail.com",
+    )
+
+    assert res["status"] == "success"
+    assert res["active_account"] == "baophuc1204vn@gmail.com"
+    call_kwargs = mock_composio["session"].execute.call_args.kwargs
+    assert call_kwargs.get("account") == "ca_acc2"
+    assert call_kwargs["arguments"]["event_id"] == "evt_999"
+    assert call_kwargs["arguments"]["start_time"] == "2026-09-04T14:00:00+07:00"
+    assert call_kwargs["arguments"]["end_time"] == "2026-09-04T14:30:00+07:00"
+
+
+def test_calendar_delete_event_success(mock_composio):
+    mock_composio["resolve"].return_value = ("ca_acc2", "baophuc1204vn@gmail.com")
+    mock_composio["session"].execute.return_value = MagicMock(data={"status": "success"})
+
+    res = composio_calendar_delete_event(
+        telegram_user_id=7275339077,
+        event_id="evt_999",
+        calendar_id="primary",
+        account_email="baophuc1204vn@gmail.com",
+    )
+
+    assert res["status"] == "success"
+    assert res["active_account"] == "baophuc1204vn@gmail.com"
+    call_kwargs = mock_composio["session"].execute.call_args.kwargs
+    assert call_kwargs.get("account") == "ca_acc2"
+    assert call_kwargs["arguments"]["event_id"] == "evt_999"

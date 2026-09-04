@@ -157,3 +157,140 @@ def composio_calendar_find_free_slots(
         }
     except Exception as exc:
         return {"status": "error", "message": f"Lỗi khi tìm khoảng thời gian trống: {str(exc)}"}
+def composio_calendar_get_event(
+    telegram_user_id: Union[int, str],
+    event_id: str,
+    calendar_id: str = "primary",
+    account_email: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Retrieve details of a single Google Calendar event by ID."""
+    if not (check_connection_status(telegram_user_id, app="googlesuper") or check_connection_status(telegram_user_id, app="googlecalendar") or check_connection_status(telegram_user_id, app="gmail")):
+        return {
+            "status": "error",
+            "error_code": "NOT_CONNECTED",
+            "message": "Bạn chưa kết nối Google Calendar. Vui lòng dùng lệnh /connect-google để liên kết tài khoản.",
+        }
+
+    user_id = format_user_id(telegram_user_id)
+    client = get_composio_client()
+    session = client.create(user_id=user_id, multi_account={"enable": True})
+    acc_id, resolved_email = resolve_account_target(telegram_user_id, account_email)
+
+    args = {"event_id": event_id, "calendar_id": calendar_id}
+    kwargs: Dict[str, Any] = {"arguments": args}
+    if acc_id:
+        kwargs["account"] = acc_id
+
+    try:
+        try:
+            result = session.execute(tool_slug="GOOGLESUPER_EVENTS_GET", **kwargs)
+        except Exception:
+            result = session.execute(tool_slug="GOOGLECALENDAR_EVENTS_GET", **kwargs)
+        return {
+            "status": "success",
+            "active_account": resolved_email or "default",
+            "data": getattr(result, "data", result),
+        }
+    except Exception as exc:
+        return {"status": "error", "message": f"Lỗi khi lấy thông tin sự kiện: {str(exc)}"}
+
+
+def composio_calendar_patch_event(
+    telegram_user_id: Union[int, str],
+    event_id: str,
+    calendar_id: str = "primary",
+    account_email: Optional[str] = None,
+    start_time: Optional[str] = None,
+    end_time: Optional[str] = None,
+    summary: Optional[str] = None,
+    description: Optional[str] = None,
+    location: Optional[str] = None,
+    attendees: Optional[List[str]] = None,
+    timezone_str: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Reschedule or update specified fields of an existing Google Calendar event using patch semantics."""
+    if not (check_connection_status(telegram_user_id, app="googlesuper") or check_connection_status(telegram_user_id, app="googlecalendar") or check_connection_status(telegram_user_id, app="gmail")):
+        return {
+            "status": "error",
+            "error_code": "NOT_CONNECTED",
+            "message": "Bạn chưa kết nối Google Calendar. Vui lòng dùng lệnh /connect-google để liên kết tài khoản.",
+        }
+
+    user_id = format_user_id(telegram_user_id)
+    client = get_composio_client()
+    session = client.create(user_id=user_id, multi_account={"enable": True})
+    acc_id, resolved_email = resolve_account_target(telegram_user_id, account_email)
+
+    args: Dict[str, Any] = {
+        "event_id": event_id,
+        "calendar_id": calendar_id,
+    }
+    if start_time:
+        args["start_time"] = start_time
+    if end_time:
+        args["end_time"] = end_time
+    if summary:
+        args["summary"] = summary
+    if description:
+        args["description"] = description
+    if location:
+        args["location"] = location
+    if attendees is not None:
+        args["attendees"] = attendees
+    if timezone_str:
+        args["timezone"] = timezone_str
+
+    kwargs: Dict[str, Any] = {"arguments": args}
+    if acc_id:
+        kwargs["account"] = acc_id
+
+    try:
+        try:
+            result = session.execute(tool_slug="GOOGLESUPER_PATCH_EVENT", **kwargs)
+        except Exception:
+            result = session.execute(tool_slug="GOOGLECALENDAR_PATCH_EVENT", **kwargs)
+        return {
+            "status": "success",
+            "active_account": resolved_email or "default",
+            "data": getattr(result, "data", result),
+        }
+    except Exception as exc:
+        return {"status": "error", "message": f"Lỗi khi dời/sửa lịch: {str(exc)}"}
+
+
+def composio_calendar_delete_event(
+    telegram_user_id: Union[int, str],
+    event_id: str,
+    calendar_id: str = "primary",
+    account_email: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Cancel and delete an event from Google Calendar."""
+    if not (check_connection_status(telegram_user_id, app="googlesuper") or check_connection_status(telegram_user_id, app="googlecalendar") or check_connection_status(telegram_user_id, app="gmail")):
+        return {
+            "status": "error",
+            "error_code": "NOT_CONNECTED",
+            "message": "Bạn chưa kết nối Google Calendar. Vui lòng dùng lệnh /connect-google để liên kết tài khoản.",
+        }
+
+    user_id = format_user_id(telegram_user_id)
+    client = get_composio_client()
+    session = client.create(user_id=user_id, multi_account={"enable": True})
+    acc_id, resolved_email = resolve_account_target(telegram_user_id, account_email)
+
+    args = {"event_id": event_id, "calendar_id": calendar_id}
+    kwargs: Dict[str, Any] = {"arguments": args}
+    if acc_id:
+        kwargs["account"] = acc_id
+
+    try:
+        try:
+            result = session.execute(tool_slug="GOOGLESUPER_DELETE_EVENT", **kwargs)
+        except Exception:
+            result = session.execute(tool_slug="GOOGLECALENDAR_DELETE_EVENT", **kwargs)
+        return {
+            "status": "success",
+            "active_account": resolved_email or "default",
+            "data": getattr(result, "data", result),
+        }
+    except Exception as exc:
+        return {"status": "error", "message": f"Lỗi khi hủy/xóa lịch: {str(exc)}"}
