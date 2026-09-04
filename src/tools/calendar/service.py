@@ -37,9 +37,6 @@ class CalendarService:
         self.token_resolver = token_resolver or self._default_token_resolver
 
     def _default_token_resolver(self, principal_id: str) -> Dict[str, Any]:
-        conn = self.store.get_connection_by_principal(principal_id)
-        if not conn:
-            return {"mock_mode": True}
         try:
             from tools.composio.auth import list_user_connections
             conns = list_user_connections(principal_id)
@@ -52,8 +49,10 @@ class CalendarService:
                     }
         except Exception:
             pass
+        conn = self.store.get_connection_by_principal(principal_id)
+        if conn:
+            return {"access_token": conn.connection_id, "mock_mode": False}
         return {"access_token": "mock_token_for_test", "mock_mode": True}
-
     def list_events(
         self,
         caller: Any,

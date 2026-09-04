@@ -22,6 +22,10 @@ def format_user_id(telegram_user_id: Union[int, str, None]) -> str:
     uid_str = str(telegram_user_id).strip()
     if not uid_str:
         raise ValueError("telegram_user_id cannot be empty")
+    if uid_str.startswith("telegram:"):
+        uid_str = uid_str.split(":")[-1]
+    elif uid_str.startswith("telegram_"):
+        uid_str = uid_str.replace("telegram_", "")
     return f"telegram_{uid_str}"
 
 

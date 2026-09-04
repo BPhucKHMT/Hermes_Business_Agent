@@ -206,7 +206,6 @@ def handle_calendar_confirm_event(
         draft_id = str(params.get("draft_id", ""))
         if not draft_id:
             return _error("draft_id_required")
-
         res = client.confirm_event(caller=caller, draft_id=draft_id)
         return _json(res)
     except (DmOnlyError, LookupError) as exc:
