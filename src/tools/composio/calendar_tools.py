@@ -4,6 +4,17 @@ from typing import Union, Dict, Any, Optional, List
 from .client import format_user_id, get_composio_client
 from .auth import check_connection_status, resolve_account_target, get_user_emails
 
+def _normalize_event_data(result: Any) -> Dict[str, Any]:
+    """Extract standard event dictionary from Composio SessionExecuteResponse."""
+    raw = getattr(result, "data", result)
+    if not isinstance(raw, dict):
+        return {}
+    if "response_data" in raw and isinstance(raw["response_data"], dict):
+        merged = dict(raw["response_data"])
+        if "display_url" in raw and "htmlLink" not in merged:
+            merged["htmlLink"] = raw["display_url"]
+        return merged
+    return raw
 
 def composio_calendar_list_events(
     telegram_user_id: Union[int, str],
@@ -112,7 +123,7 @@ def composio_calendar_create_event(
         return {
             "status": "success",
             "active_account": resolved_email or "default",
-            "data": getattr(result, "data", result),
+            "data": _normalize_event_data(result),
         }
     except Exception as exc:
         return {"status": "error", "message": f"Lỗi khi tạo lịch hẹn: {str(exc)}"}
@@ -189,7 +200,7 @@ def composio_calendar_get_event(
         return {
             "status": "success",
             "active_account": resolved_email or "default",
-            "data": getattr(result, "data", result),
+            "data": _normalize_event_data(result),
         }
     except Exception as exc:
         return {"status": "error", "message": f"Lỗi khi lấy thông tin sự kiện: {str(exc)}"}
@@ -252,11 +263,10 @@ def composio_calendar_patch_event(
         return {
             "status": "success",
             "active_account": resolved_email or "default",
-            "data": getattr(result, "data", result),
+            "data": _normalize_event_data(result),
         }
     except Exception as exc:
         return {"status": "error", "message": f"Lỗi khi dời/sửa lịch: {str(exc)}"}
-
 
 def composio_calendar_delete_event(
     telegram_user_id: Union[int, str],
