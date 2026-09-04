@@ -180,6 +180,7 @@ def handle_calendar_create_draft_event(
             description=str(params.get("description", "")),
             attendees=attendees,
             calendar_id=str(params.get("calendar_id", "primary")),
+            account_email=params.get("account_email"),
         )
         return _json(res)
     except (DmOnlyError, LookupError) as exc:
@@ -265,3 +266,227 @@ def handle_calendar_status(
         return _json(res)
     except Exception as exc:
         return _error("calendar_status_failed", str(exc))
+def handle_calendar_get_event(
+    params: Dict[str, Any],
+    *,
+    client: Any = None,
+    registry: Any = None,
+    task_id: str = "",
+    session_id: str = "",
+    **kwargs: Any,
+) -> str:
+    del kwargs
+    if client is None:
+        return _error("calendar_connector_unavailable")
+    try:
+        caller = _resolve_caller(registry, task_id, session_id)
+    except (DmOnlyError, LookupError) as exc:
+        return _caller_error(exc)
+
+    event_id = str(params.get("event_id", "")).strip()
+    if not event_id:
+        return _error("event_id_required")
+
+    user_id = getattr(caller, "user_id", None) or getattr(caller, "chat_id", None)
+    account_email = params.get("account_email")
+
+    if user_id:
+        try:
+            from tools.composio.calendar_tools import composio_calendar_get_event
+            c_res = composio_calendar_get_event(
+                user_id,
+                event_id=event_id,
+                calendar_id=params.get("calendar_id", "primary"),
+                account_email=account_email,
+            )
+            if c_res.get("status") == "success":
+                return _json({
+                    "ok": True,
+                    "result": {
+                        "event": c_res.get("data", {}),
+                        "active_account": c_res.get("active_account"),
+                    },
+                })
+            return _error("get_event_failed", c_res.get("message", "Lỗi khi lấy thông tin sự kiện"))
+        except Exception as exc:
+            return _error("get_event_failed", str(exc))
+
+    try:
+        ev = client.service.get_event(caller=caller, event_id=event_id, calendar_id=params.get("calendar_id", "primary"))
+        from dataclasses import asdict
+        return _json({"ok": True, "result": {"event": asdict(ev)}})
+    except Exception as exc:
+        return _error("get_event_failed", str(exc))
+
+
+def handle_calendar_create_event(
+    params: Dict[str, Any],
+    *,
+    client: Any = None,
+    registry: Any = None,
+    task_id: str = "",
+    session_id: str = "",
+    **kwargs: Any,
+) -> str:
+    """Directly create an event on Google Calendar without staging a draft."""
+    del kwargs
+    if client is None:
+        return _error("calendar_connector_unavailable")
+    try:
+        caller = _resolve_caller(registry, task_id, session_id)
+    except (DmOnlyError, LookupError) as exc:
+        return _caller_error(exc)
+
+    summary = str(params.get("summary", "")).strip()
+    start_time = str(params.get("start_time", "")).strip()
+    if not summary or not start_time:
+        return _error("missing_required_event_fields", "summary and start_time are required")
+
+    user_id = getattr(caller, "user_id", None) or getattr(caller, "chat_id", None)
+    account_email = params.get("account_email")
+
+    if user_id:
+        try:
+            from tools.composio.calendar_tools import composio_calendar_create_event
+            c_res = composio_calendar_create_event(
+                user_id,
+                summary=summary,
+                start_datetime=start_time,
+                end_datetime=params.get("end_time"),
+                duration_minutes=params.get("duration_minutes", 30),
+                description=str(params.get("description", "")),
+                location=str(params.get("location", "")),
+                attendees=list(params.get("attendees", [])) if params.get("attendees") else None,
+                calendar_id=str(params.get("calendar_id", "primary")),
+                account_email=account_email,
+            )
+            if c_res.get("status") == "success":
+                data = c_res.get("data", {})
+                created_id = data.get("id") or data.get("event_id") or "composio_evt"
+                return _json({
+                    "ok": True,
+                    "result": {
+                        "status": "confirmed",
+                        "event_id": created_id,
+                        "event": data,
+                        "summary": summary,
+                        "start_time": start_time,
+                        "active_account": c_res.get("active_account"),
+                        "html_link": data.get("htmlLink") or data.get("display_url") or "",
+                    },
+                })
+            return _error("create_event_failed", c_res.get("message", "Lỗi tạo sự kiện trên Calendar"))
+        except Exception as exc:
+            return _error("create_event_failed", str(exc))
+
+    return _error("calendar_connector_unavailable")
+
+
+def handle_calendar_update_event(
+    params: Dict[str, Any],
+    *,
+    client: Any = None,
+    registry: Any = None,
+    task_id: str = "",
+    session_id: str = "",
+    **kwargs: Any,
+) -> str:
+    """Reschedule or update specified fields of an existing Google Calendar event."""
+    del kwargs
+    if client is None:
+        return _error("calendar_connector_unavailable")
+    try:
+        caller = _resolve_caller(registry, task_id, session_id)
+    except (DmOnlyError, LookupError) as exc:
+        return _caller_error(exc)
+
+    event_id = str(params.get("event_id", "")).strip()
+    if not event_id:
+        return _error("event_id_required")
+
+    user_id = getattr(caller, "user_id", None) or getattr(caller, "chat_id", None)
+    account_email = params.get("account_email")
+
+    if user_id:
+        try:
+            from tools.composio.calendar_tools import composio_calendar_patch_event
+            c_res = composio_calendar_patch_event(
+                user_id,
+                event_id=event_id,
+                calendar_id=params.get("calendar_id", "primary"),
+                account_email=account_email,
+                start_time=params.get("start_time"),
+                end_time=params.get("end_time"),
+                summary=params.get("summary"),
+                description=params.get("description"),
+                location=params.get("location"),
+                attendees=list(params.get("attendees")) if params.get("attendees") is not None else None,
+            )
+            if c_res.get("status") == "success":
+                data = c_res.get("data", {})
+                return _json({
+                    "ok": True,
+                    "result": {
+                        "status": "updated",
+                        "event_id": event_id,
+                        "event": data,
+                        "active_account": c_res.get("active_account"),
+                        "html_link": data.get("htmlLink") or data.get("display_url") or "",
+                    },
+                })
+            return _error("update_event_failed", c_res.get("message", "Lỗi khi cập nhật sự kiện"))
+        except Exception as exc:
+            return _error("update_event_failed", str(exc))
+
+    return _error("calendar_connector_unavailable")
+
+
+def handle_calendar_delete_event(
+    params: Dict[str, Any],
+    *,
+    client: Any = None,
+    registry: Any = None,
+    task_id: str = "",
+    session_id: str = "",
+    **kwargs: Any,
+) -> str:
+    """Cancel and delete an event from Google Calendar."""
+    del kwargs
+    if client is None:
+        return _error("calendar_connector_unavailable")
+    try:
+        caller = _resolve_caller(registry, task_id, session_id)
+    except (DmOnlyError, LookupError) as exc:
+        return _caller_error(exc)
+
+    event_id = str(params.get("event_id", "")).strip()
+    if not event_id:
+        return _error("event_id_required")
+
+    user_id = getattr(caller, "user_id", None) or getattr(caller, "chat_id", None)
+    account_email = params.get("account_email")
+
+    if user_id:
+        try:
+            from tools.composio.calendar_tools import composio_calendar_delete_event
+            c_res = composio_calendar_delete_event(
+                user_id,
+                event_id=event_id,
+                calendar_id=params.get("calendar_id", "primary"),
+                account_email=account_email,
+            )
+            if c_res.get("status") == "success":
+                return _json({
+                    "ok": True,
+                    "result": {
+                        "status": "deleted",
+                        "deleted": True,
+                        "event_id": event_id,
+                        "active_account": c_res.get("active_account"),
+                    },
+                })
+            return _error("delete_event_failed", c_res.get("message", "Lỗi khi xóa sự kiện"))
+        except Exception as exc:
+            return _error("delete_event_failed", str(exc))
+
+    return _error("calendar_connector_unavailable")

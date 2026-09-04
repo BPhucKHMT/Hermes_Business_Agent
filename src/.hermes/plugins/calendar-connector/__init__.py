@@ -50,18 +50,25 @@ from calendar_guard import CalendarToolsGuard
 from calendar_plugin_tools import (
     handle_calendar_confirm_event,
     handle_calendar_create_draft_event,
+    handle_calendar_create_event,
+    handle_calendar_delete_event,
     handle_calendar_find_free_slots,
+    handle_calendar_get_event,
     handle_calendar_list_events,
     handle_calendar_status,
+    handle_calendar_update_event,
 )
 from calendar_schemas import (
     CALENDAR_CONFIRM_EVENT_SCHEMA,
     CALENDAR_CREATE_DRAFT_EVENT_SCHEMA,
+    CALENDAR_CREATE_EVENT_SCHEMA,
+    CALENDAR_DELETE_EVENT_SCHEMA,
     CALENDAR_FIND_FREE_SLOTS_SCHEMA,
+    CALENDAR_GET_EVENT_SCHEMA,
     CALENDAR_LIST_EVENTS_SCHEMA,
     CALENDAR_STATUS_SCHEMA,
+    CALENDAR_UPDATE_EVENT_SCHEMA,
 )
-
 
 def register(ctx: Any) -> CalendarToolsGuard:
     guard = CalendarToolsGuard()
@@ -102,6 +109,34 @@ def register(ctx: Any) -> CalendarToolsGuard:
         schema=CALENDAR_STATUS_SCHEMA,
         handler=partial(handle_calendar_status, client=client, registry=registry),
         description="Check Google Calendar connection status.",
+    )
+    ctx.register_tool(
+        name="calendar_get_event",
+        toolset="calendar_connector",
+        schema=CALENDAR_GET_EVENT_SCHEMA,
+        handler=partial(handle_calendar_get_event, client=client, registry=registry),
+        description="Retrieve details of a single Google Calendar event by ID.",
+    )
+    ctx.register_tool(
+        name="calendar_create_event",
+        toolset="calendar_connector",
+        schema=CALENDAR_CREATE_EVENT_SCHEMA,
+        handler=partial(handle_calendar_create_event, client=client, registry=registry),
+        description="Directly create an event on Google Calendar without staging a draft.",
+    )
+    ctx.register_tool(
+        name="calendar_update_event",
+        toolset="calendar_connector",
+        schema=CALENDAR_UPDATE_EVENT_SCHEMA,
+        handler=partial(handle_calendar_update_event, client=client, registry=registry),
+        description="Reschedule or update specified fields of an existing Google Calendar event.",
+    )
+    ctx.register_tool(
+        name="calendar_delete_event",
+        toolset="calendar_connector",
+        schema=CALENDAR_DELETE_EVENT_SCHEMA,
+        handler=partial(handle_calendar_delete_event, client=client, registry=registry),
+        description="Cancel and delete an event from Google Calendar.",
     )
 
     # Register slash commands

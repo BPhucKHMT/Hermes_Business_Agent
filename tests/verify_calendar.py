@@ -54,16 +54,24 @@ def layer_1() -> None:
     schemas = load_module("calendar_schemas", PLUGIN / "calendar_schemas.py")
     expected_tools = {
         "calendar_list_events",
-        "calendar_find_free_slots",
+        "calendar_get_event",
+        "calendar_create_event",
         "calendar_create_draft_event",
         "calendar_confirm_event",
+        "calendar_update_event",
+        "calendar_delete_event",
+        "calendar_find_free_slots",
         "calendar_status",
     }
     actual_tools = {
         schemas.CALENDAR_LIST_EVENTS_SCHEMA["name"],
-        schemas.CALENDAR_FIND_FREE_SLOTS_SCHEMA["name"],
+        schemas.CALENDAR_GET_EVENT_SCHEMA["name"],
+        schemas.CALENDAR_CREATE_EVENT_SCHEMA["name"],
         schemas.CALENDAR_CREATE_DRAFT_EVENT_SCHEMA["name"],
         schemas.CALENDAR_CONFIRM_EVENT_SCHEMA["name"],
+        schemas.CALENDAR_UPDATE_EVENT_SCHEMA["name"],
+        schemas.CALENDAR_DELETE_EVENT_SCHEMA["name"],
+        schemas.CALENDAR_FIND_FREE_SLOTS_SCHEMA["name"],
         schemas.CALENDAR_STATUS_SCHEMA["name"],
     }
     assert actual_tools == expected_tools

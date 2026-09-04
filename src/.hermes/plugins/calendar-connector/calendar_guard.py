@@ -8,9 +8,13 @@ from calendar_caller import CallerContextRegistry, DmOnlyError
 CALENDAR_TOOL_NAMES = frozenset(
     {
         "calendar_list_events",
-        "calendar_find_free_slots",
+        "calendar_get_event",
+        "calendar_create_event",
         "calendar_create_draft_event",
         "calendar_confirm_event",
+        "calendar_update_event",
+        "calendar_delete_event",
+        "calendar_find_free_slots",
         "calendar_status",
     }
 )
