@@ -347,6 +347,31 @@ class CalendarService:
         calendar_id: str = "primary",
     ) -> CalendarEvent:
         token_data = self.token_resolver(caller.principal_id)
+        access_token = token_data.get("access_token", "")
+        if isinstance(access_token, str) and (access_token.startswith("ca_") or "composio" in access_token):
+            from tools.composio.calendar_tools import composio_calendar_get_event
+            user_id = getattr(caller, "user_id", None) or getattr(caller, "chat_id", None) or getattr(caller, "principal_id", "")
+            account_email = token_data.get("account_email")
+            c_res = composio_calendar_get_event(user_id, event_id=event_id, calendar_id=calendar_id, account_email=account_email)
+            if c_res.get("status") == "success":
+                data = c_res.get("data", {})
+                st = data.get("start", {})
+                st_val = st.get("dateTime") or st.get("date") or ""
+                et = data.get("end", {})
+                et_val = et.get("dateTime") or et.get("date") or ""
+                return CalendarEvent(
+                    event_id=event_id,
+                    calendar_id=calendar_id,
+                    summary=data.get("summary", ""),
+                    start_time=st_val,
+                    end_time=et_val,
+                    html_link=data.get("htmlLink") or data.get("display_url") or "",
+                    status=data.get("status", "confirmed"),
+                    location=data.get("location", ""),
+                    description=data.get("description", ""),
+                    attendees=tuple(a.get("email", "") for a in data.get("attendees", []) if isinstance(a, dict) and a.get("email")),
+                )
+
         event = self.google_client.get_event(token_data, calendar_id, event_id)
         self.store.record_audit(
             principal_id=caller.principal_id,
@@ -363,6 +388,21 @@ class CalendarService:
         calendar_id: str = "primary",
     ) -> bool:
         token_data = self.token_resolver(caller.principal_id)
+        access_token = token_data.get("access_token", "")
+        if isinstance(access_token, str) and (access_token.startswith("ca_") or "composio" in access_token):
+            from tools.composio.calendar_tools import composio_calendar_delete_event
+            user_id = getattr(caller, "user_id", None) or getattr(caller, "chat_id", None) or getattr(caller, "principal_id", "")
+            account_email = token_data.get("account_email")
+            c_res = composio_calendar_delete_event(user_id, event_id=event_id, calendar_id=calendar_id, account_email=account_email)
+            deleted = c_res.get("status") == "success"
+            self.store.record_audit(
+                principal_id=caller.principal_id,
+                action="delete_event",
+                target_id=event_id,
+                details={"calendar_id": calendar_id, "deleted": deleted},
+            )
+            return deleted
+
         deleted = self.google_client.delete_event(token_data, calendar_id, event_id)
         self.store.record_audit(
             principal_id=caller.principal_id,
