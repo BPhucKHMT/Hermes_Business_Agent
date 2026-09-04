@@ -52,8 +52,7 @@ class EventDraft:
     created_at: str
     status: EventDraftStatus = EventDraftStatus.DRAFT
     committed_event_id: Optional[str] = None
-
-
+    account_email: Optional[str] = None
 @dataclass(frozen=True)
 class FreeSlot:
     start_time: str

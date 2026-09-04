@@ -47,11 +47,12 @@ def test_create_and_get_draft(store: CalendarStore) -> None:
         end_time="2026-09-02T15:30:00Z",
         attendees=("supplier@example.com",),
         created_at="2026-08-31T12:00:00Z",
+        account_email="baophuc1204vn@gmail.com",
     )
     persisted = store.create_or_get_draft(draft)
     assert persisted.draft_id == "drf-101"
     assert persisted.status == EventDraftStatus.DRAFT
-
+    assert persisted.account_email == "baophuc1204vn@gmail.com"
     # Duplicate call returns original
     duplicate = store.create_or_get_draft(draft)
     assert duplicate.draft_id == "drf-101"

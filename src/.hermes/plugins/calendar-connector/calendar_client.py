@@ -97,6 +97,7 @@ class CalendarConnectorClient:
         description: str = "",
         attendees: tuple[str, ...] = (),
         calendar_id: str = "primary",
+        account_email: Optional[str] = None,
     ) -> Dict[str, Any]:
         draft = self.service.create_draft_event(
             caller=caller,
@@ -107,6 +108,7 @@ class CalendarConnectorClient:
             description=description,
             attendees=attendees,
             calendar_id=calendar_id,
+            account_email=account_email,
         )
         return {
             "ok": True,

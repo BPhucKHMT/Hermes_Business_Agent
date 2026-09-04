@@ -225,6 +225,7 @@ class CalendarService:
         description: str = "",
         attendees: tuple[str, ...] = (),
         calendar_id: str = "primary",
+        account_email: Optional[str] = None,
     ) -> EventDraft:
         if not summary.strip():
             raise ValueError("summary_required")
@@ -256,8 +257,8 @@ class CalendarService:
             attendees=attendees,
             created_at=datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
             status=EventDraftStatus.DRAFT,
+            account_email=account_email,
         )
-
         persisted = self.store.create_or_get_draft(draft)
         self.store.record_audit(
             principal_id=caller.principal_id,
@@ -288,7 +289,7 @@ class CalendarService:
         if isinstance(access_token, str) and (access_token.startswith("ca_") or "composio" in access_token):
             from tools.composio.calendar_tools import composio_calendar_create_event
             user_id = getattr(caller, "user_id", None) or getattr(caller, "chat_id", None) or getattr(caller, "principal_id", "")
-            account_email = token_data.get("account_email")
+            account_email = draft.account_email or token_data.get("account_email")
             c_res = composio_calendar_create_event(
                 user_id,
                 summary=draft.summary,

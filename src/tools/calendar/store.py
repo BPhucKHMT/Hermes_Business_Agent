@@ -58,9 +58,9 @@ class CalendarStore:
                     status TEXT NOT NULL,
                     created_at TEXT NOT NULL,
                     updated_at TEXT NOT NULL,
-                    committed_event_id TEXT
+                    committed_event_id TEXT,
+                    account_email TEXT
                 );
-
                 CREATE TABLE IF NOT EXISTS calendar_audit (
                     audit_id TEXT PRIMARY KEY,
                     timestamp TEXT NOT NULL,
@@ -71,6 +71,10 @@ class CalendarStore:
                 );
                 """
             )
+            try:
+                conn.execute("ALTER TABLE event_drafts ADD COLUMN account_email TEXT;")
+            except sqlite3.OperationalError:
+                pass
 
     def upsert_connection(self, conn_record: CalendarConnection) -> CalendarConnection:
         now = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
@@ -129,8 +133,8 @@ class CalendarStore:
                 """
                 INSERT OR IGNORE INTO event_drafts (
                     draft_id, idempotency_key, principal_id, calendar_id, summary, description,
-                    location, start_time, end_time, attendees_json, status, created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+                    location, start_time, end_time, attendees_json, status, created_at, updated_at, account_email
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
                 """,
                 (
                     draft.draft_id,
@@ -146,6 +150,7 @@ class CalendarStore:
                     status_str,
                     draft.created_at or now,
                     now,
+                    draft.account_email,
                 ),
             )
             row = conn.execute(
@@ -208,6 +213,8 @@ class CalendarStore:
 
     def _row_to_draft(self, row: sqlite3.Row) -> EventDraft:
         attendees = tuple(json.loads(row["attendees_json"]))
+        keys = row.keys() if hasattr(row, "keys") else []
+        account_email = row["account_email"] if "account_email" in keys else None
         return EventDraft(
             draft_id=row["draft_id"],
             idempotency_key=row["idempotency_key"],
@@ -222,4 +229,5 @@ class CalendarStore:
             created_at=row["created_at"],
             status=EventDraftStatus(row["status"]),
             committed_event_id=row["committed_event_id"],
+            account_email=account_email,
         )
