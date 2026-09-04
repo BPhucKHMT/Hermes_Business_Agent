@@ -43,31 +43,58 @@ for candidate in (
     except Exception:
         continue
 
-from client import get_default_client
-from commands import (
-    handle_connect_gmail,
-    handle_disconnect_gmail,
-    handle_email_grant,
-    handle_mail_status,
-    handle_share_mailbox,
-)
-from gmail_tools import PersonalGmailTools
-from schemas import (
-    EMAIL_CONNECTION_STATUS_SCHEMA,
-    EMAIL_GET_THREAD_SCHEMA,
-    EMAIL_SEARCH_SCHEMA,
-    EMAIL_SEND_SCHEMA,
-    EMAIL_CREATE_DRAFT_SCHEMA,
-    EMAIL_REPLY_SCHEMA,
-)
-from plugin_tools import (
-    handle_email_connection_status,
-    handle_email_get_thread,
-    handle_email_search,
-    handle_email_send,
-    handle_email_create_draft,
-    handle_email_reply,
-)
+try:
+    from .client import get_default_client
+    from .commands import (
+        handle_connect_gmail,
+        handle_disconnect_gmail,
+        handle_email_grant,
+        handle_mail_status,
+        handle_share_mailbox,
+    )
+    from .gmail_tools import PersonalGmailTools
+    from .schemas import (
+        EMAIL_CONNECTION_STATUS_SCHEMA,
+        EMAIL_GET_THREAD_SCHEMA,
+        EMAIL_SEARCH_SCHEMA,
+        EMAIL_SEND_SCHEMA,
+        EMAIL_CREATE_DRAFT_SCHEMA,
+        EMAIL_REPLY_SCHEMA,
+    )
+    from .plugin_tools import (
+        handle_email_connection_status,
+        handle_email_get_thread,
+        handle_email_search,
+        handle_email_send,
+        handle_email_create_draft,
+        handle_email_reply,
+    )
+except (ImportError, ValueError, KeyError):
+    from client import get_default_client
+    from commands import (
+        handle_connect_gmail,
+        handle_disconnect_gmail,
+        handle_email_grant,
+        handle_mail_status,
+        handle_share_mailbox,
+    )
+    from gmail_tools import PersonalGmailTools
+    from schemas import (
+        EMAIL_CONNECTION_STATUS_SCHEMA,
+        EMAIL_GET_THREAD_SCHEMA,
+        EMAIL_SEARCH_SCHEMA,
+        EMAIL_SEND_SCHEMA,
+        EMAIL_CREATE_DRAFT_SCHEMA,
+        EMAIL_REPLY_SCHEMA,
+    )
+    from plugin_tools import (
+        handle_email_connection_status,
+        handle_email_get_thread,
+        handle_email_search,
+        handle_email_send,
+        handle_email_create_draft,
+        handle_email_reply,
+    )
 
 logger = logging.getLogger(__name__)
 

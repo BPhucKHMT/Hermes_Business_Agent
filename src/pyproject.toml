@@ -22,3 +22,21 @@ package = false
 dev = [
     "pytest>=9.1,<10",
 ]
+
+[tool.pyright]
+extraPaths = [
+    ".hermes/plugins/email-connector",
+    ".hermes/plugins/calendar-connector",
+    ".hermes/plugins/youtube-connector",
+    ".hermes/plugins/tiktok-connector",
+    "tools"
+]
+
+[tool.pyrefly]
+search_paths = [
+    ".hermes/plugins/email-connector",
+    ".hermes/plugins/calendar-connector",
+    ".hermes/plugins/youtube-connector",
+    ".hermes/plugins/tiktok-connector",
+    "tools"
+]

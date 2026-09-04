@@ -40,35 +40,66 @@ for candidate in (
             break
     except Exception:
         continue
-from calendar_client import get_default_client
-from calendar_commands import (
-    handle_calendar_status_cmd,
-    handle_connect_calendar,
-    handle_disconnect_calendar,
-)
-from calendar_guard import CalendarToolsGuard
-from calendar_plugin_tools import (
-    handle_calendar_confirm_event,
-    handle_calendar_create_draft_event,
-    handle_calendar_create_event,
-    handle_calendar_delete_event,
-    handle_calendar_find_free_slots,
-    handle_calendar_get_event,
-    handle_calendar_list_events,
-    handle_calendar_status,
-    handle_calendar_update_event,
-)
-from calendar_schemas import (
-    CALENDAR_CONFIRM_EVENT_SCHEMA,
-    CALENDAR_CREATE_DRAFT_EVENT_SCHEMA,
-    CALENDAR_CREATE_EVENT_SCHEMA,
-    CALENDAR_DELETE_EVENT_SCHEMA,
-    CALENDAR_FIND_FREE_SLOTS_SCHEMA,
-    CALENDAR_GET_EVENT_SCHEMA,
-    CALENDAR_LIST_EVENTS_SCHEMA,
-    CALENDAR_STATUS_SCHEMA,
-    CALENDAR_UPDATE_EVENT_SCHEMA,
-)
+try:
+    from .calendar_client import get_default_client
+    from .calendar_commands import (
+        handle_calendar_status_cmd,
+        handle_connect_calendar,
+        handle_disconnect_calendar,
+    )
+    from .calendar_guard import CalendarToolsGuard
+    from .calendar_plugin_tools import (
+        handle_calendar_confirm_event,
+        handle_calendar_create_draft_event,
+        handle_calendar_create_event,
+        handle_calendar_delete_event,
+        handle_calendar_find_free_slots,
+        handle_calendar_get_event,
+        handle_calendar_list_events,
+        handle_calendar_status,
+        handle_calendar_update_event,
+    )
+    from .calendar_schemas import (
+        CALENDAR_CONFIRM_EVENT_SCHEMA,
+        CALENDAR_CREATE_DRAFT_EVENT_SCHEMA,
+        CALENDAR_CREATE_EVENT_SCHEMA,
+        CALENDAR_DELETE_EVENT_SCHEMA,
+        CALENDAR_FIND_FREE_SLOTS_SCHEMA,
+        CALENDAR_GET_EVENT_SCHEMA,
+        CALENDAR_LIST_EVENTS_SCHEMA,
+        CALENDAR_STATUS_SCHEMA,
+        CALENDAR_UPDATE_EVENT_SCHEMA,
+    )
+except (ImportError, ValueError, KeyError):
+    from calendar_client import get_default_client
+    from calendar_commands import (
+        handle_calendar_status_cmd,
+        handle_connect_calendar,
+        handle_disconnect_calendar,
+    )
+    from calendar_guard import CalendarToolsGuard
+    from calendar_plugin_tools import (
+        handle_calendar_confirm_event,
+        handle_calendar_create_draft_event,
+        handle_calendar_create_event,
+        handle_calendar_delete_event,
+        handle_calendar_find_free_slots,
+        handle_calendar_get_event,
+        handle_calendar_list_events,
+        handle_calendar_status,
+        handle_calendar_update_event,
+    )
+    from calendar_schemas import (
+        CALENDAR_CONFIRM_EVENT_SCHEMA,
+        CALENDAR_CREATE_DRAFT_EVENT_SCHEMA,
+        CALENDAR_CREATE_EVENT_SCHEMA,
+        CALENDAR_DELETE_EVENT_SCHEMA,
+        CALENDAR_FIND_FREE_SLOTS_SCHEMA,
+        CALENDAR_GET_EVENT_SCHEMA,
+        CALENDAR_LIST_EVENTS_SCHEMA,
+        CALENDAR_STATUS_SCHEMA,
+        CALENDAR_UPDATE_EVENT_SCHEMA,
+    )
 
 def register(ctx: Any) -> CalendarToolsGuard:
     guard = CalendarToolsGuard()
