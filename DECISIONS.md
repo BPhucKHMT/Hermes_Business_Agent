@@ -229,3 +229,25 @@
   5) Unify commands under `/connect-google` (single all-in-one authentication link for Gmail + Calendar) and provide interactive multi-account selection menu under `/disconnect-google`.
 - Consequences: Eliminates VPS network port friction, reduces repo footprint by >4,200 lines of dead code and test scaffolding, provides 100% dynamic multi-account isolation, and keeps all 18 repository test suites at 100% pass rate.
 - Revisit when: Dedicated on-premise Google Workspace private tenant requires custom GCP enterprise app credentials bypassing Composio.
+## D025 — Full-Lifecycle Google Calendar Operations with Universal Platform-Agnostic Scoping
+
+- Date: 2026-09-04
+- Status: accepted
+- Context: Early calendar integration only supported basic event listing, free-busy queries, and local draft creation, failing on reschedule ("dời lịch"), update, delete, and direct event creation. Furthermore, draft staging dropped `account_email`, and platform identification was tightly coupled to Telegram via brittle regex/whitelists rather than leveraging Hermes's native session architecture.
+- Decision:
+  1) Complete the calendar capability suite natively via Composio:
+     - `calendar_list_events`: query by time range, search text, and account email.
+     - `calendar_get_event`: fetch single event details by `event_id` via `GOOGLESUPER_EVENTS_GET`.
+     - `calendar_create_event`: direct event booking without review via `GOOGLESUPER_CREATE_EVENT`.
+     - `calendar_create_draft_event` + `calendar_confirm_event`: Tier 2 draft-before-commit, with `account_email` persisted in `EventDraft` and SQLite schema.
+     - `calendar_update_event`: reschedule and modify event fields via `GOOGLESUPER_PATCH_EVENT` (patch semantics).
+     - `calendar_delete_event`: cancel/delete events via `GOOGLESUPER_DELETE_EVENT`.
+     - `calendar_find_free_slots`: query free/busy intervals bounded by working hours (09:00–18:00 ICT).
+     - `calendar_status`: query active connected Google accounts.
+  2) Adopt generic, platform-agnostic entity scoping without regex or platform whitelists:
+     - Map Hermes `principal_id` (`<platform>:<profile>:<user_id>`) directly to Composio entity ID `<platform>_<user_id>` using $O(1)$ string splitting.
+     - Automatically support Telegram, WhatsApp, Discord, Slack, Matrix, and future platforms.
+     - Enforce DM-only privacy directly via `getattr(source, "chat_type", "") != "dm"`, eliminating brittle platform whitelists.
+  3) Normalize Composio execution response dictionaries via `_normalize_event_data` to ensure standard Google Event IDs and URLs are reliably returned to callers.
+- Consequences: Full calendar operations (including dời lịch and direct creation) function seamlessly across multiple Google accounts and messaging platforms with zero hardcoding and zero brittle regex, maintaining 100% test pass rate across all 18 test suites.
+- Revisit when: Team-wide shared calendars require multi-organizer quorum approval workflows.

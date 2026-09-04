@@ -490,3 +490,25 @@
 - Verification Results:
   - All 18/18 test suites across the repository passed 100% cleanly.
   - Gateway plugins synced to `AppData\Local\hermes\plugins` and gateway daemon successfully restarted.
+## 2026-09-04 Full-Lifecycle Google Calendar Suite & Platform-Agnostic Composio Entity Scoping
+
+- Resolved core calendar integration blockers reported from live Telegram interactions:
+  - **Full-Lifecycle Operations:** Implemented native Composio Google Calendar capabilities:
+    - `calendar_get_event`: Fetch specific event details via `GOOGLESUPER_EVENTS_GET` / `GOOGLECALENDAR_EVENTS_GET`.
+    - `calendar_create_event`: Direct event creation without draft requirement via `GOOGLESUPER_CREATE_EVENT`.
+    - `calendar_update_event`: Reschedule and modify existing events (dời lịch) via `GOOGLESUPER_PATCH_EVENT` (patch semantics).
+    - `calendar_delete_event`: Cancel and delete events via `GOOGLESUPER_DELETE_EVENT`.
+    - `calendar_list_events`, `calendar_create_draft_event`, `calendar_confirm_event`, `calendar_find_free_slots`, `calendar_status`.
+  - **Account Target Persistence in Event Drafts:**
+    - Added `account_email: Optional[str] = None` to `EventDraft` dataclass (`contracts.py`).
+    - Added `account_email` column and automatic migration to `CalendarStore` SQLite schema (`store.py`).
+    - Fixed draft confirmation flow so confirming a draft created for a specific account commits to that exact account.
+  - **Response Normalization:** Added `_normalize_event_data` in `calendar_tools.py` to reliably extract standard event payloads, real Google Event IDs, and meeting URLs from Composio's `response_data`.
+  - **Platform-Agnostic Scoping (Zero Regex, Zero Platform Whitelists):**
+    - Updated `format_user_id` to parse Hermes `principal_id` (`<platform>:<profile>:<user_id>`) into `<platform>_<user_id>` via native string splitting.
+    - Updated `calendar_caller.py` to enforce DM-only privacy directly via `getattr(source, "chat_type", "") != "dm"`, naturally supporting Telegram, WhatsApp, Discord, Slack, and Matrix without hardcoded platform lists or regex.
+  - **Token Resolver Routing:** Updated `CalendarService._default_token_resolver` to prioritize active Composio connections before checking legacy SQLite.
+- Verification Results:
+  - All 18 repository test suites passed 100% cleanly (including 38/38 in `verify_calendar.py` and 25/25 in `verify_composio.py`).
+  - Live end-to-end verification executed across all 6 core calendar operations against user's connected account `baophuc1204vn@gmail.com`.
+  - Live Telegram bot confirmed working: reschedule ("dời lịch thành 14h30-15h") succeeded and updated Google Calendar in real time.
