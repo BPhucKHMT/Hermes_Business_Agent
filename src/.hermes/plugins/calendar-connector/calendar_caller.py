@@ -13,9 +13,6 @@ DM_REDIRECT_TEXT = "Mở chat riêng với Hermes để truy cập Google Calend
 
 class DmOnlyError(ValueError):
     pass
-ALLOWED_DM_PLATFORMS = frozenset({"telegram", "whatsapp", "discord", "slack", "signal"})
-
-
 @dataclass(frozen=True)
 class CallerContext:
     principal_id: str
@@ -54,8 +51,7 @@ class CallerContextRegistry:
         profile_key = build_session_key(source, profile=profile)
         effective_key = session_key or derived_key
         platform = getattr(source.platform, "value", source.platform)
-
-        if platform not in ALLOWED_DM_PLATFORMS or getattr(source, "chat_type", "") != "dm":
+        if getattr(source, "chat_type", "") != "dm":
             self._current_caller.set(None)
             with self._lock:
                 self._redirect_only_session_keys.add(effective_key)
