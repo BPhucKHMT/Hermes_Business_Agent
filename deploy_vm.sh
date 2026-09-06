@@ -217,8 +217,8 @@ echo "[STEP 7/8] Generating/merging config.yaml and verifying environment..."
 BACKUP_DIR="${HERMES_HOME}/backups/$(date +%Y%m%d_%H%M%S)"
 mkdir -p "${BACKUP_DIR}"
 
-# Backup root config and .env
-for f in "${HERMES_HOME}/config.yaml" "${HERMES_HOME}/.env"; do
+# Backup root config, hermes .env, and src/.env
+for f in "${HERMES_HOME}/config.yaml" "${HERMES_HOME}/.env" "${SRC_DIR}/.env"; do
     if [ -f "${f}" ] && [ ! -L "${f}" ]; then
         cp "${f}" "${BACKUP_DIR}/" 2>/dev/null || true
     fi
@@ -331,16 +331,15 @@ for config_path in config_files:
     print(f'  [OK] Configuration safely updated (routes & credentials preserved): {config_path.name}')
 "
 
-# Setup environment files
+# Setup environment files with seamless bi-directional merge
 ENV_TARGET="${HERMES_HOME}/.env"
 SRC_ENV="${SRC_DIR}/.env"
 
-if [ -f "${ENV_TARGET}" ]; then
-    echo "  [OK] Existing environment preserved at ${ENV_TARGET} (Telegram bot token & credentials intact)."
-else
+# 1. If ~/.hermes/.env does not exist yet, initialize it
+if [ ! -f "${ENV_TARGET}" ]; then
     if [ -f "${SRC_ENV}" ] && [ ! -L "${SRC_ENV}" ]; then
         cp "${SRC_ENV}" "${ENV_TARGET}"
-        echo "  [OK] Copied .env from src/ to ${ENV_TARGET}"
+        echo "  [OK] Initialized ${ENV_TARGET} from existing ${SRC_ENV}"
     else
         cp "${SCRIPT_DIR}/.env.example" "${ENV_TARGET}"
         echo "  [INFO] Created .env template at ${ENV_TARGET}."
@@ -348,13 +347,42 @@ else
     fi
 fi
 
-# Ensure src/.env is a symlink pointing to ~/.hermes/.env
+# 2. If src/.env was a physical file, merge any missing keys into ~/.hermes/.env
 if [ -f "${SRC_ENV}" ] && [ ! -L "${SRC_ENV}" ]; then
+    "${UV_BIN}" run python -c "
+from pathlib import Path
+
+target = Path('${ENV_TARGET}')
+source = Path('${SRC_ENV}')
+
+if target.is_file() and source.is_file():
+    target_data = {}
+    for line in target.read_text(encoding='utf-8', errors='ignore').splitlines():
+        if '=' in line and not line.strip().startswith('#'):
+            k, v = line.split('=', 1)
+            target_data[k.strip()] = v.strip()
+
+    missing_lines = []
+    for line in source.read_text(encoding='utf-8', errors='ignore').splitlines():
+        if '=' in line and not line.strip().startswith('#'):
+            k, v = line.split('=', 1)
+            k = k.strip()
+            v = v.strip()
+            if (k not in target_data or not target_data[k]) and v:
+                missing_lines.append(f'{k}={v}')
+                target_data[k] = v
+
+    if missing_lines:
+        with open(target, 'a', encoding='utf-8') as f:
+            f.write('\n# Auto-merged from src/.env:\n' + '\n'.join(missing_lines) + '\n')
+        print(f'  [OK] Safely merged {len(missing_lines)} key(s) from src/.env into {target}')
+"
     rm -f "${SRC_ENV}"
 fi
+
+# 3. Ensure src/.env is a symlink pointing to ~/.hermes/.env (Single Source of Truth)
 ln -sfn "${ENV_TARGET}" "${SRC_ENV}"
 echo "  [OK] Symlink: ${SRC_ENV} -> ${ENV_TARGET}"
-echo ""
 echo ""
 
 # ------------------------------------------------------------------------------
