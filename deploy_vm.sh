@@ -310,7 +310,11 @@ for config_path in config_files:
     web.setdefault('backend', 'tavily')
     web.setdefault('use_gateway', True)
 
-    # 8. Seed default Telegram routes only if gateway is not yet configured on a fresh VM
+    # 8. Suppress noisy "gateway shutting down" / "gateway restarted" pings to users
+    tg = cfg.setdefault('telegram', {})
+    tg.setdefault('gateway_restart_notification', False)
+
+    # 9. Seed default Telegram routes only if gateway is not yet configured on a fresh VM
     routes_file = Path(f'{src_dir}/config/telegram_routes.example.yaml')
     if routes_file.is_file() and config_path == (home / 'config.yaml'):
         with open(routes_file, 'r', encoding='utf-8') as rf:

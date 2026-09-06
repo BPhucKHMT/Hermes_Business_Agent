@@ -15,6 +15,7 @@ gateway:
 telegram:
   require_mention: true
   exclusive_bot_mentions: true
+  gateway_restart_notification: false   # Tắt thông báo "gateway shutting down" / "gateway restarted" trên Telegram
   mention_patterns: []
   observe_unmentioned_group_messages: true
   ignored_threads:
