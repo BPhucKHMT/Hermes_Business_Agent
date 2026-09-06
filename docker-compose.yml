@@ -1,0 +1,23 @@
+services:
+  hermes-agent:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: hermes-business-agent
+    restart: always
+    network_mode: host
+    env_file:
+      - .env
+    environment:
+      - HERMES_HOME=/root/.hermes
+      - HERMES_PROJECT_SRC=/app/src
+      - HERMES_ENABLE_PROJECT_PLUGINS=1
+    volumes:
+      # Mount src to allow hot updates without rebuilding image
+      - ./src:/app/src
+      # Named volume to persist state, databases, credentials, and uploads
+      - hermes_data:/root/.hermes
+    command: ["hermes", "gateway", "run"]
+
+volumes:
+  hermes_data:

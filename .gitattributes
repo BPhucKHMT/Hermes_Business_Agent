@@ -1,0 +1,15 @@
+# ==============================================================================
+# Git Attributes - Enforce Unix Line Endings for Scripts & Linux Configs
+# ==============================================================================
+
+*.sh text eol=lf
+Dockerfile text eol=lf
+docker-compose.yml text eol=lf
+*.py text eol=lf
+*.md text eol=lf
+*.json text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+
+*.cmd text eol=crlf
+*.bat text eol=crlf

@@ -1,0 +1,13 @@
+.git
+.venv
+src/.venv
+**/__pycache__
+**/*.pyc
+**/*.pyo
+.runtime
+src/.runtime
+tests_temp
+*.log
+.pytest_cache
+.coverage
+htmlcov

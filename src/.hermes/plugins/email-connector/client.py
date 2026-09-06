@@ -12,11 +12,10 @@ _PLUGIN_DIR = Path(__file__).resolve().parent
 for candidate in (
     Path(os.environ.get("HERMES_PROJECT_SRC", "")),
     Path(os.environ.get("HERMES_SRC_DIR", "")),
-    Path.home() / "Hermes-Business-Agent" / "src",
-    Path("/home/azureuser/Hermes-Business-Agent/src"),
+    _PLUGIN_DIR.resolve().parents[2],
     _PLUGIN_DIR.parents[2] / "Hermes-Business-Agent" / "src",
     _PLUGIN_DIR.parents[2],
-    Path("C:/Hermes-Business-Agent/src"),
+    Path.home() / "Hermes-Business-Agent" / "src",
     Path.cwd() / "src",
     Path.cwd(),
 ):
@@ -24,7 +23,7 @@ for candidate in (
         if (
             candidate
             and candidate.is_dir()
-            and (candidate / "tools" / "email").is_dir()
+            and (candidate / "tools" / "composio").is_dir()
         ):
             cand_str = str(candidate.resolve())
             if cand_str not in sys.path:

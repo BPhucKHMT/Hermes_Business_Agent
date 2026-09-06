@@ -1,0 +1,22 @@
+# ==============================================================================
+# Telegram Gateway Topic Routing Template for Multi-Profile Isolation
+# Copy this configuration into ~/.hermes/config.yaml on your Linux VPS.
+# ==============================================================================
+
+gateway:
+  multiplex_profiles: true
+  profile_routes:
+    - name: telegram-protein-bar
+      platform: telegram
+      chat_id: "-1003835812097"
+      thread_id: "11"
+      profile: protein-bar
+
+telegram:
+  require_mention: true
+  exclusive_bot_mentions: true
+  mention_patterns: []
+  observe_unmentioned_group_messages: true
+  ignored_threads:
+    - "5"    # TITAN AI topic (ignored until profile is onboarded)
+    - "1"    # General topic (ignored during pilot)
