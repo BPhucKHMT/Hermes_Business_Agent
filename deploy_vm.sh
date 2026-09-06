@@ -312,8 +312,7 @@ for config_path in config_files:
 
     # 8. Suppress noisy "gateway shutting down" / "gateway restarted" pings to users
     tg = cfg.setdefault('telegram', {})
-    tg.setdefault('gateway_restart_notification', False)
-
+    tg['gateway_restart_notification'] = False
     # 9. Seed default Telegram routes only if gateway is not yet configured on a fresh VM
     routes_file = Path(f'{src_dir}/config/telegram_routes.example.yaml')
     if routes_file.is_file() and config_path == (home / 'config.yaml'):
