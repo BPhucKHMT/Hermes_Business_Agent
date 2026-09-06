@@ -38,6 +38,14 @@ for candidate in (
             tools_path_str = str((candidate / "tools").resolve())
             if tools_path_str not in tools.__path__:
                 tools.__path__.insert(0, tools_path_str)
+
+            # Auto-bridge virtualenv site-packages so Hermes gateway inherits project dependencies
+            import site
+            venv_dir = candidate / ".venv"
+            if venv_dir.is_dir():
+                for sp in list(venv_dir.glob("lib/python*/site-packages")) + [venv_dir / "Lib" / "site-packages"]:
+                    if sp.is_dir():
+                        site.addsitedir(str(sp.resolve()))
             break
     except Exception:
         continue
