@@ -13,6 +13,7 @@ dependencies = [
   "google-auth-oauthlib>=1.4,<2",
   "pyinstaller>=6,<7",
   "composio-core>=0.7,<1",
+  "composio>=0.21.0,<1",
 ]
 
 [tool.uv]
