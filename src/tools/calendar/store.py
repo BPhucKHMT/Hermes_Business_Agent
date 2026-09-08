@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from datetime import datetime, timezone
 import json
+import logging
 from pathlib import Path
 import sqlite3
-from typing import Any, List, Optional
+from typing import Any, Dict, Optional
 from uuid import uuid4
 
 from tools.calendar.contracts import (
@@ -14,6 +14,8 @@ from tools.calendar.contracts import (
     EventDraft,
     EventDraftStatus,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class CalendarStore:
@@ -73,8 +75,9 @@ class CalendarStore:
             )
             try:
                 conn.execute("ALTER TABLE event_drafts ADD COLUMN account_email TEXT;")
-            except sqlite3.OperationalError:
-                pass
+            except sqlite3.OperationalError as exc:
+                if "duplicate column" not in str(exc).lower():
+                    logger.debug("ALTER TABLE event_drafts notice: %s", exc)
 
     def upsert_connection(self, conn_record: CalendarConnection) -> CalendarConnection:
         now = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
@@ -168,6 +171,66 @@ class CalendarStore:
             if not row:
                 return None
             return self._row_to_draft(row)
+    def bind_draft_account(self, draft_id: str, account_email: str) -> EventDraft:
+        """Bind a legacy unqualified draft without changing an existing target."""
+        normalized = account_email.strip().casefold()
+        if not normalized:
+            raise ValueError("account_email_required")
+        now = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT account_email FROM event_drafts WHERE draft_id = ?;",
+                (draft_id,),
+            ).fetchone()
+            if not row:
+                raise KeyError("draft_not_found")
+            current = row["account_email"]
+            if current and current.casefold() != normalized:
+                raise ValueError("draft_account_target_already_bound")
+            conn.execute(
+                """
+                UPDATE event_drafts
+                SET account_email = COALESCE(account_email, ?), updated_at = ?
+                WHERE draft_id = ? AND status = ?;
+                """,
+                (normalized, now, draft_id, EventDraftStatus.DRAFT.value),
+            )
+        draft = self.get_draft(draft_id)
+        if draft is None:
+            raise RuntimeError("draft_missing_after_account_bind")
+        if not draft.account_email or draft.account_email.casefold() != normalized:
+            raise ValueError("draft_account_target_already_bound")
+        return draft
+
+    def record_pending_event_id(self, draft_id: str, event_id: str) -> EventDraft:
+        """Remember an observed provider ID while read-back is still pending."""
+        normalized_id = str(event_id).strip()
+        if not normalized_id:
+            raise ValueError("event_id_required")
+        now = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT committed_event_id, status FROM event_drafts WHERE draft_id = ?;",
+                (draft_id,),
+            ).fetchone()
+            if not row:
+                raise KeyError("draft_not_found")
+            if row["committed_event_id"] and row["committed_event_id"] != normalized_id:
+                raise ValueError("draft_provider_event_already_observed")
+            if row["status"] != EventDraftStatus.DRAFT.value:
+                raise ValueError("draft_not_pending")
+            conn.execute(
+                """
+                UPDATE event_drafts
+                SET committed_event_id = ?, updated_at = ?
+                WHERE draft_id = ? AND status = ?;
+                """,
+                (normalized_id, now, draft_id, EventDraftStatus.DRAFT.value),
+            )
+        draft = self.get_draft(draft_id)
+        if draft is None:
+            raise RuntimeError("draft_missing_after_pending_event")
+        return draft
 
     def transition_draft_status(
         self,

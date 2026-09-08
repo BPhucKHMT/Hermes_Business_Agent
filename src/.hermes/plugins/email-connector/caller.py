@@ -1,9 +1,18 @@
+from __future__ import annotations
+
 from contextvars import ContextVar
 from dataclasses import dataclass
+from pathlib import Path
 from threading import Lock
 from typing import Any, Optional
+from uuid import UUID
 
 from gateway.session import build_session_key
+
+try:
+    from tools.composio.local_owner import load_local_owner
+except (ImportError, ModuleNotFoundError):
+    load_local_owner = None  # type: ignore[assignment]
 
 
 DM_REDIRECT_TEXT = "Mở chat riêng với Hermes để xem Gmail cá nhân."
@@ -17,7 +26,7 @@ class DmOnlyError(ValueError):
 class CallerContext:
     principal_id: str
     platform: str
-    user_id: str
+    user_id: str | UUID
     chat_id: str
     thread_id: str | None
     chat_type: str
@@ -26,8 +35,14 @@ class CallerContext:
 
 
 class CallerContextRegistry:
-    def __init__(self, session_store: Optional[Any] = None) -> None:
+    def __init__(
+        self,
+        session_store: Optional[Any] = None,
+        *,
+        local_owner_path: Path | None = None,
+    ) -> None:
         self._session_store = session_store
+        self._local_owner_path = Path(local_owner_path) if local_owner_path else None
         self._by_session_key: dict[str, CallerContext] = {}
         self._issued_by_session_key: dict[str, CallerContext] = {}
         self._session_key_by_session_id: dict[str, str] = {}
@@ -40,26 +55,58 @@ class CallerContextRegistry:
             f"email_redirect_{id(self)}",
             default=False,
         )
+        self._current_gateway_context: ContextVar[bool] = ContextVar(
+            f"email_gateway_context_{id(self)}",
+            default=False,
+        )
         self._lock = Lock()
 
     def set_session_store(self, session_store: Any) -> None:
         with self._lock:
             self._session_store = session_store
 
+    def _resolve_local(self) -> CallerContext:
+        resolver = load_local_owner
+        if resolver is None:
+            try:
+                from tools.composio.local_owner import load_local_owner as resolver
+            except (ImportError, ModuleNotFoundError):
+                resolver = None
+        if resolver is None:
+            raise LookupError("local owner resolver unavailable")
+        owner_id = resolver(self._local_owner_path)
+        if owner_id is None:
+            raise LookupError("local owner binding is not provisioned")
+        return CallerContext(
+            principal_id=f"local:owner:{owner_id}",
+            platform="local",
+            user_id=UUID(owner_id),
+            chat_id="",
+            thread_id=None,
+            chat_type="local",
+            profile="local",
+            session_key=f"local:owner:{owner_id}",
+        )
+
     def capture(self, event: object, session_key: str | None = None) -> CallerContext:
         source = getattr(event, "source", None)
         if source is None:
             raise ValueError("Event has no source")
-
         profile = getattr(source, "profile", None)
-        # Default Hermes session key derives without profile unless multiplexing is enabled
-        derived_key = build_session_key(source)
-        profile_key = build_session_key(source, profile=profile)
-        effective_key = session_key or derived_key
         platform = getattr(source.platform, "value", source.platform)
+        self._current_caller.set(None)
+        self._current_redirect.set(False)
+        self._current_gateway_context.set(True)
+
+        try:
+            derived_key = build_session_key(source)
+            profile_key = build_session_key(source, profile=profile)
+        except Exception:
+            derived_key = f"{platform}:{getattr(source, 'chat_id', '')}:{getattr(source, 'user_id', '')}"
+            profile_key = derived_key
+        effective_key = session_key or derived_key
 
         if platform != "telegram" or getattr(source, "chat_type", "") != "dm":
-            self._current_caller.set(None)
             self._current_redirect.set(True)
             with self._lock:
                 self._redirect_only_session_keys.add(effective_key)
@@ -91,7 +138,6 @@ class CallerContextRegistry:
                 self._issued_by_session_key[profile_key] = caller
                 self._redirect_only_session_keys.discard(profile_key)
         self._current_caller.set(caller)
-        self._current_redirect.set(False)
         return caller
 
     def resolve_dm_tool(
@@ -100,41 +146,48 @@ class CallerContextRegistry:
         if task_id and session_id and task_id != session_id:
             raise LookupError("conflicting runtime identifiers")
 
+        if self._current_redirect.get():
+            raise DmOnlyError(DM_REDIRECT_TEXT)
+
         runtime_id = session_id or task_id
-        if not runtime_id:
+        if runtime_id:
+            session_key: Optional[str] = None
+            with self._lock:
+                session_key = self._session_key_by_session_id.get(runtime_id)
+
+            if session_key is None and self._session_store is not None:
+                entry = self._session_store.lookup_by_session_id(runtime_id)
+                if entry is not None:
+                    session_key = getattr(entry, "session_key", None)
+                    if session_key:
+                        with self._lock:
+                            self._session_key_by_session_id[runtime_id] = session_key
+
+            if session_key is not None:
+                with self._lock:
+                    if session_key in self._redirect_only_session_keys:
+                        raise DmOnlyError(DM_REDIRECT_TEXT)
+                    caller = self._by_session_key.get(session_key)
+                if caller is None:
+                    raise LookupError("Hermes session has no captured Telegram DM caller")
+                return caller
+
+            if self._current_gateway_context.get():
+                raise LookupError("Hermes session is not bound to a gateway caller")
+        elif self._current_gateway_context.get():
             raise LookupError("runtime identifier required to resolve caller")
 
-        session_key: Optional[str] = None
-        with self._lock:
-            session_key = self._session_key_by_session_id.get(runtime_id)
-
-        if session_key is None and self._session_store is not None:
-            entry = self._session_store.lookup_by_session_id(runtime_id)
-            if entry is not None:
-                session_key = getattr(entry, "session_key", None)
-                if session_key:
-                    with self._lock:
-                        self._session_key_by_session_id[runtime_id] = session_key
-
-        if session_key is None:
-            raise LookupError("Hermes session is not bound to a gateway caller")
-
-        with self._lock:
-            if session_key in self._redirect_only_session_keys:
-                raise DmOnlyError(DM_REDIRECT_TEXT)
-            caller = self._by_session_key.get(session_key)
-
-        if caller is None:
-            raise LookupError("Hermes session has no captured Telegram DM caller")
-        return caller
+        return self._resolve_local()
 
     def resolve_command(self) -> CallerContext:
         if self._current_redirect.get():
             raise DmOnlyError(DM_REDIRECT_TEXT)
         caller = self._current_caller.get()
-        if caller is None:
-            raise LookupError("command has no captured Telegram DM caller")
-        return caller
+        if caller is not None:
+            return caller
+        if self._current_gateway_context.get():
+            raise LookupError("command has no captured caller")
+        return self._resolve_local()
 
     def get_issued_dm(self, session_key: str) -> Optional[CallerContext]:
         with self._lock:

@@ -33,7 +33,7 @@ def test_google_calendar_client_mock_events() -> None:
     assert single.summary == "Lunch with Partner"
 
 
-def test_google_calendar_client_create_event_mock() -> None:
+def test_google_calendar_client_create_event_requires_token() -> None:
     client = GoogleCalendarClient()
     draft = EventDraft(
         draft_id="drf-111",
@@ -48,13 +48,9 @@ def test_google_calendar_client_create_event_mock() -> None:
         attendees=("vendor@example.com",),
         created_at="2026-08-31T12:00:00Z",
     )
-
-    created = client.create_event({"mock_mode": True}, "primary", draft)
-    assert created.summary == "Vendor Review"
-    assert created.status == "confirmed"
-    assert "evt-" in created.event_id
-    assert created.html_link.startswith("https://www.google.com/calendar/event")
-
+    import pytest
+    with pytest.raises(ValueError, match="missing_access_token"):
+        client.create_event({}, "primary", draft)
 
 def test_google_calendar_client_create_event_http() -> None:
     class FakeHttp:

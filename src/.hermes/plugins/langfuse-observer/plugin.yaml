@@ -1,0 +1,18 @@
+name: langfuse-observer
+label: Langfuse Conversation Observer
+kind: standalone
+version: 0.1.0
+description: Opt-in sanitized Hermes conversation, model, and tool tracing to an operator-owned Langfuse project.
+author: Hermes project team
+platforms:
+  - linux
+  - macos
+  - windows
+provides_hooks:
+  - pre_gateway_dispatch
+  - pre_api_request
+  - post_api_request
+  - api_request_error
+  - pre_tool_call
+  - post_tool_call
+  - on_session_finalize

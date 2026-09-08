@@ -12,6 +12,13 @@ def _caller(registry: Any) -> Any:
     return registry.resolve_command()
 
 
+def _principal_id(caller: Any) -> str:
+    principal_id = str(getattr(caller, "principal_id", "")).strip()
+    if not principal_id:
+        raise LookupError("caller_principal_unavailable")
+    return principal_id
+
+
 def _unavailable(code: str = "connector_unavailable") -> str:
     return f"Dịch vụ Gmail không khả dụng ({code})."
 
@@ -23,16 +30,16 @@ def handle_connect_gmail(
     registry: Any = None,
 ) -> str:
     del raw_args
-    if client is None:
+    if client is None or getattr(client, "configured", True) is False:
         return _unavailable()
     try:
         caller = _caller(registry)
+        principal_id = _principal_id(caller)
     except DmOnlyError:
         return DM_REDIRECT_TEXT
-    except LookupError:
-        return _unavailable("missing_caller_context")
+    except LookupError as exc:
+        return _unavailable(str(exc))
 
-    # In legacy unit tests using FakeConnectorClient
     if hasattr(client, "calls"):
         response = client.start_oauth(caller)
         url = (
@@ -44,13 +51,9 @@ def handle_connect_gmail(
             return _unavailable(response.get("error", {}).get("code", "oauth_start_failed"))
         return f"Mở liên kết này để kết nối Google (Gmail, Calendar, YouTube): {url}"
 
-    # In live runtime: exclusively use Composio Google Workspace
-    user_id = getattr(caller, "user_id", None) or getattr(caller, "chat_id", None)
-    if not user_id:
-        return _unavailable("missing_caller_context")
+    from tools.composio.bridge import call_google
 
-    from tools.composio.commands import handle_connect_google
-    return handle_connect_google(user_id)
+    return call_google("handle_connect_google", principal_id)
 
 
 def handle_mail_status(
@@ -60,29 +63,25 @@ def handle_mail_status(
     registry: Any = None,
 ) -> str:
     del raw_args
-    if client is None:
+    if client is None or getattr(client, "configured", True) is False:
         return _unavailable()
     try:
         caller = _caller(registry)
+        principal_id = _principal_id(caller)
     except DmOnlyError:
         return DM_REDIRECT_TEXT
-    except LookupError:
-        return _unavailable("missing_caller_context")
+    except LookupError as exc:
+        return _unavailable(str(exc))
 
-    # In legacy unit tests using FakeConnectorClient
     if hasattr(client, "calls"):
         response = client.connections(caller)
         if not response.get("ok"):
             return _unavailable(response.get("error", {}).get("code", "status_failed"))
         return json.dumps(response["result"], ensure_ascii=False)
 
-    # In live runtime: exclusively use Composio Google Workspace
-    user_id = getattr(caller, "user_id", None) or getattr(caller, "chat_id", None)
-    if not user_id:
-        return _unavailable("missing_caller_context")
+    from tools.composio.bridge import call_google
 
-    from tools.composio.commands import handle_google_status
-    return handle_google_status(user_id)
+    return call_google("handle_google_status", principal_id)
 
 
 def handle_disconnect_gmail(
@@ -91,13 +90,18 @@ def handle_disconnect_gmail(
     client: Any = None,
     registry: Any = None,
 ) -> str:
+    if client is None or getattr(client, "configured", True) is False:
+        return _unavailable()
     parts = raw_args.split()
-    # In legacy unit tests using FakeConnectorClient
+    try:
+        caller = _caller(registry)
+        principal_id = _principal_id(caller)
+    except DmOnlyError:
+        return DM_REDIRECT_TEXT
+    except LookupError as exc:
+        return _unavailable(str(exc))
+
     if hasattr(client, "calls") and len(parts) == 1:
-        try:
-            caller = _caller(registry)
-        except (DmOnlyError, LookupError):
-            return _unavailable("missing_caller_context")
         response = client.disconnect(caller, parts[0])
         if not response.get("ok"):
             return _unavailable(
@@ -107,19 +111,11 @@ def handle_disconnect_gmail(
         if result.get("status") != "revoked":
             return _unavailable("disconnect_not_confirmed")
         return json.dumps(result, ensure_ascii=False)
-    try:
-        caller = _caller(registry)
-    except (DmOnlyError, LookupError):
-        return _unavailable("missing_caller_context")
 
-    # In live runtime: exclusively use Composio Google Workspace
-    user_id = getattr(caller, "user_id", None) or getattr(caller, "chat_id", None)
-    if not user_id:
-        return _unavailable("missing_caller_context")
+    from tools.composio.bridge import call_google
 
-    from tools.composio.commands import handle_disconnect_google
     target = parts[0] if parts else ""
-    return handle_disconnect_google(user_id, target=target)
+    return call_google("handle_disconnect_google", principal_id, {"target": target})
 
 def handle_share_mailbox(
     raw_args: str = "",
@@ -136,8 +132,8 @@ def handle_share_mailbox(
         caller = _caller(registry)
     except DmOnlyError:
         return DM_REDIRECT_TEXT
-    except LookupError:
-        return _unavailable("missing_caller_context")
+    except LookupError as exc:
+        return _unavailable(str(exc))
 
     response = client.propose_grant(
         caller,
@@ -170,10 +166,9 @@ def handle_email_grant(
         caller = _caller(registry)
     except DmOnlyError:
         return DM_REDIRECT_TEXT
-    except LookupError:
-        return _unavailable("missing_caller_context")
+    except LookupError as exc:
+        return _unavailable(str(exc))
 
-    approved = parts[1] == "approve"
     response = client.decide_grant(caller, parts[0], parts[1])
     if not response.get("ok"):
         return _unavailable(

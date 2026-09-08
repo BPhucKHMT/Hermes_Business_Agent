@@ -1,9 +1,10 @@
-"""Generic multi-user email connector plugin for Hermes Agent."""
+"""Read-only Gmail connector with explicit local-owner support."""
 
 from __future__ import annotations
 
 from functools import partial
 import logging
+import os
 import sys
 from pathlib import Path
 from typing import Any
@@ -11,8 +12,6 @@ from typing import Any
 _PLUGIN_DIR = Path(__file__).resolve().parent
 if str(_PLUGIN_DIR) not in sys.path:
     sys.path.insert(0, str(_PLUGIN_DIR))
-
-import os
 
 for candidate in (
     Path(os.environ.get("HERMES_PROJECT_SRC", "")),
@@ -25,11 +24,7 @@ for candidate in (
     Path.cwd(),
 ):
     try:
-        if (
-            candidate
-            and candidate.is_dir()
-            and (candidate / "tools" / "composio").is_dir()
-        ):
+        if candidate.is_dir() and (candidate / "tools" / "composio").is_dir():
             cand_str = str(candidate.resolve())
             if cand_str not in sys.path:
                 sys.path.insert(0, cand_str)
@@ -38,16 +33,8 @@ for candidate in (
             tools_path_str = str((candidate / "tools").resolve())
             if tools_path_str not in tools.__path__:
                 tools.__path__.insert(0, tools_path_str)
-
-            # Auto-bridge virtualenv site-packages so Hermes gateway inherits project dependencies
-            import site
-            venv_dir = candidate / ".venv"
-            if venv_dir.is_dir():
-                for sp in list(venv_dir.glob("lib/python*/site-packages")) + [venv_dir / "Lib" / "site-packages"]:
-                    if sp.is_dir():
-                        site.addsitedir(str(sp.resolve()))
             break
-    except Exception:
+    except (ImportError, OSError, ValueError):
         continue
 
 try:
@@ -64,17 +51,11 @@ try:
         EMAIL_CONNECTION_STATUS_SCHEMA,
         EMAIL_GET_THREAD_SCHEMA,
         EMAIL_SEARCH_SCHEMA,
-        EMAIL_SEND_SCHEMA,
-        EMAIL_CREATE_DRAFT_SCHEMA,
-        EMAIL_REPLY_SCHEMA,
     )
     from .plugin_tools import (
         handle_email_connection_status,
         handle_email_get_thread,
         handle_email_search,
-        handle_email_send,
-        handle_email_create_draft,
-        handle_email_reply,
     )
 except (ImportError, ValueError, KeyError):
     from client import get_default_client
@@ -90,40 +71,21 @@ except (ImportError, ValueError, KeyError):
         EMAIL_CONNECTION_STATUS_SCHEMA,
         EMAIL_GET_THREAD_SCHEMA,
         EMAIL_SEARCH_SCHEMA,
-        EMAIL_SEND_SCHEMA,
-        EMAIL_CREATE_DRAFT_SCHEMA,
-        EMAIL_REPLY_SCHEMA,
     )
     from plugin_tools import (
         handle_email_connection_status,
         handle_email_get_thread,
         handle_email_search,
-        handle_email_send,
-        handle_email_create_draft,
-        handle_email_reply,
     )
 
 logger = logging.getLogger(__name__)
 
-_oauth_server = None
-_oauth_thread = None
-
-
-def _start_oauth_server_background(service: Any) -> None:
-    """Obsolete: OAuth is managed exclusively via Composio cloud broker.
-    No background HTTP server is bound to local ports.
-    """
-    pass
 
 def register(ctx: Any) -> PersonalGmailTools:
     guard = PersonalGmailTools()
     client = get_default_client()
     registry = guard.registry
 
-    svc = getattr(client, "_service", None)
-    if svc is not None:
-        _start_oauth_server_background(svc)
-    # 1. Register tools
     ctx.register_tool(
         name="email_search",
         toolset="email_connector",
@@ -143,33 +105,13 @@ def register(ctx: Any) -> PersonalGmailTools:
         toolset="email_connector",
         schema=EMAIL_CONNECTION_STATUS_SCHEMA,
         handler=partial(
-            handle_email_connection_status, client=client, registry=registry
+            handle_email_connection_status,
+            client=client,
+            registry=registry,
         ),
         description="Check status of connected Gmail mailboxes.",
     )
-    ctx.register_tool(
-        name="email_send",
-        toolset="email_connector",
-        schema=EMAIL_SEND_SCHEMA,
-        handler=partial(handle_email_send, client=client, registry=registry),
-        description="Send an outbound email from the user's connected Gmail account.",
-    )
-    ctx.register_tool(
-        name="email_create_draft",
-        toolset="email_connector",
-        schema=EMAIL_CREATE_DRAFT_SCHEMA,
-        handler=partial(handle_email_create_draft, client=client, registry=registry),
-        description="Create an email draft in the user's connected Gmail account.",
-    )
-    ctx.register_tool(
-        name="email_reply",
-        toolset="email_connector",
-        schema=EMAIL_REPLY_SCHEMA,
-        handler=partial(handle_email_reply, client=client, registry=registry),
-        description="Reply to an existing Gmail thread from the user's connected Gmail account.",
-    )
 
-    # 2. Register commands (support both gmail and email/mail aliases)
     for cmd_name in (
         "connect_google",
         "connect-google",
@@ -206,7 +148,7 @@ def register(ctx: Any) -> PersonalGmailTools:
         ctx.register_command(
             cmd_name,
             partial(handle_disconnect_gmail, client=client, registry=registry),
-            description="Disconnect a connected Gmail account",
+            description="Disconnect a connected Google account",
         )
     for cmd_name in ("share_mailbox", "share-mailbox"):
         ctx.register_command(
@@ -221,8 +163,6 @@ def register(ctx: Any) -> PersonalGmailTools:
             description="Approve or deny a mailbox grant as an operator",
         )
 
-    # One guard/registry is owned by this plugin registration; caller state is
-    # scoped to host execution contexts by CallerContextRegistry.
     ctx.register_hook("pre_gateway_dispatch", guard.pre_gateway_dispatch)
     ctx.register_hook("pre_tool_call", guard.pre_tool_call)
     ctx.register_hook("on_session_finalize", guard.on_session_finalize)

@@ -1,13 +1,11 @@
-"""Telegram slash command handlers for Composio Google Workspace integration."""
+"""Google connection command handlers."""
 
-from typing import Union, Dict, List
+from typing import Dict, Union
+
 from .auth import (
-    initiate_google_connection,
-    check_connection_status,
     disconnect_user,
+    initiate_google_connection,
     list_user_connections,
-    get_user_email,
-    get_user_emails,
 )
 
 
@@ -106,22 +104,23 @@ def handle_disconnect_google(
         ])
         return "\n".join(lines)
 
-    # Resolve target if it's a 1-based index (e.g. "1", "2")
-    target_id = target_clean
-    if target_clean.isdigit():
-        idx = int(target_clean) - 1
-        if 0 <= idx < len(connections):
-            target_id = connections[idx].get("id", target_clean)
 
-    # Perform disconnection
     try:
-        success, disconnected = disconnect_user(telegram_user_id, app="", target_identifier=target_id)
+        success, disconnected = disconnect_user(
+            telegram_user_id,
+            app="",
+            target_identifier=target_clean,
+        )
         if not success:
             return "❌ Lỗi khi ngắt kết nối tài khoản. Vui lòng thử lại sau."
 
         if target_clean and target_clean != "all":
             disc_label = ", ".join(f"`{d}`" for d in disconnected) if disconnected else f"`{target.strip()}`"
-            remaining = [c.get("email") or c.get("id") for c in connections if c.get("id") != target_id and (not disconnected or c.get("email") not in disconnected)]
+            remaining = [
+                c.get("email") or c.get("id")
+                for c in connections
+                if c.get("email") not in disconnected
+            ]
             rem_msg = (
                 f"\n💡 *Tài khoản còn lại:* {', '.join(f'`{r}`' for r in remaining)} vẫn đang hoạt động bình thường."
                 if remaining else "\n💡 *Bạn đã ngắt kết nối hết toàn bộ tài khoản Google.*"
@@ -133,5 +132,7 @@ def handle_disconnect_google(
             "Toàn bộ phiên ủy quyền Gmail và Google Calendar của bạn đã được xóa khỏi hệ thống. "
             "Hermes sẽ không thể truy cập email hay lịch của bạn nữa trừ khi bạn cấp quyền lại qua `/connect-google`."
         )
+    except ValueError as exc:
+        return f"❌ Tài khoản Google không hợp lệ: {exc}"
     except Exception as exc:
         return f"❌ Lỗi khi ngắt kết nối tài khoản: {str(exc)}"

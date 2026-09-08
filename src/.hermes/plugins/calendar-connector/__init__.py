@@ -10,8 +10,6 @@ _PLUGIN_DIR = Path(__file__).resolve().parent
 if str(_PLUGIN_DIR) not in sys.path:
     sys.path.insert(0, str(_PLUGIN_DIR))
 
-import os
-
 for candidate in (
     Path(os.environ.get("HERMES_PROJECT_SRC", "")),
     Path(os.environ.get("HERMES_SRC_DIR", "")),
@@ -23,11 +21,7 @@ for candidate in (
     Path.cwd(),
 ):
     try:
-        if (
-            candidate
-            and candidate.is_dir()
-            and (candidate / "tools" / "calendar").is_dir()
-        ):
+        if candidate.is_dir() and (candidate / "tools" / "calendar").is_dir():
             cand_str = str(candidate.resolve())
             if cand_str not in sys.path:
                 sys.path.insert(0, cand_str)
@@ -36,17 +30,10 @@ for candidate in (
             tools_path_str = str((candidate / "tools").resolve())
             if tools_path_str not in tools.__path__:
                 tools.__path__.insert(0, tools_path_str)
-
-            # Auto-bridge virtualenv site-packages so Hermes gateway inherits project dependencies
-            import site
-            venv_dir = candidate / ".venv"
-            if venv_dir.is_dir():
-                for sp in list(venv_dir.glob("lib/python*/site-packages")) + [venv_dir / "Lib" / "site-packages"]:
-                    if sp.is_dir():
-                        site.addsitedir(str(sp.resolve()))
             break
-    except Exception:
+    except (ImportError, OSError, ValueError):
         continue
+
 try:
     from .calendar_client import get_default_client
     from .calendar_commands import (
@@ -108,9 +95,10 @@ except (ImportError, ValueError, KeyError):
         CALENDAR_UPDATE_EVENT_SCHEMA,
     )
 
+
 def register(ctx: Any) -> CalendarToolsGuard:
-    guard = CalendarToolsGuard()
     client = get_default_client()
+    guard = CalendarToolsGuard(client=client)
     registry = guard.registry
 
     ctx.register_tool(
@@ -177,8 +165,7 @@ def register(ctx: Any) -> CalendarToolsGuard:
         description="Cancel and delete an event from Google Calendar.",
     )
 
-    # Register slash commands
-    for cmd in ("connect_google", "connect-google", "google_connect", "connect_calendar", "connect-calendar"):
+    for cmd in ("connect_calendar", "connect-calendar"):
         ctx.register_command(
             cmd,
             partial(handle_connect_calendar, client=client, registry=registry),

@@ -27,7 +27,9 @@ def test_client_missing_api_key(monkeypatch):
 
 def test_client_with_api_key(monkeypatch):
     monkeypatch.setenv("COMPOSIO_API_KEY", "test_key_123")
-    with patch("src.tools.composio.client.Composio") as mock_cls:
+    with patch("src.tools.composio.client._load_sdk") as load_sdk:
+        mock_cls = MagicMock()
+        load_sdk.return_value = (mock_cls, RuntimeError)
         client = get_composio_client(force_refresh=True)
         assert client is not None
         mock_cls.assert_called_once_with(api_key="test_key_123")

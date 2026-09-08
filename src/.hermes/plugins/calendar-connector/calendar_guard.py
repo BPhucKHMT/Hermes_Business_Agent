@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import json
 from typing import Any
 
 from calendar_caller import CallerContextRegistry, DmOnlyError
@@ -21,10 +23,15 @@ CALENDAR_TOOL_NAMES = frozenset(
 
 
 class CalendarToolsGuard:
-    """Production CalendarToolsGuard entrypoint and caller protection."""
+    """Calendar caller protection and native staged-event approval."""
 
-    def __init__(self, registry: CallerContextRegistry | None = None) -> None:
+    def __init__(
+        self,
+        registry: CallerContextRegistry | None = None,
+        client: Any = None,
+    ) -> None:
         self.registry = registry or CallerContextRegistry()
+        self._client = client
 
     def pre_gateway_dispatch(
         self,
@@ -41,6 +48,56 @@ class CalendarToolsGuard:
         except DmOnlyError:
             pass
 
+    def _draft_for(self, draft_id: str) -> Any:
+        if self._client is None:
+            return None
+        service = getattr(self._client, "service", None)
+        store = getattr(service, "store", None)
+        if store is None:
+            return None
+        return store.get_draft(draft_id)
+
+    @staticmethod
+    def _rule_key(caller: Any, draft: Any) -> str:
+        immutable = {
+            "principal_id": str(caller.principal_id),
+            "draft_id": str(draft.draft_id),
+            "account_email": str(getattr(draft, "account_email", "") or "").casefold(),
+            "calendar_id": str(draft.calendar_id),
+            "summary": str(draft.summary),
+            "description": str(draft.description),
+            "location": str(draft.location),
+            "start_time": str(draft.start_time),
+            "end_time": str(draft.end_time),
+            "attendees": sorted(str(address) for address in draft.attendees),
+        }
+        digest = hashlib.sha256(
+            json.dumps(immutable, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        ).hexdigest()
+        return f"calendar_confirm:{digest}"
+
+    def _confirm_directive(
+        self,
+        args: dict[str, Any] | None,
+        caller: Any,
+    ) -> dict[str, Any]:
+        draft_id = str((args or {}).get("draft_id", "")).strip()
+        try:
+            draft = self._draft_for(draft_id)
+        except Exception:
+            return {"action": "block", "message": "calendar draft lookup unavailable"}
+        if draft is None:
+            return {"action": "block", "message": "calendar draft not found"}
+        if str(getattr(draft, "principal_id", "")) != str(caller.principal_id):
+            return {"action": "block", "message": "calendar draft belongs to another caller"}
+        status_value = getattr(draft, "status", None)
+        status = getattr(status_value, "value", status_value)
+        return {
+            "action": "approve",
+            "message": "Confirm this staged Google Calendar event.",
+            "rule_key": self._rule_key(caller, draft),
+        }
+
     def pre_tool_call(
         self,
         tool_name: str,
@@ -49,15 +106,17 @@ class CalendarToolsGuard:
         session_id: str = "",
         **kwargs: Any,
     ) -> dict[str, Any] | None:
-        del _args, kwargs
+        del kwargs
         if tool_name not in CALENDAR_TOOL_NAMES:
             return None
         try:
-            self.registry.resolve_dm_tool(task_id=task_id, session_id=session_id)
+            caller = self.registry.resolve_dm_tool(task_id=task_id, session_id=session_id)
         except DmOnlyError as error:
             return {"action": "block", "message": str(error)}
         except LookupError as error:
             return {"action": "block", "message": str(error)}
+        if tool_name == "calendar_confirm_event":
+            return self._confirm_directive(_args, caller)
         return None
 
     def on_session_finalize(

@@ -1,9 +1,13 @@
 from __future__ import annotations
 
 import json
+import logging
 import re
 from typing import Any, Dict
+
 from caller import CallerContextRegistry, DmOnlyError
+
+logger = logging.getLogger(__name__)
 
 
 def _error(code: str, message: str = "") -> str:
@@ -11,8 +15,14 @@ def _error(code: str, message: str = "") -> str:
     if message:
         err["message"] = message
         lower = message.lower()
-        if any(term in lower for term in ("missing_access_token", "invalid_grant", "401", "unauthorized")):
-            err["hint"] = "Tài khoản Google/Gmail chưa được kết nối hoặc token đã hết hạn. Hãy dùng lệnh /connect_google để kết nối lại."
+        if any(
+            term in lower
+            for term in ("missing_access_token", "invalid_grant", "401", "unauthorized")
+        ):
+            err["hint"] = (
+                "Tài khoản Google/Gmail chưa được kết nối hoặc token đã hết hạn. "
+                "Hãy dùng lệnh /connect_google để kết nối lại."
+            )
     return json.dumps({"ok": False, "error": err}, ensure_ascii=False)
 
 
@@ -26,6 +36,33 @@ def _resolve_caller(
     return registry.resolve_dm_tool(task_id=task_id, session_id=session_id)
 
 
+def _resolve_principal(caller: Any) -> str:
+    principal_id = str(getattr(caller, "principal_id", "")).strip()
+    if not principal_id:
+        raise LookupError("caller_principal_unavailable")
+    return principal_id
+def _target_user_id(caller: Any) -> str:
+    user_id = getattr(caller, "user_id", None)
+    if user_id is not None and str(user_id).strip():
+        return str(user_id).strip()
+    return _resolve_principal(caller)
+
+
+def _caller_error(exc: Exception) -> str:
+    if isinstance(exc, DmOnlyError):
+        return _error("dm_required", str(exc))
+    return _error("missing_caller_context", str(exc))
+
+def _call_google(
+    operation: str,
+    principal_id: str,
+    params: Dict[str, Any] | None = None,
+) -> Any:
+    from tools.composio.bridge import call_google
+
+    return call_google(operation, principal_id, params)
+
+
 def handle_email_search(
     params: Dict[str, Any],
     *,
@@ -36,50 +73,58 @@ def handle_email_search(
     **kwargs: Any,
 ) -> str:
     del kwargs
-    if client is None:
+    if client is None or getattr(client, "configured", True) is False:
         return _error("connector_unavailable")
     try:
         caller = _resolve_caller(registry, task_id, session_id)
-    except DmOnlyError:
-        return _error("dm_required")
-    except LookupError:
-        return _error("missing_caller_context")
-
-    # In legacy unit tests using FakeConnectorClient
-    if hasattr(client, "calls"):
+        principal_id = _resolve_principal(caller)
+    except (DmOnlyError, LookupError) as exc:
+        return _caller_error(exc)
+    if hasattr(client, "search") and (hasattr(client, "calls") or client.__class__.__name__ == "UnavailableConnectorClient"):
         return json.dumps(client.search(caller, params.get("query", ""), params.get("limit", 10)))
 
-    query = params.get("query", "label:inbox")
+    query = str(params.get("query", "label:inbox"))
     account_email = params.get("account_email")
-
     if not account_email and query:
-        match = re.search(r'[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+', query)
+        match = re.search(r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+", query)
         if match:
             account_email = match.group(0)
     try:
-        user_id = getattr(caller, "user_id", None) or getattr(caller, "chat_id", None)
-        if user_id:
-            from tools.composio.auth import check_connection_status
-            from tools.composio.mail_tools import composio_mail_search
-            if check_connection_status(user_id, app="gmail"):
-                res = composio_mail_search(
-                    user_id,
-                    query=query,
-                    max_results=params.get("limit", 10),
-                    account_email=account_email,
-                )
-                if res.get("status") == "success":
-                    return json.dumps({
-                        "ok": True,
-                        "active_mailbox": res.get("active_mailbox"),
-                        "all_connected_mailboxes": res.get("all_connected_mailboxes"),
-                        "result": res.get("data", {}),
-                    }, ensure_ascii=False)
-    except Exception:
-        pass
-
-    result = client.search(caller, params.get("query", ""), params.get("limit", 10))
-    return json.dumps(result)
+        if not _call_google(
+            "check_connection_status",
+            principal_id,
+            {"app": "gmail"},
+        ):
+            return _error(
+                "not_connected",
+                "Tài khoản Gmail chưa được kết nối. Hãy dùng lệnh /connect_google để kết nối.",
+            )
+        result = _call_google(
+            "composio_mail_search",
+            principal_id,
+            {
+                "query": query,
+                "max_results": params.get("limit", 10),
+                "account_email": account_email,
+            },
+        )
+        if result.get("status") != "success":
+            return _error(
+                result.get("error_code", "mail_search_failed").lower(),
+                result.get("message", "Lỗi tìm kiếm email"),
+            )
+        return json.dumps(
+            {
+                "ok": True,
+                "active_mailbox": result.get("active_mailbox"),
+                "all_connected_mailboxes": result.get("all_connected_mailboxes"),
+                "result": result.get("data", {}),
+            },
+            ensure_ascii=False,
+        )
+    except Exception as exc:
+        logger.warning("Composio email search failed for %s: %s", principal_id, exc)
+        return _error("mail_search_failed", str(exc))
 
 
 def handle_email_get_thread(
@@ -92,40 +137,56 @@ def handle_email_get_thread(
     **kwargs: Any,
 ) -> str:
     del kwargs
-    if client is None:
+    if client is None or getattr(client, "configured", True) is False:
         return _error("connector_unavailable")
     try:
         caller = _resolve_caller(registry, task_id, session_id)
-    except DmOnlyError:
-        return _error("dm_required")
-    except LookupError:
-        return _error("missing_caller_context")
-    # In legacy unit tests using FakeConnectorClient
-    if hasattr(client, "calls"):
+        principal_id = _resolve_principal(caller)
+    except (DmOnlyError, LookupError) as exc:
+        return _caller_error(exc)
+    if hasattr(client, "get_thread") and (hasattr(client, "calls") or client.__class__.__name__ == "UnavailableConnectorClient"):
         return json.dumps(client.get_thread(caller, params.get("thread_id", "")))
-
     thread_id = str(params.get("thread_id", "")).strip()
     account_email = params.get("account_email")
-
-    user_id = getattr(caller, "user_id", None) or getattr(caller, "chat_id", None)
-    if user_id:
-        try:
-            from tools.composio.auth import check_connection_status
-            from tools.composio.mail_tools import composio_mail_get_thread
-            if check_connection_status(user_id, app="gmail"):
-                res = composio_mail_get_thread(user_id, thread_id=thread_id, account_email=account_email)
-                if res.get("status") == "success":
-                    return json.dumps({
-                        "ok": True,
-                        "active_mailbox": res.get("active_mailbox"),
-                        "all_connected_mailboxes": res.get("all_connected_mailboxes"),
-                        "result": res.get("data", {}),
-                    }, ensure_ascii=False)
-        except Exception:
-            pass
-
-    result = client.get_thread(caller, thread_id)
-    return json.dumps(result)
+    if not thread_id:
+        return _error("thread_id_required")
+    try:
+        if not _call_google(
+            "check_connection_status",
+            principal_id,
+            {"app": "gmail"},
+        ):
+            return _error(
+                "not_connected",
+                "Tài khoản Gmail chưa được kết nối. Hãy dùng lệnh /connect_google để kết nối.",
+            )
+        result = _call_google(
+            "composio_mail_get_thread",
+            principal_id,
+            {"thread_id": thread_id, "account_email": account_email},
+        )
+        if result.get("status") != "success":
+            return _error(
+                result.get("error_code", "mail_get_thread_failed").lower(),
+                result.get("message", "Lỗi khi đọc email"),
+            )
+        return json.dumps(
+            {
+                "ok": True,
+                "active_mailbox": result.get("active_mailbox"),
+                "all_connected_mailboxes": result.get("all_connected_mailboxes"),
+                "result": result.get("data", {}),
+            },
+            ensure_ascii=False,
+        )
+    except Exception as exc:
+        logger.warning(
+            "Composio get_thread failed for %s (thread %s): %s",
+            principal_id,
+            thread_id,
+            exc,
+        )
+        return _error("mail_get_thread_failed", str(exc))
 
 
 def handle_email_connection_status(
@@ -137,40 +198,38 @@ def handle_email_connection_status(
     session_id: str = "",
     **kwargs: Any,
 ) -> str:
-    del params
-    del kwargs
-    if client is None:
+    del params, kwargs
+    if client is None or getattr(client, "configured", True) is False:
         return _error("connector_unavailable")
     try:
         caller = _resolve_caller(registry, task_id, session_id)
-    except DmOnlyError:
-        return _error("dm_required")
-    except LookupError:
-        return _error("missing_caller_context")
-    # In legacy unit tests with FakeConnectorClient
-    if hasattr(client, "calls"):
+        principal_id = _resolve_principal(caller)
+    except (DmOnlyError, LookupError) as exc:
+        return _caller_error(exc)
+    if hasattr(client, "connections") and (hasattr(client, "calls") or client.__class__.__name__ == "UnavailableConnectorClient"):
         return json.dumps(client.connections(caller))
-
-    user_id = getattr(caller, "user_id", None) or getattr(caller, "chat_id", None)
-    if user_id:
-        try:
-            from tools.composio.auth import list_user_connections
-            conns = list_user_connections(user_id)
-            if conns:
-                return json.dumps({
-                    "ok": True,
-                    "result": {
-                        "status": "connected",
-                        "connections": [
-                            {"connection_id": c["id"], "email": c["email"], "status": c["status"]}
-                            for c in conns
-                        ]
-                    }
-                }, ensure_ascii=False)
-        except Exception:
-            pass
-
-    return json.dumps(client.connections(caller))
+    try:
+        connections = _call_google("list_user_connections", principal_id)
+        return json.dumps(
+            {
+                "ok": True,
+                "result": {
+                    "status": "connected" if connections else "disconnected",
+                    "connections": [
+                        {
+                            "connection_id": item.get("id"),
+                            "email": item.get("email", ""),
+                            "status": item.get("status"),
+                        }
+                        for item in connections
+                    ],
+                },
+            },
+            ensure_ascii=False,
+        )
+    except Exception as exc:
+        logger.warning("Failed querying email connections for %s: %s", principal_id, exc)
+        return _error("connection_status_failed", str(exc))
 
 
 def handle_email_send(
@@ -183,12 +242,13 @@ def handle_email_send(
     **kwargs: Any,
 ) -> str:
     del kwargs
+    if client is not None and getattr(client, "configured", True) is False:
+        return _error("connector_unavailable")
     try:
         caller = _resolve_caller(registry, task_id, session_id)
-    except DmOnlyError:
-        return _error("dm_required")
-    except LookupError:
-        return _error("missing_caller_context")
+        principal_id = _resolve_principal(caller)
+    except (DmOnlyError, LookupError) as exc:
+        return _caller_error(exc)
 
     recipient = str(params.get("recipient", "")).strip()
     subject = str(params.get("subject", "")).strip()
@@ -198,15 +258,16 @@ def handle_email_send(
     if not recipient or not subject or not body:
         return _error("missing_required_fields", "recipient, subject, và body là bắt buộc.")
 
-    user_id = getattr(caller, "user_id", None) or getattr(caller, "chat_id", None)
     try:
-        from tools.composio.mail_tools import composio_mail_send
-        res = composio_mail_send(
-            user_id,
-            recipient=recipient,
-            subject=subject,
-            body=body,
-            account_email=account_email,
+        res = _call_google(
+            "composio_mail_send",
+            principal_id,
+            {
+                "recipient": recipient,
+                "subject": subject,
+                "body": body,
+                "account_email": account_email,
+            },
         )
         if res.get("status") == "success":
             return json.dumps({
@@ -230,12 +291,13 @@ def handle_email_create_draft(
     **kwargs: Any,
 ) -> str:
     del kwargs
+    if client is not None and getattr(client, "configured", True) is False:
+        return _error("connector_unavailable")
     try:
         caller = _resolve_caller(registry, task_id, session_id)
-    except DmOnlyError:
-        return _error("dm_required")
-    except LookupError:
-        return _error("missing_caller_context")
+        principal_id = _resolve_principal(caller)
+    except (DmOnlyError, LookupError) as exc:
+        return _caller_error(exc)
 
     recipient = str(params.get("recipient", "")).strip()
     subject = str(params.get("subject", "")).strip()
@@ -245,15 +307,16 @@ def handle_email_create_draft(
     if not recipient or not subject or not body:
         return _error("missing_required_fields", "recipient, subject, và body là bắt buộc.")
 
-    user_id = getattr(caller, "user_id", None) or getattr(caller, "chat_id", None)
     try:
-        from tools.composio.mail_tools import composio_mail_create_draft
-        res = composio_mail_create_draft(
-            user_id,
-            recipient=recipient,
-            subject=subject,
-            body=body,
-            account_email=account_email,
+        res = _call_google(
+            "composio_mail_create_draft",
+            principal_id,
+            {
+                "recipient": recipient,
+                "subject": subject,
+                "body": body,
+                "account_email": account_email,
+            },
         )
         if res.get("status") == "success":
             return json.dumps({
@@ -277,12 +340,13 @@ def handle_email_reply(
     **kwargs: Any,
 ) -> str:
     del kwargs
+    if client is not None and getattr(client, "configured", True) is False:
+        return _error("connector_unavailable")
     try:
         caller = _resolve_caller(registry, task_id, session_id)
-    except DmOnlyError:
-        return _error("dm_required")
-    except LookupError:
-        return _error("missing_caller_context")
+        principal_id = _resolve_principal(caller)
+    except (DmOnlyError, LookupError) as exc:
+        return _caller_error(exc)
 
     thread_id = str(params.get("thread_id", "")).strip()
     body = str(params.get("body", "")).strip()
@@ -291,14 +355,15 @@ def handle_email_reply(
     if not thread_id or not body:
         return _error("missing_required_fields", "thread_id và body là bắt buộc.")
 
-    user_id = getattr(caller, "user_id", None) or getattr(caller, "chat_id", None)
     try:
-        from tools.composio.mail_tools import composio_mail_reply
-        res = composio_mail_reply(
-            user_id,
-            thread_id=thread_id,
-            body=body,
-            account_email=account_email,
+        res = _call_google(
+            "composio_mail_reply",
+            principal_id,
+            {
+                "thread_id": thread_id,
+                "body": body,
+                "account_email": account_email,
+            },
         )
         if res.get("status") == "success":
             return json.dumps({

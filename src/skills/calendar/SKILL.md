@@ -1,6 +1,6 @@
 ---
 name: calendar
-description: "Use when inspecting schedules, creating, modifying, rescheduling, or canceling Google Calendar events, finding free slots, or managing connected Google accounts across platforms."
+description: "Use for Google Calendar inspection, availability, approval-gated scheduling, modification, or cancellation on a verified gateway caller or explicitly provisioned native Hermes CLI/Desktop installation."
 version: 1.0.0
 author: Hermes Engineering Team
 license: MIT
@@ -8,14 +8,19 @@ platforms: [windows, linux, darwin]
 metadata:
   hermes:
     category: calendar
-    tags: [calendar, schedule, events, meetings, free-slots, reschedule]
+    tags: [calendar, schedule, events, meetings, free-slots, reschedule, local-owner]
 ---
 
 # Google Calendar Schedule Management
 
 ## Overview
 
-Executive Schedule Coordinator for Hermes Agent. Provides full-lifecycle Google Calendar operations—agenda querying, direct booking, Tier 2 draft-before-commit staging, patch-semantic rescheduling, event cancellation, and availability discovery—with strict multi-account isolation and local timezone handling (ICT / Asia/Ho_Chi_Minh, UTC+7).
+Executive Schedule Coordinator for Hermes Agent. Provides agenda querying,
+availability discovery, direct or staged booking, patch-semantic rescheduling,
+and cancellation with strict caller/account isolation and local timezone handling
+(ICT / Asia/Ho_Chi_Minh, UTC+7). Native CLI/Desktop use the installation owner
+created by `setup --local`; gateway callers retain their verified gateway
+identity.
 
 ---
 
@@ -29,6 +34,17 @@ Apply this skill whenever the user conversation touches scheduling, availability
 - **Event Cancellation:** Removing or canceling scheduled events.
 - **Availability Discovery:** Scanning free slots within business hours (09:00–18:00 ICT) before proposing meeting times.
 - **Connection Audit:** Inspecting active Google accounts or diagnosing multi-account connectivity.
+
+### Caller and installation boundary
+
+- Local CLI/Desktop requires the owner binding at
+  `.runtime/google/local-owner.json`, created only by `setup --local`.
+- CLI and Desktop share that installation owner across business profiles;
+  workspace and RAG authorization remains profile/workspace-scoped.
+- Telegram identities and captured messaging callers never fall through to the
+  local owner when gateway lookup fails. Local mode is not a shared backend.
+- A missing connection or provider error is an error. Never invent an account,
+  event, or successful operation.
 
 ---
 
@@ -104,8 +120,12 @@ Applied when canceling, removing, or declining a calendar commitment:
 ## Operating Invariants & Guardrails
 
 - **Native Tools Only:** Always use the registered tools `calendar_list_events`, `calendar_get_event`, `calendar_create_event`, `calendar_create_draft_event`, `calendar_confirm_event`, `calendar_update_event`, `calendar_delete_event`, `calendar_find_free_slots`, `calendar_status`. Never execute raw bash Python scripts or attempt direct OAuth flows.
-- **Strict DM-Only Privacy:** Calendar operations are restricted to direct messages (`chat_type == "dm"`). Requests originating from group chats, public channels, or multi-user topics must redirect the user to a private DM session without exposing schedule contents.
-- **Multi-Account Integrity:** If the user specifies an email address or manages multiple linked accounts, always pass `account_email` to guarantee operations execute on the intended calendar. Never assume an account when the user specifies another.
+- **Gateway DM-only privacy:** Gateway Calendar operations are restricted to
+  direct messages (`chat_type == "dm"`). Group, public-channel, or multi-user
+  requests redirect to a private DM without exposing schedule contents.
+  Local CLI/Desktop requests use the explicit installation owner instead.
+- **Account integrity:** Pass `account_email` whenever the user specifies an
+  account. Unknown or ambiguous targets fail closed; never infer an account.
 - **Timezone Grounding:** All internal timestamps pass in ISO 8601 with timezone offset (e.g. `+07:00`). When displaying to users, always format times in local ICT (Vietnam time) format (e.g. `14:30–15:00, ngày 04/09/2026`).
 - **Policy Boundaries:** Operations are bounded by configured policy (maximum 30 days lookahead, 15 to 480 minutes duration). Free slot discovery aligns with working hours (09:00–18:00 ICT).
 - **Anti-Hallucination Gate:** Never claim an event was created, updated, or deleted without receiving a verified positive response from the corresponding tool.

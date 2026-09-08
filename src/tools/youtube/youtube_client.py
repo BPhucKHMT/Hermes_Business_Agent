@@ -33,8 +33,8 @@ class YouTubeClient:
     def _refresh_access_token(self, token_data: Dict[str, Any]) -> str:
         import os
         refresh_token = token_data.get("refresh_token")
-        client_id = token_data.get("client_id") or os.environ.get("EMAIL_GOOGLE_CLIENT_ID")
-        client_secret = token_data.get("client_secret") or os.environ.get("EMAIL_GOOGLE_CLIENT_SECRET")
+        client_id = token_data.get("client_id") or os.environ.get("YOUTUBE_GOOGLE_CLIENT_ID")
+        client_secret = token_data.get("client_secret") or os.environ.get("YOUTUBE_GOOGLE_CLIENT_SECRET")
         token_uri = token_data.get("token_uri", "https://oauth2.googleapis.com/token")
 
         if not refresh_token or not client_id or not client_secret:

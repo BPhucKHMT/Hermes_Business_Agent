@@ -1,12 +1,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from enum import Enum
 import hashlib
 import json
-from typing import Any, Optional
-from uuid import uuid4
+from typing import Optional
 
 
 class EventDraftStatus(str, Enum):
@@ -53,6 +51,8 @@ class EventDraft:
     status: EventDraftStatus = EventDraftStatus.DRAFT
     committed_event_id: Optional[str] = None
     account_email: Optional[str] = None
+
+
 @dataclass(frozen=True)
 class FreeSlot:
     start_time: str
@@ -86,7 +86,9 @@ def compute_draft_idempotency_key(
     summary: str,
     start_time: str,
     end_time: str,
+    account_email: Optional[str] = None,
 ) -> str:
+    """Build a stable draft key, including an explicit account target when set."""
     payload = {
         "calendar_id": calendar_id.strip(),
         "end_time": end_time.strip(),
@@ -94,5 +96,13 @@ def compute_draft_idempotency_key(
         "start_time": start_time.strip(),
         "summary": summary.strip().lower(),
     }
-    encoded = json.dumps(payload, ensure_ascii=False, separators=(",", ":"), sort_keys=True).encode("utf-8")
+    normalized_account = account_email.strip().casefold() if account_email else ""
+    if normalized_account:
+        payload["account_email"] = normalized_account
+    encoded = json.dumps(
+        payload,
+        ensure_ascii=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode("utf-8")
     return hashlib.sha256(encoded).hexdigest()

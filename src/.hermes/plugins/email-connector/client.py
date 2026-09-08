@@ -62,7 +62,7 @@ def _caller_payload(caller: Any) -> dict[str, Any]:
     return {
         "principal_id": caller.principal_id,
         "platform": caller.platform,
-        "user_id": caller.user_id,
+        "user_id": str(caller.user_id),
         "chat_id": caller.chat_id,
         "thread_id": caller.thread_id,
         "chat_type": caller.chat_type,

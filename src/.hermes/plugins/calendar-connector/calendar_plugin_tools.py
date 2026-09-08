@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import json
+import logging
 from typing import Any, Dict
 
 from calendar_caller import CallerContextRegistry, DmOnlyError
 
-
+logger = logging.getLogger(__name__)
 def _json(data: Dict[str, Any]) -> str:
     return json.dumps(data, ensure_ascii=False)
 
@@ -34,6 +35,21 @@ def _caller_error(exc: Exception) -> str:
         return _error("dm_required", str(exc))
     return _error("missing_caller_context", str(exc))
 
+def _call_google(
+    operation: str,
+    principal_id: str,
+    params: Dict[str, Any] | None = None,
+) -> Any:
+    from tools.composio.bridge import call_google
+
+    return call_google(operation, principal_id, params)
+
+def _resolve_principal(caller: Any) -> str:
+    principal_id = str(getattr(caller, "principal_id", "")).strip()
+    if not principal_id:
+        raise LookupError("caller_principal_unavailable")
+    return principal_id
+
 
 def handle_calendar_list_events(
     params: Dict[str, Any],
@@ -52,37 +68,41 @@ def handle_calendar_list_events(
     except (DmOnlyError, LookupError) as exc:
         return _caller_error(exc)
 
-    user_id = getattr(caller, "user_id", None) or getattr(caller, "chat_id", None)
+    try:
+        principal_id = _resolve_principal(caller)
+    except LookupError as exc:
+        return _caller_error(exc)
     account_email = params.get("account_email")
+    use_composio = bool(getattr(caller, "user_id", None))
 
-    if user_id:
+    if use_composio:
         try:
-            from tools.composio.calendar_tools import composio_calendar_list_events
-            from tools.composio.auth import check_connection_status
-            if check_connection_status(user_id, app="googlecalendar") or check_connection_status(user_id, app="googlesuper"):
-                c_res = composio_calendar_list_events(
-                    user_id,
-                    calendar_id=params.get("calendar_id", "primary"),
-                    account_email=account_email,
-                    time_min=params.get("time_min"),
-                    time_max=params.get("time_max"),
-                    query=params.get("query"),
-                    limit=params.get("limit", 20),
-                )
-                if c_res.get("status") == "success":
-                    raw_data = c_res.get("data", {})
-                    items = raw_data.get("items", []) if isinstance(raw_data, dict) else []
-                    return _json({
-                        "ok": True,
-                        "result": {
-                            "events": items,
-                            "count": len(items),
-                            "summary": raw_data.get("summary") if isinstance(raw_data, dict) else "",
-                            "active_account": c_res.get("active_account"),
-                            "all_connected_accounts": c_res.get("all_connected_accounts", []),
-                        },
-                    })
-                return _error("calendar_query_failed", c_res.get("message", "Lỗi khi đọc lịch"))
+            c_res = _call_google(
+                "composio_calendar_list_events",
+                principal_id,
+                {
+                    "calendar_id": params.get("calendar_id", "primary"),
+                    "account_email": account_email,
+                    "time_min": params.get("time_min"),
+                    "time_max": params.get("time_max"),
+                    "query": params.get("query"),
+                    "limit": params.get("limit", 20),
+                },
+            )
+            if c_res.get("status") == "success":
+                raw_data = c_res.get("data", {})
+                items = raw_data.get("items", []) if isinstance(raw_data, dict) else []
+                return _json({
+                    "ok": True,
+                    "result": {
+                        "events": items,
+                        "count": len(items),
+                        "summary": raw_data.get("summary") if isinstance(raw_data, dict) else "",
+                        "active_account": c_res.get("active_account"),
+                        "all_connected_accounts": c_res.get("all_connected_accounts", []),
+                    },
+                })
+            return _error(c_res.get("error_code", "calendar_query_failed").lower(), c_res.get("message", "Lỗi khi đọc lịch"))
         except Exception as exc:
             return _error("calendar_query_failed", str(exc))
     try:
@@ -114,30 +134,30 @@ def handle_calendar_find_free_slots(
         date_str = params.get("date", "")
         if not date_str:
             return _error("date_parameter_required")
-        user_id = getattr(caller, "user_id", None) or getattr(caller, "chat_id", None)
+        principal_id = _resolve_principal(caller)
         account_email = params.get("account_email")
-        if user_id:
+        use_composio = bool(getattr(caller, "user_id", None))
+        if use_composio:
             try:
-                from tools.composio.calendar_tools import composio_calendar_find_free_slots
-                from tools.composio.auth import check_connection_status
-                if check_connection_status(user_id, app="googlecalendar") or check_connection_status(user_id, app="googlesuper"):
-                    c_res = composio_calendar_find_free_slots(
-                        user_id,
-                        date_str=date_str,
-                        duration_minutes=params.get("duration_minutes", 30),
-                        calendar_id=params.get("calendar_id", "primary"),
-                        account_email=account_email,
-                    )
-                    if c_res.get("status") == "success":
-                        return _json({
-                            "ok": True,
-                            "result": c_res.get("data", {}),
-                            "active_account": c_res.get("active_account"),
-                        })
-                    return _error("free_slots_search_failed", c_res.get("message", "Lỗi tìm khoảng trống"))
+                c_res = _call_google(
+                    "composio_calendar_find_free_slots",
+                    principal_id,
+                    {
+                        "date_str": date_str,
+                        "duration_minutes": params.get("duration_minutes", 30),
+                        "calendar_id": params.get("calendar_id", "primary"),
+                        "account_email": account_email,
+                    },
+                )
+                if c_res.get("status") == "success":
+                    return _json({
+                        "ok": True,
+                        "result": c_res.get("data", {}),
+                        "active_account": c_res.get("active_account"),
+                    })
+                return _error(c_res.get("error_code", "free_slots_search_failed").lower(), c_res.get("message", "Lỗi tìm khoảng trống"))
             except Exception as exc:
                 return _error("free_slots_search_failed", str(exc))
-
         res = client.find_free_slots(
             caller=caller,
             date_str=date_str,
@@ -231,12 +251,14 @@ def handle_calendar_status(
     except (DmOnlyError, LookupError) as exc:
         return _caller_error(exc)
 
-    user_id = getattr(caller, "user_id", None) or getattr(caller, "chat_id", None)
-    if user_id:
+    try:
+        principal_id = _resolve_principal(caller)
+    except LookupError as exc:
+        return _caller_error(exc)
+    if principal_id:
         try:
             import re
-            from tools.composio.auth import get_user_emails
-            account_emails = get_user_emails(user_id)
+            account_emails = _call_google("get_user_emails", principal_id)
             if account_emails:
                 clean_emails = []
                 for raw_em in account_emails.values():
@@ -253,12 +275,12 @@ def handle_calendar_status(
                     return _json({
                         "ok": True,
                         "status": "connected",
-                        "principal_id": getattr(caller, "principal_id", f"telegram:default:{user_id}"),
+                        "principal_id": principal_id,
                         "connected_accounts": clean_emails,
                         "calendars": calendars,
                     })
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Failed querying Composio account emails for status (%s): %s", principal_id, exc)
 
     try:
         res = client.status(caller)
@@ -286,34 +308,30 @@ def handle_calendar_get_event(
     if not event_id:
         return _error("event_id_required")
 
-    user_id = getattr(caller, "user_id", None) or getattr(caller, "chat_id", None)
-    account_email = params.get("account_email")
-
-    if user_id:
-        try:
-            from tools.composio.calendar_tools import composio_calendar_get_event
-            c_res = composio_calendar_get_event(
-                user_id,
-                event_id=event_id,
-                calendar_id=params.get("calendar_id", "primary"),
-                account_email=account_email,
-            )
-            if c_res.get("status") == "success":
-                return _json({
-                    "ok": True,
-                    "result": {
-                        "event": c_res.get("data", {}),
-                        "active_account": c_res.get("active_account"),
-                    },
-                })
-            return _error("get_event_failed", c_res.get("message", "Lỗi khi lấy thông tin sự kiện"))
-        except Exception as exc:
-            return _error("get_event_failed", str(exc))
-
     try:
-        ev = client.service.get_event(caller=caller, event_id=event_id, calendar_id=params.get("calendar_id", "primary"))
-        from dataclasses import asdict
-        return _json({"ok": True, "result": {"event": asdict(ev)}})
+        principal_id = _resolve_principal(caller)
+    except LookupError as exc:
+        return _caller_error(exc)
+    account_email = params.get("account_email")
+    try:
+        c_res = _call_google(
+            "composio_calendar_get_event",
+            principal_id,
+            {
+                "event_id": event_id,
+                "calendar_id": params.get("calendar_id", "primary"),
+                "account_email": account_email,
+            },
+        )
+        if c_res.get("status") == "success":
+            return _json({
+                "ok": True,
+                "result": {
+                    "event": c_res.get("data", {}),
+                    "active_account": c_res.get("active_account"),
+                },
+            })
+        return _error(c_res.get("error_code", "get_event_failed").lower(), c_res.get("message", "Lỗi khi lấy thông tin sự kiện"))
     except Exception as exc:
         return _error("get_event_failed", str(exc))
 
@@ -341,44 +359,48 @@ def handle_calendar_create_event(
     if not summary or not start_time:
         return _error("missing_required_event_fields", "summary and start_time are required")
 
-    user_id = getattr(caller, "user_id", None) or getattr(caller, "chat_id", None)
+    try:
+        principal_id = _resolve_principal(caller)
+    except LookupError as exc:
+        return _caller_error(exc)
     account_email = params.get("account_email")
 
-    if user_id:
-        try:
-            from tools.composio.calendar_tools import composio_calendar_create_event
-            c_res = composio_calendar_create_event(
-                user_id,
-                summary=summary,
-                start_datetime=start_time,
-                end_datetime=params.get("end_time"),
-                duration_minutes=params.get("duration_minutes", 30),
-                description=str(params.get("description", "")),
-                location=str(params.get("location", "")),
-                attendees=list(params.get("attendees", [])) if params.get("attendees") else None,
-                calendar_id=str(params.get("calendar_id", "primary")),
-                account_email=account_email,
-            )
-            if c_res.get("status") == "success":
-                data = c_res.get("data", {})
-                created_id = data.get("id") or data.get("event_id") or "composio_evt"
-                return _json({
-                    "ok": True,
-                    "result": {
-                        "status": "confirmed",
-                        "event_id": created_id,
-                        "event": data,
-                        "summary": summary,
-                        "start_time": start_time,
-                        "active_account": c_res.get("active_account"),
-                        "html_link": data.get("htmlLink") or data.get("display_url") or "",
-                    },
-                })
-            return _error("create_event_failed", c_res.get("message", "Lỗi tạo sự kiện trên Calendar"))
-        except Exception as exc:
-            return _error("create_event_failed", str(exc))
-
-    return _error("calendar_connector_unavailable")
+    try:
+        c_res = _call_google(
+            "composio_calendar_create_event",
+            principal_id,
+            {
+                "summary": summary,
+                "start_datetime": start_time,
+                "end_datetime": params.get("end_time"),
+                "duration_minutes": params.get("duration_minutes", 30),
+                "description": str(params.get("description", "")),
+                "location": str(params.get("location", "")),
+                "attendees": list(params.get("attendees", [])) if params.get("attendees") else None,
+                "calendar_id": str(params.get("calendar_id", "primary")),
+                "account_email": account_email,
+            },
+        )
+        if c_res.get("status") == "success":
+            data = c_res.get("data", {})
+            created_id = data.get("id") or data.get("event_id")
+            if not created_id:
+                return _error("create_event_failed", "provider_missing_event_id")
+            return _json({
+                "ok": True,
+                "result": {
+                    "status": "confirmed",
+                    "event_id": created_id,
+                    "event": data,
+                    "summary": summary,
+                    "start_time": start_time,
+                    "active_account": c_res.get("active_account"),
+                    "html_link": data.get("htmlLink") or data.get("display_url") or "",
+                },
+            })
+        return _error("create_event_failed", c_res.get("message", "Lỗi tạo sự kiện trên Calendar"))
+    except Exception as exc:
+        return _error("create_event_failed", str(exc))
 
 
 def handle_calendar_update_event(
@@ -403,41 +425,45 @@ def handle_calendar_update_event(
     if not event_id:
         return _error("event_id_required")
 
-    user_id = getattr(caller, "user_id", None) or getattr(caller, "chat_id", None)
+    try:
+        principal_id = _resolve_principal(caller)
+    except LookupError as exc:
+        return _caller_error(exc)
     account_email = params.get("account_email")
 
-    if user_id:
-        try:
-            from tools.composio.calendar_tools import composio_calendar_patch_event
-            c_res = composio_calendar_patch_event(
-                user_id,
-                event_id=event_id,
-                calendar_id=params.get("calendar_id", "primary"),
-                account_email=account_email,
-                start_time=params.get("start_time"),
-                end_time=params.get("end_time"),
-                summary=params.get("summary"),
-                description=params.get("description"),
-                location=params.get("location"),
-                attendees=list(params.get("attendees")) if params.get("attendees") is not None else None,
-            )
-            if c_res.get("status") == "success":
-                data = c_res.get("data", {})
-                return _json({
-                    "ok": True,
-                    "result": {
-                        "status": "updated",
-                        "event_id": event_id,
-                        "event": data,
-                        "active_account": c_res.get("active_account"),
-                        "html_link": data.get("htmlLink") or data.get("display_url") or "",
-                    },
-                })
-            return _error("update_event_failed", c_res.get("message", "Lỗi khi cập nhật sự kiện"))
-        except Exception as exc:
-            return _error("update_event_failed", str(exc))
-
-    return _error("calendar_connector_unavailable")
+    try:
+        c_res = _call_google(
+            "composio_calendar_patch_event",
+            principal_id,
+            {
+                "event_id": event_id,
+                "calendar_id": params.get("calendar_id", "primary"),
+                "account_email": account_email,
+                "start_time": params.get("start_time"),
+                "end_time": params.get("end_time"),
+                "summary": params.get("summary"),
+                "description": params.get("description"),
+                "location": params.get("location"),
+                "attendees": list(params.get("attendees"))
+                if params.get("attendees") is not None
+                else None,
+            },
+        )
+        if c_res.get("status") == "success":
+            data = c_res.get("data", {})
+            return _json({
+                "ok": True,
+                "result": {
+                    "status": "updated",
+                    "event_id": event_id,
+                    "event": data,
+                    "active_account": c_res.get("active_account"),
+                    "html_link": data.get("htmlLink") or data.get("display_url") or "",
+                },
+            })
+        return _error("update_event_failed", c_res.get("message", "Lỗi khi cập nhật sự kiện"))
+    except Exception as exc:
+        return _error("update_event_failed", str(exc))
 
 
 def handle_calendar_delete_event(
@@ -462,30 +488,32 @@ def handle_calendar_delete_event(
     if not event_id:
         return _error("event_id_required")
 
-    user_id = getattr(caller, "user_id", None) or getattr(caller, "chat_id", None)
+    try:
+        principal_id = _resolve_principal(caller)
+    except LookupError as exc:
+        return _caller_error(exc)
     account_email = params.get("account_email")
 
-    if user_id:
-        try:
-            from tools.composio.calendar_tools import composio_calendar_delete_event
-            c_res = composio_calendar_delete_event(
-                user_id,
-                event_id=event_id,
-                calendar_id=params.get("calendar_id", "primary"),
-                account_email=account_email,
-            )
-            if c_res.get("status") == "success":
-                return _json({
-                    "ok": True,
-                    "result": {
-                        "status": "deleted",
-                        "deleted": True,
-                        "event_id": event_id,
-                        "active_account": c_res.get("active_account"),
-                    },
-                })
-            return _error("delete_event_failed", c_res.get("message", "Lỗi khi xóa sự kiện"))
-        except Exception as exc:
-            return _error("delete_event_failed", str(exc))
-
-    return _error("calendar_connector_unavailable")
+    try:
+        c_res = _call_google(
+            "composio_calendar_delete_event",
+            principal_id,
+            {
+                "event_id": event_id,
+                "calendar_id": params.get("calendar_id", "primary"),
+                "account_email": account_email,
+            },
+        )
+        if c_res.get("status") == "success":
+            return _json({
+                "ok": True,
+                "result": {
+                    "status": "deleted",
+                    "deleted": True,
+                    "event_id": event_id,
+                    "active_account": c_res.get("active_account"),
+                },
+            })
+        return _error("delete_event_failed", c_res.get("message", "Lỗi khi xóa lịch"))
+    except Exception as exc:
+        return _error("delete_event_failed", str(exc))

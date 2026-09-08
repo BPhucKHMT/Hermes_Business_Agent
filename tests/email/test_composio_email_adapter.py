@@ -55,7 +55,8 @@ def test_composio_mail_get_thread_success():
 
     with patch("tools.composio.mail_tools.check_connection_status", return_value=True), \
          patch("tools.composio.mail_tools.get_composio_client", return_value=mock_client), \
-         patch("tools.composio.mail_tools.resolve_account_target", return_value=(None, "test@gmail.com")):
+         patch("tools.composio.mail_tools.resolve_account_target", return_value=(None, "test@gmail.com")), \
+         patch("tools.composio.mail_tools.get_user_emails", return_value={"c1": "test@gmail.com"}):
         res = composio_mail_get_thread(7275339077, thread_id="th_123")
         assert res.get("status") == "success"
         assert res.get("data", {}).get("id") == "th_123"
@@ -67,7 +68,8 @@ def test_composio_mail_send_success():
 
     with patch("tools.composio.mail_tools.check_connection_status", return_value=True), \
          patch("tools.composio.mail_tools.get_composio_client", return_value=mock_client), \
-         patch("tools.composio.mail_tools.resolve_account_target", return_value=(None, "test@gmail.com")):
+         patch("tools.composio.mail_tools.resolve_account_target", return_value=(None, "test@gmail.com")), \
+         patch("tools.composio.mail_tools.get_user_emails", return_value={"c1": "test@gmail.com"}):
         res = composio_mail_send(
             7275339077,
             recipient="client@example.com",
@@ -84,7 +86,8 @@ def test_composio_mail_create_draft_success():
 
     with patch("tools.composio.mail_tools.check_connection_status", return_value=True), \
          patch("tools.composio.mail_tools.get_composio_client", return_value=mock_client), \
-         patch("tools.composio.mail_tools.resolve_account_target", return_value=(None, "test@gmail.com")):
+         patch("tools.composio.mail_tools.resolve_account_target", return_value=(None, "test@gmail.com")), \
+         patch("tools.composio.mail_tools.get_user_emails", return_value={"c1": "test@gmail.com"}):
         res = composio_mail_create_draft(
             7275339077,
             recipient="client@example.com",
@@ -102,7 +105,8 @@ def test_composio_mail_reply_success():
 
     with patch("tools.composio.mail_tools.check_connection_status", return_value=True), \
          patch("tools.composio.mail_tools.get_composio_client", return_value=mock_client), \
-         patch("tools.composio.mail_tools.resolve_account_target", return_value=(None, "test@gmail.com")):
+         patch("tools.composio.mail_tools.resolve_account_target", return_value=(None, "test@gmail.com")), \
+         patch("tools.composio.mail_tools.get_user_emails", return_value={"c1": "test@gmail.com"}):
         res = composio_mail_reply(
             7275339077,
             thread_id="th_123",

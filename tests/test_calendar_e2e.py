@@ -145,16 +145,18 @@ def test_calendar_e2e_draft_and_confirm_flow():
                 registry=registry,
                 task_id="task-001",
                 session_id="session-001",
-            )
+                )
 
-        confirm_res = json.loads(confirm_res_raw)
-        assert confirm_res["ok"] is True
+            confirm_res = json.loads(confirm_res_raw)
+            assert confirm_res["ok"] is True
         event_data = confirm_res["result"]["event"]
         assert event_data["event_id"] == "google_event_id_xyz789"
         assert event_data["summary"] == "Project web"
 
         # 3. Step 3: Verify the raw HTTP request details that were sent
-        assert len(captured_requests) == 1
+        assert len(captured_requests) == 2
+        assert captured_requests[1].get_method() == "GET"
+        assert "calendars/primary/events/google_event_id_xyz789" in captured_requests[1].get_full_url()
         req = captured_requests[0]
         assert req.get_method() == "POST"
         assert "calendars/primary/events" in req.get_full_url()

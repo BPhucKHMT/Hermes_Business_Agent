@@ -29,11 +29,20 @@ and other runtime-owned files belong in this workspace.
 - Dynamic Skills & Parallel Execution: Agent is authorized to invoke any installed native skills or Hermes platform capabilities (terminal, file operations, web tools, python execution, kanban) concurrently/in the same turn and synthesize results into a comprehensive answer.
 - Workspace & Document Access: Agent runs with root at `src` and is authorized to inspect, read, and update business documents directly inside `docs/` (or `workspaces/`), including spreadsheets (`.xlsx`) and project plans (`.docx`). Agent must search `docs/` automatically for domain documents without requiring user filesystem paths.
 - Cross-platform uploaded files: Any file received or delivered through Telegram, WhatsApp, or other connected platforms must be saved into the project workspace (`docs/`, `workspaces/`, or Hermes cache) and, where applicable, ingested into the Azure knowledge base so that skills such as `hermes-azure-rag`, `progress-report`, and document search can access them.
-- `/email` defines multi-user read-only Gmail thread search and inspection in DM with host-owned caller authorization.
-- `/calendar` defines multi-user Google Calendar event listing, free slot search, and Tier 2 event drafting with 1-tap confirmation.
-- `/youtube` defines official YouTube Channel video metadata staging, Tier 2 upload drafts, and video upload execution.
-- `/tiktok` defines official TikTok Content Posting API integration, creator profile inspection, Tier 2 post drafts, and video publishing.
-- No project-owned deep-research provider, web UI, Slack, sales, invoice, cron-research, or outbound Gmail sending integration exists yet. Deck composition delegates to the existing prebuilt deck/productivity skills; do not claim unsupported integrations.
+- `/email` defines read-only Gmail search/thread inspection and connection
+  status. Telegram personal-mail requests remain DM-only with host-owned
+  gateway caller authorization; local CLI/Desktop use an explicit
+  installation owner instead of Telegram identity.
+- `/calendar` defines Google Calendar listing, free-slot search, and
+  approval-gated writes. Account targeting and native approval safeguards apply
+  in both gateway and local owner modes.
+- Local CLI/Desktop Google access is opt-in through `setup --local`. CLI and
+  Desktop share one installation-bound owner across business profiles, while
+  workspace/RAG authorization remains isolated. Telegram identities are never
+  auto-linked, and local mode is not a shared backend or multi-user service.
+- Gmail remains read-only; provider errors or missing connections must never be
+  reported as successful reads or writes.
+- No project-owned outbound Gmail sending integration is supported.
 
 ## Operating Rules
 

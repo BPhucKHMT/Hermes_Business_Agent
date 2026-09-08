@@ -1,26 +1,22 @@
 from __future__ import annotations
 
-from dataclasses import asdict
-from datetime import datetime, time, timedelta, timezone
-from pathlib import Path
+from datetime import datetime, timedelta, timezone
 import logging
 from typing import Any, Callable, Dict, List, Optional
 from uuid import uuid4
 
-logger = logging.getLogger(__name__)
 from tools.calendar.contracts import (
-    CalendarConnection,
-    CalendarConnectionStatus,
     CalendarEvent,
     EventDraft,
     EventDraftStatus,
-    EventVerification,
     FreeSlot,
     compute_draft_idempotency_key,
 )
 from tools.calendar.google_calendar import GoogleCalendarClient
-from tools.calendar.policy import CalendarPolicy, load_calendar_policy
+from tools.calendar.policy import CalendarPolicy
 from tools.calendar.store import CalendarStore
+
+logger = logging.getLogger(__name__)
 
 
 class CalendarService:
@@ -36,23 +32,204 @@ class CalendarService:
         self.google_client = google_client
         self.token_resolver = token_resolver or self._default_token_resolver
 
+    @staticmethod
+    def _principal(caller: Any) -> str:
+        principal_id = getattr(caller, "principal_id", "")
+        if not isinstance(principal_id, str) or not principal_id.strip():
+            raise ValueError("principal_id_required")
+        return principal_id.strip()
+
+    @staticmethod
+    def _uses_composio(token_data: Dict[str, Any]) -> bool:
+        provider = str(token_data.get("provider", "")).casefold()
+        access_token = token_data.get("access_token")
+        return bool(
+            provider == "composio"
+            or token_data.get("composio") is True
+            or token_data.get("account_id")
+            or token_data.get("account_email")
+            or (
+                isinstance(access_token, str)
+                and (access_token.startswith("ca_") or "composio" in access_token.casefold())
+            )
+        )
+
+    @staticmethod
+    def _normalize_account(account_email: Optional[str]) -> Optional[str]:
+        if account_email is None:
+            return None
+        normalized = account_email.strip().casefold()
+        return normalized or None
+
+    @staticmethod
+    def _normalize_payload(data: Any) -> Dict[str, Any]:
+        if not isinstance(data, dict):
+            return {}
+        nested = data.get("response_data")
+        if isinstance(nested, dict):
+            merged = dict(nested)
+            for key, value in data.items():
+                if key != "response_data":
+                    merged.setdefault(key, value)
+            return merged
+        return data
+
+    @classmethod
+    def _event_from_payload(
+        cls,
+        data: Dict[str, Any],
+        calendar_id: str,
+        *,
+        require_id: bool = True,
+    ) -> CalendarEvent:
+        payload = cls._normalize_payload(data)
+        event_id = str(payload.get("id") or payload.get("event_id") or "").strip()
+        if require_id and not event_id:
+            raise ValueError("provider_event_id_missing")
+
+        start = payload.get("start")
+        end = payload.get("end")
+        start_time = ""
+        end_time = ""
+        if isinstance(start, dict):
+            start_time = str(start.get("dateTime") or start.get("date") or "")
+        if isinstance(end, dict):
+            end_time = str(end.get("dateTime") or end.get("date") or "")
+        start_time = start_time or str(
+            payload.get("start_time") or payload.get("start_datetime") or ""
+        )
+        end_time = end_time or str(
+            payload.get("end_time") or payload.get("end_datetime") or ""
+        )
+        attendees = payload.get("attendees", [])
+        attendee_emails = tuple(
+            str(item.get("email", ""))
+            for item in attendees
+            if isinstance(item, dict) and item.get("email")
+        )
+        return CalendarEvent(
+            event_id=event_id,
+            calendar_id=str(payload.get("calendarId") or payload.get("calendar_id") or calendar_id),
+            summary=str(payload.get("summary", "")),
+            description=str(payload.get("description", "")),
+            location=str(payload.get("location", "")),
+            start_time=start_time,
+            end_time=end_time,
+            html_link=str(payload.get("htmlLink") or payload.get("display_url") or ""),
+            status=str(payload.get("status", "confirmed")),
+            attendees=attendee_emails,
+            is_all_day=bool(
+                isinstance(start, dict) and start.get("date") and not start.get("dateTime")
+            ),
+        )
+
+    @staticmethod
+    def _same_time(expected: str, observed: str) -> bool:
+        if not expected or not observed:
+            return False
+        try:
+            expected_dt = datetime.fromisoformat(expected.replace("Z", "+00:00"))
+            observed_dt = datetime.fromisoformat(observed.replace("Z", "+00:00"))
+        except ValueError:
+            return expected.strip() == observed.strip()
+        if expected_dt.tzinfo is None:
+            expected_dt = expected_dt.replace(tzinfo=timezone.utc)
+        if observed_dt.tzinfo is None:
+            observed_dt = observed_dt.replace(tzinfo=timezone.utc)
+        return expected_dt.astimezone(timezone.utc) == observed_dt.astimezone(timezone.utc)
+
+    @classmethod
+    def _validate_event(
+        cls,
+        event: CalendarEvent,
+        draft: EventDraft,
+        expected_event_id: str,
+    ) -> None:
+        if event.event_id != expected_event_id:
+            raise RuntimeError("provider_event_id_mismatch")
+        if event.calendar_id != draft.calendar_id:
+            raise RuntimeError("provider_calendar_id_mismatch")
+        if not cls._same_time(draft.start_time, event.start_time):
+            raise RuntimeError("provider_start_time_mismatch")
+        if not cls._same_time(draft.end_time, event.end_time):
+            raise RuntimeError("provider_end_time_mismatch")
+
     def _default_token_resolver(self, principal_id: str) -> Dict[str, Any]:
         try:
             from tools.composio.auth import list_user_connections
-            conns = list_user_connections(principal_id)
-            for c in conns:
-                if c.get("status") == "ACTIVE":
+
+            connections = list_user_connections(principal_id)
+            for connection in connections:
+                if str(connection.get("status", "")).upper() == "ACTIVE":
                     return {
-                        "access_token": c.get("id"),
-                        "account_email": c.get("email"),
-                        "mock_mode": False,
+                        "provider": "composio",
+                        "account_id": connection.get("id"),
+                        "account_email": self._normalize_account(connection.get("email")),
                     }
-        except Exception:
-            pass
-        conn = self.store.get_connection_by_principal(principal_id)
-        if conn:
-            return {"access_token": conn.connection_id, "mock_mode": False}
-        return {"access_token": "mock_token_for_test", "mock_mode": True}
+        except Exception as exc:
+            logger.debug("Failed resolving Composio connections for %s: %s", principal_id, exc)
+
+        connection = self.store.get_connection_by_principal(principal_id)
+        if connection:
+            return {
+                "provider": "composio",
+                "account_id": connection.connection_id,
+                "account_email": self._normalize_account(connection.email),
+            }
+        return {"access_token": ""}
+
+    def _composio_account_for_draft(self, principal_id: str, draft: EventDraft) -> str:
+        if draft.account_email:
+            return draft.account_email
+        from tools.composio.auth import get_user_emails
+
+        emails = get_user_emails(principal_id)
+        unique = {email.casefold(): email for email in emails.values() if email}
+        if len(unique) != 1:
+            raise ValueError("draft_account_target_required")
+        account_email = next(iter(unique.values())).casefold()
+        self.store.bind_draft_account(draft.draft_id, account_email)
+        return account_email
+
+    @staticmethod
+    def _composio_error(response: Dict[str, Any], fallback: str) -> str:
+        message = response.get("message") or response.get("error") or fallback
+        return str(message)
+
+    def _readback_composio(
+        self,
+        principal_id: str,
+        draft: EventDraft,
+        account_email: str,
+        event_id: str,
+    ) -> CalendarEvent:
+        from tools.composio.calendar_tools import composio_calendar_get_event
+
+        response = composio_calendar_get_event(
+            principal_id,
+            event_id=event_id,
+            calendar_id=draft.calendar_id,
+            account_email=account_email,
+        )
+        if response.get("status") != "success":
+            raise RuntimeError(self._composio_error(response, "provider_event_readback_failed"))
+        active_account = self._normalize_account(response.get("active_account"))
+        if active_account and active_account != account_email:
+            raise RuntimeError("provider_account_mismatch")
+        event = self._event_from_payload(response.get("data", {}), draft.calendar_id)
+        self._validate_event(event, draft, event_id)
+        return event
+
+    def _readback_google(
+        self,
+        token_data: Dict[str, Any],
+        draft: EventDraft,
+        event_id: str,
+    ) -> CalendarEvent:
+        event = self.google_client.get_event(token_data, draft.calendar_id, event_id)
+        self._validate_event(event, draft, event_id)
+        return event
+
     def list_events(
         self,
         caller: Any,
@@ -60,68 +237,44 @@ class CalendarService:
         time_max: Optional[str] = None,
         limit: int = 20,
         calendar_id: str = "primary",
+        account_email: Optional[str] = None,
     ) -> List[CalendarEvent]:
-        token_data = self.token_resolver(caller.principal_id)
+        principal_id = self._principal(caller)
+        token_data = self.token_resolver(principal_id)
         limit = min(max(1, limit), self.policy.max_list_results)
-
         if not time_min:
             time_min = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
-        access_token = token_data.get("access_token", "")
-        if isinstance(access_token, str) and (access_token.startswith("ca_") or "composio" in access_token):
-            try:
-                from tools.composio.calendar_tools import composio_calendar_list_events
-                user_id = getattr(caller, "user_id", None) or getattr(caller, "chat_id", None) or getattr(caller, "principal_id", "")
-                account_email = token_data.get("account_email")
-                c_res = composio_calendar_list_events(
-                    user_id,
-                    calendar_id=calendar_id,
-                    account_email=account_email,
-                    time_min=time_min,
-                    time_max=time_max,
-                    limit=limit,
-                )
-                if c_res.get("status") == "success":
-                    raw_data = c_res.get("data", {})
-                    items = raw_data.get("items", []) if isinstance(raw_data, dict) else []
-                    events = []
-                    for it in items:
-                        st = it.get("start", {})
-                        st_val = st.get("dateTime") or st.get("date") or ""
-                        et = it.get("end", {})
-                        et_val = et.get("dateTime") or et.get("date") or ""
-                        events.append(CalendarEvent(
-                            event_id=it.get("id", ""),
-                            calendar_id=calendar_id,
-                            summary=it.get("summary", ""),
-                            start_time=st_val,
-                            end_time=et_val,
-                            html_link=it.get("htmlLink") or it.get("display_url") or "",
-                            status=it.get("status", "confirmed"),
-                            location=it.get("location", ""),
-                            description=it.get("description", ""),
-                            attendees=tuple(a.get("email", "") for a in it.get("attendees", []) if isinstance(a, dict) and a.get("email")),
-                            is_all_day=bool(st.get("date") and not st.get("dateTime")),
-                        ))
-                    self.store.record_audit(
-                        principal_id=caller.principal_id,
-                        action="list_events",
-                        target_id=calendar_id,
-                        details={"count": len(events), "time_min": time_min, "time_max": time_max},
-                    )
-                    return events
-            except Exception:
-                pass
-
-        events = self.google_client.list_events(
-            token_data=token_data,
-            calendar_id=calendar_id,
-            time_min=time_min,
-            time_max=time_max,
-            max_results=limit,
+        selected_account = self._normalize_account(account_email) or self._normalize_account(
+            token_data.get("account_email")
         )
+        if self._uses_composio(token_data):
+            from tools.composio.calendar_tools import composio_calendar_list_events
+
+            response = composio_calendar_list_events(
+                principal_id,
+                calendar_id=calendar_id,
+                account_email=selected_account,
+                time_min=time_min,
+                time_max=time_max,
+                limit=limit,
+            )
+            if response.get("status") != "success":
+                raise RuntimeError(self._composio_error(response, "composio_list_events_failed"))
+            data = self._normalize_payload(response.get("data", {}))
+            items = data.get("items", []) if isinstance(data, dict) else []
+            events = [self._event_from_payload(item, calendar_id, require_id=False) for item in items]
+        else:
+            events = self.google_client.list_events(
+                token_data=token_data,
+                calendar_id=calendar_id,
+                time_min=time_min,
+                time_max=time_max,
+                max_results=limit,
+            )
+
         self.store.record_audit(
-            principal_id=caller.principal_id,
+            principal_id=principal_id,
             action="list_events",
             target_id=calendar_id,
             details={"count": len(events), "time_min": time_min, "time_max": time_max},
@@ -134,14 +287,23 @@ class CalendarService:
         date_str: str,
         duration_minutes: int = 30,
         calendar_id: str = "primary",
+        account_email: Optional[str] = None,
+        timezone_str: Optional[str] = None,
+        working_hours_start: Optional[str] = None,
+        working_hours_end: Optional[str] = None,
     ) -> List[FreeSlot]:
         target_date = datetime.strptime(date_str, "%Y-%m-%d").date()
-        wh_start_t = datetime.strptime(self.policy.working_hours.start, "%H:%M").time()
-        wh_end_t = datetime.strptime(self.policy.working_hours.end, "%H:%M").time()
+        if duration_minutes <= 0:
+            raise ValueError("duration_minutes_must_be_positive")
+        working_start = working_hours_start or self.policy.working_hours.start
+        working_end = working_hours_end or self.policy.working_hours.end
+        wh_start_t = datetime.strptime(working_start, "%H:%M").time()
+        wh_end_t = datetime.strptime(working_end, "%H:%M").time()
 
         try:
             from zoneinfo import ZoneInfo
-            tz = ZoneInfo(self.policy.default_timezone)
+
+            tz = ZoneInfo(timezone_str or self.policy.default_timezone)
         except Exception:
             tz = timezone(timedelta(hours=7))
 
@@ -149,70 +311,63 @@ class CalendarService:
         day_end_local = datetime.combine(target_date, wh_end_t, tzinfo=tz)
         day_start = day_start_local.astimezone(timezone.utc)
         day_end = day_end_local.astimezone(timezone.utc)
-
         events = self.list_events(
             caller=caller,
             time_min=day_start.isoformat().replace("+00:00", "Z"),
             time_max=day_end.isoformat().replace("+00:00", "Z"),
             limit=self.policy.max_list_results,
             calendar_id=calendar_id,
+            account_email=account_email,
         )
 
         busy_intervals = []
-        for ev in events:
-            if ev.is_all_day:
+        for event in events:
+            if event.is_all_day:
                 continue
             try:
-                ev_start = datetime.fromisoformat(ev.start_time.replace("Z", "+00:00"))
-                ev_end = datetime.fromisoformat(ev.end_time.replace("Z", "+00:00"))
-                ev_start = max(ev_start, day_start)
-                ev_end = min(ev_end, day_end)
-                if ev_end > ev_start:
-                    busy_intervals.append((ev_start, ev_end))
-            except Exception:
+                event_start = datetime.fromisoformat(event.start_time.replace("Z", "+00:00"))
+                event_end = datetime.fromisoformat(event.end_time.replace("Z", "+00:00"))
+                event_start = max(event_start, day_start)
+                event_end = min(event_end, day_end)
+                if event_end > event_start:
+                    busy_intervals.append((event_start, event_end))
+            except (TypeError, ValueError):
                 continue
 
-        busy_intervals.sort(key=lambda x: x[0])
-
-        merged_busy = []
+        busy_intervals.sort(key=lambda interval: interval[0])
+        merged_busy: list[tuple[datetime, datetime]] = []
         for start, end in busy_intervals:
-            if not merged_busy:
+            if not merged_busy or start > merged_busy[-1][1]:
                 merged_busy.append((start, end))
             else:
-                last_start, last_end = merged_busy[-1]
-                if start <= last_end:
-                    merged_busy[-1] = (last_start, max(last_end, end))
-                else:
-                    merged_busy.append((start, end))
+                merged_busy[-1] = (merged_busy[-1][0], max(merged_busy[-1][1], end))
 
         free_slots: List[FreeSlot] = []
-        current_cursor = day_start
-
+        cursor = day_start
         for busy_start, busy_end in merged_busy:
-            if busy_start > current_cursor:
-                slot_duration = int((busy_start - current_cursor).total_seconds() / 60)
-                if slot_duration >= duration_minutes:
-                    free_slots.append(
-                        FreeSlot(
-                            start_time=current_cursor.astimezone(timezone.utc).isoformat().replace("+00:00", "Z"),
-                            end_time=busy_start.astimezone(timezone.utc).isoformat().replace("+00:00", "Z"),
-                            duration_minutes=slot_duration,
-                        )
-                    )
-            current_cursor = max(current_cursor, busy_end)
-
-        if current_cursor < day_end:
-            slot_duration = int((day_end - current_cursor).total_seconds() / 60)
-            if slot_duration >= duration_minutes:
-                free_slots.append(
-                    FreeSlot(
-                        start_time=current_cursor.astimezone(timezone.utc).isoformat().replace("+00:00", "Z"),
-                        end_time=day_end.astimezone(timezone.utc).isoformat().replace("+00:00", "Z"),
-                        duration_minutes=slot_duration,
-                    )
-                )
-
+            if busy_start > cursor:
+                self._append_slot(free_slots, cursor, busy_start, duration_minutes)
+            cursor = max(cursor, busy_end)
+        if cursor < day_end:
+            self._append_slot(free_slots, cursor, day_end, duration_minutes)
         return free_slots
+
+    @staticmethod
+    def _append_slot(
+        slots: List[FreeSlot],
+        start: datetime,
+        end: datetime,
+        requested_duration: int,
+    ) -> None:
+        duration = int((end - start).total_seconds() / 60)
+        if duration >= requested_duration:
+            slots.append(
+                FreeSlot(
+                    start_time=start.astimezone(timezone.utc).isoformat().replace("+00:00", "Z"),
+                    end_time=end.astimezone(timezone.utc).isoformat().replace("+00:00", "Z"),
+                    duration_minutes=duration,
+                )
+            )
 
     def create_draft_event(
         self,
@@ -226,27 +381,34 @@ class CalendarService:
         calendar_id: str = "primary",
         account_email: Optional[str] = None,
     ) -> EventDraft:
+        principal_id = self._principal(caller)
         if not summary.strip():
             raise ValueError("summary_required")
 
         dt_start = datetime.fromisoformat(start_time.replace("Z", "+00:00"))
         dt_end = datetime.fromisoformat(end_time.replace("Z", "+00:00"))
-
         self.policy.validate_event_time_window(dt_start, dt_end)
         self.policy.validate_lookahead(dt_start)
 
+        normalized_account = self._normalize_account(account_email)
+        token_data = self.token_resolver(principal_id)
+        if self._uses_composio(token_data):
+            from tools.composio.auth import resolve_account_target
+
+            _, resolved_email = resolve_account_target(principal_id, account_email)
+            normalized_account = self._normalize_account(resolved_email)
         idempotency_key = compute_draft_idempotency_key(
-            principal_id=caller.principal_id,
+            principal_id=principal_id,
             calendar_id=calendar_id,
             summary=summary,
             start_time=start_time,
             end_time=end_time,
+            account_email=normalized_account,
         )
-
         draft = EventDraft(
             draft_id=f"drf-{uuid4().hex[:16]}",
             idempotency_key=idempotency_key,
-            principal_id=caller.principal_id,
+            principal_id=principal_id,
             calendar_id=calendar_id,
             summary=summary.strip(),
             description=description.strip(),
@@ -256,41 +418,68 @@ class CalendarService:
             attendees=attendees,
             created_at=datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
             status=EventDraftStatus.DRAFT,
-            account_email=account_email,
+            account_email=normalized_account,
         )
         persisted = self.store.create_or_get_draft(draft)
         self.store.record_audit(
-            principal_id=caller.principal_id,
+            principal_id=principal_id,
             action="create_draft_event",
             target_id=persisted.draft_id,
-            details={"summary": summary, "start_time": start_time, "end_time": end_time},
+            details={
+                "summary": persisted.summary,
+                "start_time": persisted.start_time,
+                "end_time": persisted.end_time,
+                "account_email": persisted.account_email,
+            },
         )
         return persisted
 
-    def confirm_event(
-        self,
-        caller: Any,
-        draft_id: str,
-    ) -> CalendarEvent:
+    def confirm_event(self, caller: Any, draft_id: str) -> CalendarEvent:
+        principal_id = self._principal(caller)
         draft = self.store.get_draft(draft_id)
         if not draft:
             raise KeyError("draft_not_found")
-        if draft.principal_id != caller.principal_id:
+        if draft.principal_id != principal_id:
             raise PermissionError("principal_not_authorized_for_draft")
-        if draft.status == EventDraftStatus.COMMITTED and draft.committed_event_id:
-            token_data = self.token_resolver(caller.principal_id)
-            return self.google_client.get_event(token_data, draft.calendar_id, draft.committed_event_id)
-        if draft.status != EventDraftStatus.DRAFT:
+        if draft.status not in (EventDraftStatus.DRAFT, EventDraftStatus.COMMITTED):
             raise ValueError(f"cannot_confirm_draft_in_status_{draft.status.value}")
 
-        token_data = self.token_resolver(caller.principal_id)
-        access_token = token_data.get("access_token", "")
-        if isinstance(access_token, str) and (access_token.startswith("ca_") or "composio" in access_token):
+        token_data = self.token_resolver(principal_id)
+        use_composio = self._uses_composio(token_data)
+        account_email = self._normalize_account(draft.account_email)
+        if use_composio and not account_email:
+            account_email = self._composio_account_for_draft(principal_id, draft)
+            draft = self.store.get_draft(draft_id) or draft
+
+        if draft.status == EventDraftStatus.COMMITTED:
+            if not draft.committed_event_id:
+                raise RuntimeError("committed_draft_missing_event_id")
+            if use_composio:
+                return self._readback_composio(
+                    principal_id, draft, account_email or "", draft.committed_event_id
+                )
+            return self._readback_google(token_data, draft, draft.committed_event_id)
+
+        if draft.committed_event_id:
+            if use_composio:
+                event = self._readback_composio(
+                    principal_id, draft, account_email or "", draft.committed_event_id
+                )
+            else:
+                event = self._readback_google(token_data, draft, draft.committed_event_id)
+            self.store.transition_draft_status(
+                draft_id=draft_id,
+                from_status=EventDraftStatus.DRAFT,
+                to_status=EventDraftStatus.COMMITTED,
+                committed_event_id=draft.committed_event_id,
+            )
+            return event
+
+        if use_composio:
             from tools.composio.calendar_tools import composio_calendar_create_event
-            user_id = getattr(caller, "user_id", None) or getattr(caller, "chat_id", None) or getattr(caller, "principal_id", "")
-            account_email = draft.account_email or token_data.get("account_email")
-            c_res = composio_calendar_create_event(
-                user_id,
+
+            response = composio_calendar_create_event(
+                principal_id,
                 summary=draft.summary,
                 start_datetime=draft.start_time,
                 end_datetime=draft.end_time,
@@ -300,80 +489,71 @@ class CalendarService:
                 calendar_id=draft.calendar_id,
                 account_email=account_email,
             )
-            if c_res.get("status") == "success":
-                data = c_res.get("data", {})
-                created_id = str(data.get("id") or data.get("event_id") or "composio_evt")
-                created_event = CalendarEvent(
-                    event_id=created_id,
-                    calendar_id=draft.calendar_id,
-                    summary=draft.summary,
-                    start_time=draft.start_time,
-                    end_time=draft.end_time,
-                    html_link=data.get("htmlLink") or data.get("display_url") or "",
-                    status="confirmed",
-                    location=draft.location,
-                    description=draft.description,
-                    attendees=draft.attendees,
-                )
-            else:
-                raise RuntimeError(c_res.get("message", "composio_create_event_failed"))
+            if response.get("status") != "success":
+                raise RuntimeError(self._composio_error(response, "composio_create_event_failed"))
+            data = self._normalize_payload(response.get("data", {}))
+            event_id = str(data.get("id") or data.get("event_id") or "").strip()
+            if not event_id:
+                raise RuntimeError("provider_event_id_missing")
+            active_account = self._normalize_account(response.get("active_account"))
+            if account_email and active_account and active_account != account_email:
+                self.store.record_pending_event_id(draft_id, event_id)
+                raise RuntimeError("provider_account_mismatch")
+            self.store.record_pending_event_id(draft_id, event_id)
+            event = self._readback_composio(principal_id, draft, account_email or "", event_id)
         else:
-            created_event = self.google_client.create_event(
+            created = self.google_client.create_event(
                 token_data=token_data,
                 calendar_id=draft.calendar_id,
                 draft=draft,
             )
+            if not created.event_id:
+                raise RuntimeError("provider_event_id_missing")
+            self.store.record_pending_event_id(draft_id, created.event_id)
+            event = self._readback_google(token_data, draft, created.event_id)
 
         self.store.transition_draft_status(
             draft_id=draft_id,
             from_status=EventDraftStatus.DRAFT,
             to_status=EventDraftStatus.COMMITTED,
-            committed_event_id=created_event.event_id,
+            committed_event_id=event.event_id,
         )
-
         self.store.record_audit(
-            principal_id=caller.principal_id,
+            principal_id=principal_id,
             action="confirm_event",
             target_id=draft_id,
-            details={"event_id": created_event.event_id, "html_link": created_event.html_link},
+            details={"event_id": event.event_id, "html_link": event.html_link},
         )
-        return created_event
+        return event
 
     def get_event(
         self,
         caller: Any,
         event_id: str,
         calendar_id: str = "primary",
+        account_email: Optional[str] = None,
     ) -> CalendarEvent:
-        token_data = self.token_resolver(caller.principal_id)
-        access_token = token_data.get("access_token", "")
-        if isinstance(access_token, str) and (access_token.startswith("ca_") or "composio" in access_token):
+        principal_id = self._principal(caller)
+        token_data = self.token_resolver(principal_id)
+        selected_account = self._normalize_account(account_email) or self._normalize_account(
+            token_data.get("account_email")
+        )
+        if self._uses_composio(token_data):
             from tools.composio.calendar_tools import composio_calendar_get_event
-            user_id = getattr(caller, "user_id", None) or getattr(caller, "chat_id", None) or getattr(caller, "principal_id", "")
-            account_email = token_data.get("account_email")
-            c_res = composio_calendar_get_event(user_id, event_id=event_id, calendar_id=calendar_id, account_email=account_email)
-            if c_res.get("status") == "success":
-                data = c_res.get("data", {})
-                st = data.get("start", {})
-                st_val = st.get("dateTime") or st.get("date") or ""
-                et = data.get("end", {})
-                et_val = et.get("dateTime") or et.get("date") or ""
-                return CalendarEvent(
-                    event_id=event_id,
-                    calendar_id=calendar_id,
-                    summary=data.get("summary", ""),
-                    start_time=st_val,
-                    end_time=et_val,
-                    html_link=data.get("htmlLink") or data.get("display_url") or "",
-                    status=data.get("status", "confirmed"),
-                    location=data.get("location", ""),
-                    description=data.get("description", ""),
-                    attendees=tuple(a.get("email", "") for a in data.get("attendees", []) if isinstance(a, dict) and a.get("email")),
-                )
+
+            response = composio_calendar_get_event(
+                principal_id,
+                event_id=event_id,
+                calendar_id=calendar_id,
+                account_email=selected_account,
+            )
+            if response.get("status") != "success":
+                raise RuntimeError(self._composio_error(response, "composio_get_event_failed"))
+            return self._event_from_payload(response.get("data", {}), calendar_id)
 
         event = self.google_client.get_event(token_data, calendar_id, event_id)
         self.store.record_audit(
-            principal_id=caller.principal_id,
+            principal_id=principal_id,
             action="get_event",
             target_id=event_id,
             details={"calendar_id": calendar_id},
@@ -385,26 +565,27 @@ class CalendarService:
         caller: Any,
         event_id: str,
         calendar_id: str = "primary",
+        account_email: Optional[str] = None,
     ) -> bool:
-        token_data = self.token_resolver(caller.principal_id)
-        access_token = token_data.get("access_token", "")
-        if isinstance(access_token, str) and (access_token.startswith("ca_") or "composio" in access_token):
+        principal_id = self._principal(caller)
+        token_data = self.token_resolver(principal_id)
+        selected_account = self._normalize_account(account_email) or self._normalize_account(
+            token_data.get("account_email")
+        )
+        if self._uses_composio(token_data):
             from tools.composio.calendar_tools import composio_calendar_delete_event
-            user_id = getattr(caller, "user_id", None) or getattr(caller, "chat_id", None) or getattr(caller, "principal_id", "")
-            account_email = token_data.get("account_email")
-            c_res = composio_calendar_delete_event(user_id, event_id=event_id, calendar_id=calendar_id, account_email=account_email)
-            deleted = c_res.get("status") == "success"
-            self.store.record_audit(
-                principal_id=caller.principal_id,
-                action="delete_event",
-                target_id=event_id,
-                details={"calendar_id": calendar_id, "deleted": deleted},
-            )
-            return deleted
 
-        deleted = self.google_client.delete_event(token_data, calendar_id, event_id)
+            response = composio_calendar_delete_event(
+                principal_id,
+                event_id=event_id,
+                calendar_id=calendar_id,
+                account_email=selected_account,
+            )
+            deleted = response.get("status") == "success"
+        else:
+            deleted = self.google_client.delete_event(token_data, calendar_id, event_id)
         self.store.record_audit(
-            principal_id=caller.principal_id,
+            principal_id=principal_id,
             action="delete_event",
             target_id=event_id,
             details={"calendar_id": calendar_id, "deleted": deleted},
@@ -412,19 +593,37 @@ class CalendarService:
         return deleted
 
     def status(self, caller: Any) -> Dict[str, Any]:
-        conn = self.store.get_connection_by_principal(caller.principal_id)
-        if not conn:
+        principal_id = self._principal(caller)
+        try:
+            from tools.composio.auth import check_connection_status, get_user_emails
+
+            if any(
+                check_connection_status(principal_id, app=app)
+                for app in ("googlesuper", "googlecalendar", "gmail")
+            ):
+                account_emails = list(dict.fromkeys(get_user_emails(principal_id).values()))
+                return {
+                    "ok": True,
+                    "status": "connected",
+                    "principal_id": principal_id,
+                    "connected_accounts": account_emails,
+                }
+        except Exception as exc:
+            logger.debug("Composio status lookup failed for %s: %s", principal_id, exc)
+
+        connection = self.store.get_connection_by_principal(principal_id)
+        if not connection:
             return {
                 "ok": True,
                 "status": "unconnected",
-                "principal_id": caller.principal_id,
-                "message": "No Google Calendar connected. Use /connect_calendar to authorize.",
+                "principal_id": principal_id,
+                "message": "No Google Calendar connected. Use /connect-google to authorize.",
             }
         return {
             "ok": True,
-            "status": conn.status.value,
-            "principal_id": caller.principal_id,
-            "email": conn.email,
-            "calendar_id": conn.calendar_id,
-            "calendar_name": conn.calendar_name,
+            "status": connection.status.value,
+            "principal_id": principal_id,
+            "email": connection.email,
+            "calendar_id": connection.calendar_id,
+            "calendar_name": connection.calendar_name,
         }

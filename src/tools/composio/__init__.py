@@ -1,16 +1,31 @@
-"""Composio integration module for Hermes Agent."""
+"""Composio integration helpers with provider imports deferred until use."""
 
-from .client import format_user_id, get_composio_client
 from .auth import (
-    initiate_google_connection,
     check_connection_status,
     disconnect_user,
+    initiate_google_connection,
+    list_user_connections,
+)
+from .client import (
+    ComposioExecutionError,
+    execute_composio_tool,
+    format_user_id,
+    get_composio_client,
+    get_response_data,
+    get_response_error,
+    is_unavailable_tool_error,
 )
 
 __all__ = [
-    "format_user_id",
-    "get_composio_client",
-    "initiate_google_connection",
+    "ComposioExecutionError",
     "check_connection_status",
     "disconnect_user",
+    "execute_composio_tool",
+    "format_user_id",
+    "get_composio_client",
+    "get_response_data",
+    "get_response_error",
+    "initiate_google_connection",
+    "is_unavailable_tool_error",
+    "list_user_connections",
 ]

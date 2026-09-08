@@ -66,3 +66,19 @@ def test_calendar_event_structure() -> None:
     )
     assert ev.event_id == "evt-999"
     assert ev.status == "confirmed"
+
+
+def test_account_target_is_part_of_draft_idempotency() -> None:
+    common = {
+        "principal_id": "local:owner:test",
+        "calendar_id": "primary",
+        "summary": "Weekly Sync",
+        "start_time": "2030-09-01T10:00:00Z",
+        "end_time": "2030-09-01T11:00:00Z",
+    }
+    alpha = compute_draft_idempotency_key(
+        **common,
+        account_email=" Alpha@example.invalid ",
+    )
+    bravo = compute_draft_idempotency_key(**common, account_email="bravo@example.invalid")
+    assert alpha != bravo
