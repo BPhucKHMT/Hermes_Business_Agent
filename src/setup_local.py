@@ -25,6 +25,13 @@ def _resolve_executable(name: str, install_hint: str) -> str:
     executable = shutil.which(name)
     if executable:
         return executable
+    if name == "uv":
+        for candidate in (
+            Path.home() / ".local" / "bin" / ("uv.exe" if os.name == "nt" else "uv"),
+            Path.home() / ".cargo" / "bin" / ("uv.exe" if os.name == "nt" else "uv"),
+        ):
+            if candidate.is_file():
+                return str(candidate)
     raise SetupError(f"{name} was not found on PATH. {install_hint}")
 
 

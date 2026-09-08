@@ -25,6 +25,14 @@ def call_google(operation: str, principal_id: str, params: dict | None = None):
             pass
     uv = shutil.which("uv")
     if not uv:
+        for candidate in (
+            Path.home() / ".local" / "bin" / ("uv.exe" if os.name == "nt" else "uv"),
+            Path.home() / ".cargo" / "bin" / ("uv.exe" if os.name == "nt" else "uv"),
+        ):
+            if candidate.is_file():
+                uv = str(candidate)
+                break
+    if not uv:
         raise RuntimeError("uv is unavailable; install uv and run setup --local")
     env = os.environ.copy()
     for name in ("PYTHONPATH", "PYTHONHOME", "VIRTUAL_ENV"):
