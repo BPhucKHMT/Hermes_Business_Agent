@@ -166,15 +166,14 @@ def _sync_plugins(root: Path) -> None:
         seen.add(norm)
         if target_base.parent.exists():
             target_base.mkdir(parents=True, exist_ok=True)
-            for plugin_name in PROJECT_PLUGINS:
-                src_p = source_dir / plugin_name
-                dst_p = target_base / plugin_name
-                if src_p.is_dir():
-                    shutil.copytree(src_p, dst_p, dirs_exist_ok=True)
-                    for pycache in dst_p.rglob("__pycache__"):
-                        if pycache.is_dir():
-                            shutil.rmtree(pycache, ignore_errors=True)
-
+            for plugin_dir in source_dir.iterdir():
+                if not plugin_dir.is_dir():
+                    continue
+                dst_p = target_base / plugin_dir.name
+                shutil.copytree(plugin_dir, dst_p, dirs_exist_ok=True)
+                for pycache in dst_p.rglob("__pycache__"):
+                    if pycache.is_dir():
+                        shutil.rmtree(pycache, ignore_errors=True)
 
 def configure_local(root: Path) -> str:
     """Provision the local owner and configure native Hermes for this workspace."""
