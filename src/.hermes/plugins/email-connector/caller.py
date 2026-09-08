@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from contextvars import ContextVar
 from dataclasses import dataclass
+import os
 from pathlib import Path
 from threading import Lock
 from typing import Any, Optional
@@ -32,6 +33,29 @@ class CallerContext:
     chat_type: str
     profile: str
     session_key: str
+
+
+def _get_load_local_owner():
+    try:
+        from tools.composio.local_owner import load_local_owner
+        return load_local_owner
+    except (ImportError, ModuleNotFoundError):
+        pass
+    for candidate in (
+        Path(os.environ.get("HERMES_PROJECT_SRC", "")),
+        Path("C:/Hermes-Business-Agent/src"),
+        Path.cwd() / "src",
+        Path.cwd(),
+    ):
+        target = candidate / "tools" / "composio" / "local_owner.py"
+        if target.is_file():
+            import importlib.util
+            spec = importlib.util.spec_from_file_location("_local_owner_dyn", str(target))
+            if spec and spec.loader:
+                mod = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(mod)
+                return getattr(mod, "load_local_owner", None)
+    return None
 
 
 class CallerContextRegistry:
@@ -66,12 +90,7 @@ class CallerContextRegistry:
             self._session_store = session_store
 
     def _resolve_local(self) -> CallerContext:
-        resolver = load_local_owner
-        if resolver is None:
-            try:
-                from tools.composio.local_owner import load_local_owner as resolver
-            except (ImportError, ModuleNotFoundError):
-                resolver = None
+        resolver = _get_load_local_owner()
         if resolver is None:
             raise LookupError("local owner resolver unavailable")
         owner_id = resolver(self._local_owner_path)
@@ -143,12 +162,14 @@ class CallerContextRegistry:
     def resolve_dm_tool(
         self, *, task_id: str = "", session_id: str = ""
     ) -> CallerContext:
-        if task_id and session_id and task_id != session_id:
-            raise LookupError("conflicting runtime identifiers")
-
         if self._current_redirect.get():
             raise DmOnlyError(DM_REDIRECT_TEXT)
 
+        if not self._current_gateway_context.get():
+            return self._resolve_local()
+
+        if task_id and session_id and task_id != session_id:
+            raise LookupError("conflicting runtime identifiers")
         runtime_id = session_id or task_id
         if runtime_id:
             session_key: Optional[str] = None

@@ -16,8 +16,13 @@ def call_google(operation: str, principal_id: str, params: dict | None = None):
     if os.environ.get("HERMES_FORCE_GOOGLE_BRIDGE") != "1":
         try:
             import composio  # noqa: F401
-            from tools.composio.worker import dispatch
+            import tools
 
+            tools_path = str(Path(__file__).resolve().parents[1])
+            if hasattr(tools, "__path__") and tools_path not in tools.__path__:
+                tools.__path__.insert(0, tools_path)
+
+            from tools.composio.worker import dispatch
             return dispatch(
                 {"operation": operation, "principal_id": principal_id, "params": params or {}}
             )

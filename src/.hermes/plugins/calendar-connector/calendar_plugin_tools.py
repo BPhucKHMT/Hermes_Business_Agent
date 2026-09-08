@@ -40,9 +40,38 @@ def _call_google(
     principal_id: str,
     params: Dict[str, Any] | None = None,
 ) -> Any:
-    from tools.composio.bridge import call_google
-
-    return call_google(operation, principal_id, params)
+    try:
+        from tools.composio.bridge import call_google
+        return call_google(operation, principal_id, params)
+    except (ImportError, ModuleNotFoundError):
+        pass
+    import importlib.util, os, sys
+    from pathlib import Path
+    for candidate in (
+        Path(os.environ.get("HERMES_PROJECT_SRC", "")),
+        Path("C:/Hermes-Business-Agent/src"),
+        Path.cwd() / "src",
+        Path.cwd(),
+    ):
+        target = candidate / "tools" / "composio" / "bridge.py"
+        if target.is_file():
+            src_dir = str(candidate.resolve())
+            if src_dir not in sys.path:
+                sys.path.insert(0, src_dir)
+            try:
+                import tools
+                tools_dir = str((candidate / "tools").resolve())
+                if hasattr(tools, "__path__") and tools_dir not in tools.__path__:
+                    tools.__path__.insert(0, tools_dir)
+            except Exception:
+                pass
+            spec = importlib.util.spec_from_file_location("tools.composio.bridge", str(target))
+            if spec and spec.loader:
+                mod = importlib.util.module_from_spec(spec)
+                sys.modules["tools.composio.bridge"] = mod
+                spec.loader.exec_module(mod)
+                return mod.call_google(operation, principal_id, params)
+    raise RuntimeError("call_google bridge unavailable; run python src/setup_local.py --local")
 
 def _resolve_principal(caller: Any) -> str:
     principal_id = str(getattr(caller, "principal_id", "")).strip()
