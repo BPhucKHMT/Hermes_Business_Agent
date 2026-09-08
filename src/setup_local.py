@@ -147,6 +147,34 @@ def _enable_project_plugins(executable: str, root: Path) -> None:
             root,
         )
 
+def _sync_plugins(root: Path) -> None:
+    source_dir = root / ".hermes" / "plugins"
+    if not source_dir.is_dir():
+        return
+    target_dirs: list[Path] = []
+    if os.environ.get("HERMES_HOME"):
+        target_dirs.append(Path(os.environ["HERMES_HOME"]) / "plugins")
+    if os.name == "nt" and os.environ.get("LOCALAPPDATA"):
+        target_dirs.append(Path(os.environ["LOCALAPPDATA"]) / "hermes" / "plugins")
+    target_dirs.append(Path.home() / ".hermes" / "plugins")
+
+    seen: set[str] = set()
+    for target_base in target_dirs:
+        norm = os.path.normcase(str(target_base.resolve())) if target_base.exists() else str(target_base)
+        if norm in seen:
+            continue
+        seen.add(norm)
+        if target_base.parent.exists():
+            target_base.mkdir(parents=True, exist_ok=True)
+            for plugin_name in PROJECT_PLUGINS:
+                src_p = source_dir / plugin_name
+                dst_p = target_base / plugin_name
+                if src_p.is_dir():
+                    shutil.copytree(src_p, dst_p, dirs_exist_ok=True)
+                    for pycache in dst_p.rglob("__pycache__"):
+                        if pycache.is_dir():
+                            shutil.rmtree(pycache, ignore_errors=True)
+
 
 def configure_local(root: Path) -> str:
     """Provision the local owner and configure native Hermes for this workspace."""
@@ -167,6 +195,7 @@ def configure_local(root: Path) -> str:
     )
     owner_id = _provision_owner(root)
     _configure_hermes(hermes, root)
+    _sync_plugins(root)
     _enable_project_plugins(hermes, root)
     return owner_id
 
