@@ -59,7 +59,7 @@ When routing retained-knowledge queries to `hermes-azure-rag`, map user intent t
 
 **Deck / research deliverables** — Use `deck-guizang-editorial` for narrative or research decks needing flexible palette selection and stable editorial structure. Compose with `research` when the deck is built from public-web evidence; retain source citations and provenance.
 
-Lead qualification, invoices, Slack, payments, scheduled research, and outbound Gmail sending are not supported yet. Read-only Gmail search is available via the `/email` capability in DM.
+Lead qualification, invoices, Slack, payments, and scheduled research are not supported yet. Gmail operations (search, thread inspection, drafting, and sending) are available via the `/email` capability.
 
 ## Procedure
 

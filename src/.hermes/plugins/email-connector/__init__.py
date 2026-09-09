@@ -49,13 +49,19 @@ try:
     from .gmail_tools import PersonalGmailTools
     from .schemas import (
         EMAIL_CONNECTION_STATUS_SCHEMA,
+        EMAIL_CREATE_DRAFT_SCHEMA,
         EMAIL_GET_THREAD_SCHEMA,
+        EMAIL_REPLY_SCHEMA,
         EMAIL_SEARCH_SCHEMA,
+        EMAIL_SEND_SCHEMA,
     )
     from .plugin_tools import (
         handle_email_connection_status,
+        handle_email_create_draft,
         handle_email_get_thread,
+        handle_email_reply,
         handle_email_search,
+        handle_email_send,
     )
 except (ImportError, ValueError, KeyError):
     from client import get_default_client
@@ -69,13 +75,19 @@ except (ImportError, ValueError, KeyError):
     from gmail_tools import PersonalGmailTools
     from schemas import (
         EMAIL_CONNECTION_STATUS_SCHEMA,
+        EMAIL_CREATE_DRAFT_SCHEMA,
         EMAIL_GET_THREAD_SCHEMA,
+        EMAIL_REPLY_SCHEMA,
         EMAIL_SEARCH_SCHEMA,
+        EMAIL_SEND_SCHEMA,
     )
     from plugin_tools import (
         handle_email_connection_status,
+        handle_email_create_draft,
         handle_email_get_thread,
+        handle_email_reply,
         handle_email_search,
+        handle_email_send,
     )
 
 logger = logging.getLogger(__name__)
@@ -110,6 +122,27 @@ def register(ctx: Any) -> PersonalGmailTools:
             registry=registry,
         ),
         description="Check status of connected Gmail mailboxes.",
+    )
+    ctx.register_tool(
+        name="email_send",
+        toolset="email_connector",
+        schema=EMAIL_SEND_SCHEMA,
+        handler=partial(handle_email_send, client=client, registry=registry),
+        description="Send an outbound email directly from the user's connected Gmail account.",
+    )
+    ctx.register_tool(
+        name="email_create_draft",
+        toolset="email_connector",
+        schema=EMAIL_CREATE_DRAFT_SCHEMA,
+        handler=partial(handle_email_create_draft, client=client, registry=registry),
+        description="Create an email draft in the user's connected Gmail account without sending it immediately.",
+    )
+    ctx.register_tool(
+        name="email_reply",
+        toolset="email_connector",
+        schema=EMAIL_REPLY_SCHEMA,
+        handler=partial(handle_email_reply, client=client, registry=registry),
+        description="Reply to an existing Gmail thread from the user's connected Gmail account.",
     )
 
     for cmd_name in (

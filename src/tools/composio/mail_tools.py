@@ -47,11 +47,11 @@ def _execute(
     kwargs: Dict[str, Any] = {"arguments": arguments}
     if account_id:
         kwargs["account"] = account_id
-        if tool_slug in ("GMAIL_FETCH_EMAILS", "GMAIL_FETCH_MESSAGE_BY_THREAD_ID"):
+        if tool_slug.startswith("GMAIL_"):
             selected = get_composio_client().connected_accounts.get(account_id)
             toolkit = _toolkit_slug(selected).lower()
             if toolkit not in ("gmail", "googlesuper"):
-                raise ValueError("Selected account does not support Gmail reads")
+                raise ValueError("Selected account does not support Gmail operations")
             tool_slug = f"{toolkit.upper()}_{tool_slug.removeprefix('GMAIL_')}"
     return execute_composio_tool(session, tool_slug, **kwargs)
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Union
 
 from .auth import check_connection_status, get_user_emails, resolve_account_target
@@ -100,9 +101,13 @@ def composio_calendar_list_events(
             "singleEvents": True,
             "orderBy": "startTime",
         }
-        if time_min:
-            args["timeMin"] = time_min
-            args["time_min"] = time_min
+        effective_time_min = time_min
+        if not effective_time_min and not query:
+            effective_time_min = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+
+        if effective_time_min:
+            args["timeMin"] = effective_time_min
+            args["time_min"] = effective_time_min
         if time_max:
             args["timeMax"] = time_max
             args["time_max"] = time_max

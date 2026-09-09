@@ -1,6 +1,6 @@
 ---
 name: email
-description: "Read-only Gmail inspection for gateway callers and explicitly provisioned native Hermes CLI/Desktop installations. Trigger for searching inboxes, reading threads, checking Google connection status, or connecting a Google account."
+description: "Gmail inbox search, thread inspection, sending emails, drafting, replying, checking Google connection status, or connecting a Google account for gateway callers and native Hermes CLI/Desktop installations."
 version: 0.2.0
 author: Hermes project team
 license: MIT
@@ -14,7 +14,7 @@ metadata:
 
 # Gmail Access and Safety
 
-Use this skill for read-only Gmail inspection with an explicit caller boundary.
+Use this skill for Gmail inbox search, thread inspection, drafting, replying, and sending with an explicit caller boundary.
 Gateway callers keep their existing host-owned identity; native Hermes CLI and
 Desktop can use the installation owner provisioned by `setup --local`.
 
@@ -23,6 +23,7 @@ Desktop can use the installation owner provisioned by `setup --local`.
 Choose by data lifecycle and intent:
 
 - Search, check, summarize, or retrieve messages from a connected Gmail account.
+- Send outbound emails, create email drafts, or reply to existing threads when requested by the user.
 - Check mailbox connection status.
 - Assist with `/connect-google` or `/disconnect-google` on a supported surface.
 - In gateway group or multi-user topics, only query operator-approved shared
@@ -40,6 +41,9 @@ examples:
     - "Search for recent invoice emails from suppliers"
     - "Find the email thread from the landlord about lease terms"
     - "Show my connected Google accounts"
+    - "Send an email to partner@example.com about meeting tomorrow"
+    - "Create a draft email to boss@company.com with project updates"
+    - "Reply to the email thread with confirmation"
 ```
 
 ## Safety Invariants
@@ -52,9 +56,10 @@ examples:
 3. **No local fallback for messaging callers**: Captured messaging sources and
    nonlocal native sessions never inherit the local installation owner when
    gateway lookup fails.
-4. **Gmail is read-only**: Do not send, reply, create drafts, or claim an
-   outbound operation. This project exposes search, thread retrieval, and
-   connection status only.
+4. **Outbound operations require explicit user intent**: When sending, drafting,
+   or replying, always specify the recipient, subject, and body clearly.
+   Use `email_create_draft` when the user wants to stage a draft, and
+   `email_send` when direct sending is requested.
 5. **Account targeting is explicit**: If an account is named, pass its
    `account_email` to the read/status operation. Unknown or ambiguous accounts
    fail closed.
@@ -72,6 +77,12 @@ examples:
   Gmail thread.
 - `email_connection_status()`: Check connected mailbox status for the current
   caller.
+- `email_send(recipient="...", subject="...", body="...", account_email="...")`: Send
+  an outbound email directly from the connected Gmail account.
+- `email_create_draft(recipient="...", subject="...", body="...", account_email="...")`: Create
+  an email draft in Gmail without sending it immediately.
+- `email_reply(thread_id="...", body="...", account_email="...")`: Reply to an
+  existing Gmail thread.
 - `/connect-google` (or `/connect_gmail`): Generate the unified Google OAuth
   connection link on the current supported surface.
 - `/mail-status`: Inspect connected accounts without exposing tokens.
