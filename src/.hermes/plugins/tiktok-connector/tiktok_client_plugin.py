@@ -11,16 +11,35 @@ _PLUGIN_DIR = Path(__file__).resolve().parent
 if str(_PLUGIN_DIR) not in sys.path:
     sys.path.insert(0, str(_PLUGIN_DIR))
 
-for candidate in (
-    Path(os.environ.get("HERMES_PROJECT_SRC", "")),
-    Path(os.environ.get("HERMES_SRC_DIR", "")),
-    _PLUGIN_DIR.resolve().parents[2],
-    _PLUGIN_DIR.parents[2] / "Hermes-Business-Agent" / "src",
-    _PLUGIN_DIR.parents[2],
-    Path.home() / "Hermes-Business-Agent" / "src",
-    Path.cwd() / "src",
-    Path.cwd(),
-):
+def _candidate_src_dirs() -> list[Path]:
+    candidates: list[Path] = []
+    for key in ("HERMES_PROJECT_SRC", "HERMES_SRC_DIR"):
+        val = os.environ.get(key)
+        if val and (Path(val) / "tools").is_dir():
+            candidates.append(Path(val))
+    if len(Path(__file__).resolve().parents) >= 3:
+        parent_candidate = Path(__file__).resolve().parents[2]
+        if (parent_candidate / "tools").is_dir():
+            candidates.append(parent_candidate)
+    for env_file in (
+        Path.home() / ".hermes" / ".env",
+        Path(os.environ.get("LOCALAPPDATA", "")) / "hermes" / ".env" if os.name == "nt" else None,
+    ):
+        if env_file and env_file.is_file():
+            try:
+                for line in env_file.read_text(encoding="utf-8").splitlines():
+                    if line.strip().startswith("HERMES_PROJECT_SRC="):
+                        val = line.strip().split("=", 1)[1].strip().strip('"').strip("'")
+                        if val and (Path(val) / "tools").is_dir():
+                            candidates.append(Path(val))
+            except OSError:
+                pass
+    for cwd_cand in (Path.cwd() / "src", Path.cwd()):
+        if (cwd_cand / "tools").is_dir():
+            candidates.append(cwd_cand)
+    return candidates
+
+for candidate in _candidate_src_dirs():
     try:
         if (
             candidate

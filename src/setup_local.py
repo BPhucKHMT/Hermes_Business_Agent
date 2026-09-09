@@ -154,14 +154,16 @@ def _configure_hermes(executable: str, root: Path) -> None:
     )
     for key, value in config_values:
         _run_hermes(executable, ("config", "set", key, value), root)
-    for env_path in (
-        Path.home() / ".hermes" / ".env",
-        Path(os.environ.get("LOCALAPPDATA", "")) / "hermes" / ".env" if os.name == "nt" else None,
-    ):
-        if env_path:
-            _update_dotenv_var(env_path, "HERMES_PROJECT_SRC", str(root))
-            _update_dotenv_var(env_path, "HERMES_ENABLE_PROJECT_PLUGINS", "1")
-
+    env_paths: list[Path] = []
+    if os.environ.get("HERMES_HOME"):
+        env_paths.append(Path(os.environ["HERMES_HOME"]) / ".env")
+    else:
+        env_paths.append(Path.home() / ".hermes" / ".env")
+        if os.name == "nt" and os.environ.get("LOCALAPPDATA"):
+            env_paths.append(Path(os.environ["LOCALAPPDATA"]) / "hermes" / ".env")
+    for env_path in env_paths:
+        _update_dotenv_var(env_path, "HERMES_PROJECT_SRC", str(root))
+        _update_dotenv_var(env_path, "HERMES_ENABLE_PROJECT_PLUGINS", "1")
 def _enable_project_plugins(executable: str, root: Path) -> None:
     for plugin in PROJECT_PLUGINS:
         _run_hermes(

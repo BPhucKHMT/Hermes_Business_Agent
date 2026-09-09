@@ -60,7 +60,7 @@ separate settings. Restart Desktop or the gateway after changing them.
 
 Use `/connect-google` to authorize Gmail and Calendar, then
 `/mail-status`, `/calendar-status`, and the read/search tools to inspect data.
-Gmail remains read-only. Calendar writes retain the native approval boundary.
+Gmail supports search, thread inspection, drafting, replying, and sending. Calendar writes retain the native approval boundary.
 Provider failures and missing connections are errors, not successful results.
 
 The owner is installation-bound and shared by CLI/Desktop across business
