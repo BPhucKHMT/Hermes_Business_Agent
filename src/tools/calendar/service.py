@@ -4,6 +4,7 @@ from datetime import datetime, timedelta, timezone
 import logging
 from typing import Any, Callable, Dict, List, Optional
 from uuid import uuid4
+from zoneinfo import ZoneInfo
 
 from tools.calendar.contracts import (
     CalendarEvent,
@@ -15,7 +16,8 @@ from tools.calendar.contracts import (
 from tools.calendar.google_calendar import GoogleCalendarClient
 from tools.calendar.policy import CalendarPolicy
 from tools.calendar.store import CalendarStore
-
+import tools.composio.auth as composio_auth
+import tools.composio.calendar_tools as composio_calendar
 logger = logging.getLogger(__name__)
 
 
@@ -156,9 +158,7 @@ class CalendarService:
 
     def _default_token_resolver(self, principal_id: str) -> Dict[str, Any]:
         try:
-            from tools.composio.auth import list_user_connections
-
-            connections = list_user_connections(principal_id)
+            connections = composio_auth.list_user_connections(principal_id)
             for connection in connections:
                 if str(connection.get("status", "")).upper() == "ACTIVE":
                     return {
@@ -181,9 +181,7 @@ class CalendarService:
     def _composio_account_for_draft(self, principal_id: str, draft: EventDraft) -> str:
         if draft.account_email:
             return draft.account_email
-        from tools.composio.auth import get_user_emails
-
-        emails = get_user_emails(principal_id)
+        emails = composio_auth.get_user_emails(principal_id)
         unique = {email.casefold(): email for email in emails.values() if email}
         if len(unique) != 1:
             raise ValueError("draft_account_target_required")
@@ -203,9 +201,7 @@ class CalendarService:
         account_email: str,
         event_id: str,
     ) -> CalendarEvent:
-        from tools.composio.calendar_tools import composio_calendar_get_event
-
-        response = composio_calendar_get_event(
+        response = composio_calendar.composio_calendar_get_event(
             principal_id,
             event_id=event_id,
             calendar_id=draft.calendar_id,
@@ -249,9 +245,7 @@ class CalendarService:
             token_data.get("account_email")
         )
         if self._uses_composio(token_data):
-            from tools.composio.calendar_tools import composio_calendar_list_events
-
-            response = composio_calendar_list_events(
+            response = composio_calendar.composio_calendar_list_events(
                 principal_id,
                 calendar_id=calendar_id,
                 account_email=selected_account,
@@ -301,8 +295,6 @@ class CalendarService:
         wh_end_t = datetime.strptime(working_end, "%H:%M").time()
 
         try:
-            from zoneinfo import ZoneInfo
-
             tz = ZoneInfo(timezone_str or self.policy.default_timezone)
         except Exception:
             tz = timezone(timedelta(hours=7))
@@ -393,9 +385,7 @@ class CalendarService:
         normalized_account = self._normalize_account(account_email)
         token_data = self.token_resolver(principal_id)
         if self._uses_composio(token_data):
-            from tools.composio.auth import resolve_account_target
-
-            _, resolved_email = resolve_account_target(principal_id, account_email)
+            _, resolved_email = composio_auth.resolve_account_target(principal_id, account_email)
             normalized_account = self._normalize_account(resolved_email)
         idempotency_key = compute_draft_idempotency_key(
             principal_id=principal_id,
@@ -476,9 +466,7 @@ class CalendarService:
             return event
 
         if use_composio:
-            from tools.composio.calendar_tools import composio_calendar_create_event
-
-            response = composio_calendar_create_event(
+            response = composio_calendar.composio_calendar_create_event(
                 principal_id,
                 summary=draft.summary,
                 start_datetime=draft.start_time,
@@ -539,9 +527,7 @@ class CalendarService:
             token_data.get("account_email")
         )
         if self._uses_composio(token_data):
-            from tools.composio.calendar_tools import composio_calendar_get_event
-
-            response = composio_calendar_get_event(
+            response = composio_calendar.composio_calendar_get_event(
                 principal_id,
                 event_id=event_id,
                 calendar_id=calendar_id,
@@ -573,9 +559,7 @@ class CalendarService:
             token_data.get("account_email")
         )
         if self._uses_composio(token_data):
-            from tools.composio.calendar_tools import composio_calendar_delete_event
-
-            response = composio_calendar_delete_event(
+            response = composio_calendar.composio_calendar_delete_event(
                 principal_id,
                 event_id=event_id,
                 calendar_id=calendar_id,
@@ -595,13 +579,11 @@ class CalendarService:
     def status(self, caller: Any) -> Dict[str, Any]:
         principal_id = self._principal(caller)
         try:
-            from tools.composio.auth import check_connection_status, get_user_emails
-
             if any(
-                check_connection_status(principal_id, app=app)
+                composio_auth.check_connection_status(principal_id, app=app)
                 for app in ("googlesuper", "googlecalendar", "gmail")
             ):
-                account_emails = list(dict.fromkeys(get_user_emails(principal_id).values()))
+                account_emails = list(dict.fromkeys(composio_auth.get_user_emails(principal_id).values()))
                 return {
                     "ok": True,
                     "status": "connected",

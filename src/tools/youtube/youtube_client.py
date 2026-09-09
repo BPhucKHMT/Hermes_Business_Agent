@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 from urllib.error import HTTPError
@@ -31,7 +32,6 @@ class YouTubeClient:
         }
 
     def _refresh_access_token(self, token_data: Dict[str, Any]) -> str:
-        import os
         refresh_token = token_data.get("refresh_token")
         client_id = token_data.get("client_id") or os.environ.get("YOUTUBE_GOOGLE_CLIENT_ID")
         client_secret = token_data.get("client_secret") or os.environ.get("YOUTUBE_GOOGLE_CLIENT_SECRET")

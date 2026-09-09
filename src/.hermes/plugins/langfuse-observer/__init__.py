@@ -14,6 +14,16 @@ import os
 import threading
 from typing import Any, Callable, Dict, List, Mapping, Optional, Tuple
 
+try:
+    from agent.redact import redact_sensitive_text as _redact_sensitive_text
+except (ImportError, ModuleNotFoundError):
+    _redact_sensitive_text = None
+
+try:
+    from langfuse import Langfuse as _LangfuseSDK, propagate_attributes as _propagate_attributes
+except (ImportError, ModuleNotFoundError):
+    _LangfuseSDK = None
+    _propagate_attributes = None
 logger = logging.getLogger(__name__)
 
 _PLUGIN_ID = "langfuse-observer"
@@ -95,17 +105,15 @@ def _load_redactor() -> Optional[Callable[[str], str]]:
     global _REDACTOR
     if _REDACTOR is not None:
         return _REDACTOR
-    try:
-        from agent.redact import redact_sensitive_text
-
+    if _redact_sensitive_text is not None:
         def redact(val: str) -> str:
             try:
-                return str(redact_sensitive_text(val, force=True))
+                return str(_redact_sensitive_text(val, force=True))
             except TypeError:
-                return str(redact_sensitive_text(val))
+                return str(_redact_sensitive_text(val))
 
         _REDACTOR = redact
-    except Exception:
+    else:
         _REDACTOR = None
     return _REDACTOR
 
@@ -167,11 +175,7 @@ def _opaque_id(prefix: str, *parts: Any) -> str:
 
 
 def _load_sdk():
-    try:
-        from langfuse import Langfuse
-        return Langfuse
-    except Exception:
-        return None
+    return _LangfuseSDK
 
 
 def _native_exporter_enabled() -> bool:
@@ -267,15 +271,16 @@ def _start_root(client: Any, key: str, identity: Optional[_HostIdentity], s_id: 
             pass
 
     try:
-        try:
-            from langfuse import propagate_attributes
-            propagate_ctx = propagate_attributes(
-                session_id=meta["session_id"],
-                user_id=meta.get("user_id"),
-                metadata=_safe_value(meta),
-            )
-        except Exception:
-            propagate_ctx = None
+        propagate_ctx = None
+        if _propagate_attributes is not None:
+            try:
+                propagate_ctx = _propagate_attributes(
+                    session_id=meta["session_id"],
+                    user_id=meta.get("user_id"),
+                    metadata=_safe_value(meta),
+                )
+            except Exception:
+                propagate_ctx = None
 
         if propagate_ctx is not None:
             with propagate_ctx:

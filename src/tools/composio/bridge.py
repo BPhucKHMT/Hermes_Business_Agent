@@ -8,29 +8,21 @@ import subprocess
 
 ROOT = Path(__file__).resolve().parents[2]
 
+_inprocess_dispatch = None
+try:
+    import composio  # noqa: F401
+    from tools.composio.worker import dispatch as _inprocess_dispatch
+except (ImportError, ModuleNotFoundError):
+    _inprocess_dispatch = None
 
 def call_google(operation: str, principal_id: str, params: dict | None = None):
     """Return the domain result; caller identity comes from the host guard."""
     if not principal_id or not principal_id.strip():
         raise ValueError("Google operation requires a bound caller")
-    if os.environ.get("HERMES_FORCE_GOOGLE_BRIDGE") != "1":
-        inprocess_dispatch = None
-        try:
-            import composio  # noqa: F401
-            import tools
-
-            tools_path = str(Path(__file__).resolve().parents[1])
-            if hasattr(tools, "__path__") and tools_path not in tools.__path__:
-                tools.__path__.insert(0, tools_path)
-
-            from tools.composio.worker import dispatch as inprocess_dispatch
-        except (ImportError, ModuleNotFoundError):
-            inprocess_dispatch = None
-
-        if inprocess_dispatch is not None:
-            return inprocess_dispatch(
-                {"operation": operation, "principal_id": principal_id, "params": params or {}}
-            )
+    if os.environ.get("HERMES_FORCE_GOOGLE_BRIDGE") != "1" and _inprocess_dispatch is not None:
+        return _inprocess_dispatch(
+            {"operation": operation, "principal_id": principal_id, "params": params or {}}
+        )
     uv = shutil.which("uv")
     if not uv:
         for candidate in (

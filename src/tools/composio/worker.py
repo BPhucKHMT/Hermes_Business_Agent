@@ -9,6 +9,8 @@ import sys
 from types import SimpleNamespace
 from typing import Any
 
+from tools.calendar.cli import build_service
+
 PROVIDER_OPERATIONS = {
     "handle_connect_google": "commands",
     "handle_connect_calendar": "commands",
@@ -52,8 +54,6 @@ def normalize_result(value: Any) -> Any:
 
 
 def calendar_operation(name, principal_id, params):
-    from tools.calendar.cli import build_service
-
     service = build_service()
     if name == "get_draft":
         draft = service.store.get_draft(params["draft_id"])

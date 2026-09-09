@@ -16,6 +16,7 @@ from tools.calendar.google_calendar import GoogleCalendarClient
 from tools.calendar.policy import load_calendar_policy
 from tools.calendar.service import CalendarService
 from tools.calendar.store import CalendarStore
+from tools.composio.local_owner import load_local_owner
 
 
 def build_service() -> CalendarService:
@@ -28,8 +29,6 @@ def build_service() -> CalendarService:
 
 
 def _default_principal() -> str:
-    from tools.composio.local_owner import load_local_owner
-
     owner_id = load_local_owner()
     if not owner_id:
         raise LookupError(

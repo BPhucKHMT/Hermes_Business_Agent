@@ -17,6 +17,7 @@ from tools.youtube.contracts import (
     YouTubeVideo,
     compute_video_draft_idempotency_key,
 )
+from tools.composio.auth import list_user_connections
 from tools.youtube.policy import YouTubePolicy, load_youtube_policy
 from tools.youtube.store import YouTubeStore
 from tools.youtube.youtube_client import YouTubeClient
@@ -40,7 +41,6 @@ class YouTubeService:
         if not conn:
             return {"mock_mode": True}
         try:
-            from tools.composio.auth import list_user_connections
             conns = list_user_connections(principal_id)
             for c in conns:
                 if c.get("status") == "ACTIVE":

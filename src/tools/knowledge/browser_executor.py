@@ -10,8 +10,11 @@ from artifact_capture import (
     map_crawl_result,
 )
 from asset_download import download_asset, select_relevant_images
+from crawl4ai import AsyncWebCrawler, BrowserConfig, CacheMode, CrawlerRunConfig
 from crawl4ai.async_crawler_strategy import AsyncPlaywrightCrawlerStrategy
 from crawl4ai.browser_manager import BrowserManager
+from crawl4ai.content_filter_strategy import PruningContentFilter
+from crawl4ai.markdown_generation_strategy import DefaultMarkdownGenerator
 from web import validate_public_target
 
 
@@ -32,10 +35,6 @@ class Crawl4AISession:
         self.crawler = None
 
     async def __aenter__(self):
-        try:
-            from crawl4ai import AsyncWebCrawler, BrowserConfig
-        except ImportError as error:
-            raise RuntimeError("Crawl4AI is required; run operator setup") from error
 
         browser_config = BrowserConfig(browser_type="chromium", headless=True)
         strategy = AsyncPlaywrightCrawlerStrategy(browser_config=browser_config)
@@ -77,9 +76,6 @@ class Crawl4AISession:
             await self.crawler.close()
 
     async def capture(self, url: str, event_id: str, parent_event_id: str | None = None) -> BrowserArtifact:
-        from crawl4ai import CacheMode, CrawlerRunConfig
-        from crawl4ai.content_filter_strategy import PruningContentFilter
-        from crawl4ai.markdown_generation_strategy import DefaultMarkdownGenerator
 
         require_screenshot = parent_event_id is None
         config = CrawlerRunConfig(

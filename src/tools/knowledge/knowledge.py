@@ -5,6 +5,7 @@ import sys
 
 from cli import build_parser
 from clients import create_clients, load_config
+from crawl import trusted_crawl
 
 WORKSPACE_FLAG = "--workspace"
 from indexing import (
@@ -70,8 +71,6 @@ def run_offline_command(args):
         result = {"status": "started", "session": str(path), "crawl": result}
 
     elif args.command == "web-crawl":
-        from crawl import trusted_crawl
-
         crawled = trusted_crawl(args.url, load_website_policy(Path(args.policy)), RUNTIME, args.scope)
         session_path = RUNTIME / f"{crawled['session']['session_id']}.json"
         validated_path = RUNTIME / f"{crawled['session']['session_id']}.validated.json"

@@ -1,19 +1,29 @@
 from __future__ import annotations
 
 from dataclasses import asdict, is_dataclass
+import importlib.util
 import logging
 import os
 from pathlib import Path
 from threading import Lock
+import sys
 from typing import Any, Callable, Dict, Optional
 
-logger = logging.getLogger(__name__)
+try:
+    from tools.calendar.cli import build_service as _build_service_fn
+except (ImportError, ModuleNotFoundError):
+    _build_service_fn = None
+
 def _candidate_src_dirs() -> list[Path]:
     candidates: list[Path] = []
     for key in ("HERMES_PROJECT_SRC", "HERMES_SRC_DIR"):
         val = os.environ.get(key)
-        if val:
+        if val and (Path(val) / "tools").is_dir():
             candidates.append(Path(val))
+    if len(Path(__file__).resolve().parents) >= 3:
+        parent_candidate = Path(__file__).resolve().parents[2]
+        if (parent_candidate / "tools").is_dir():
+            candidates.append(parent_candidate)
     for env_file in (
         Path.home() / ".hermes" / ".env",
         Path(os.environ.get("LOCALAPPDATA", "")) / "hermes" / ".env" if os.name == "nt" else None,
@@ -23,12 +33,34 @@ def _candidate_src_dirs() -> list[Path]:
                 for line in env_file.read_text(encoding="utf-8").splitlines():
                     if line.strip().startswith("HERMES_PROJECT_SRC="):
                         val = line.strip().split("=", 1)[1].strip().strip('"').strip("'")
-                        if val:
+                        if val and (Path(val) / "tools").is_dir():
                             candidates.append(Path(val))
             except OSError:
                 pass
-    candidates.extend([Path.cwd() / "src", Path.cwd()])
+    for cwd_cand in (Path.cwd() / "src", Path.cwd()):
+        if (cwd_cand / "tools").is_dir():
+            candidates.append(cwd_cand)
     return candidates
+
+
+_composio_bridge = None
+try:
+    from tools.composio import bridge as _composio_bridge
+except (ImportError, ModuleNotFoundError):
+    for _cand in _candidate_src_dirs():
+        _target = _cand / "tools" / "composio" / "bridge.py"
+        if _target.is_file():
+            _src_dir = str(_cand.resolve())
+            if _src_dir not in sys.path:
+                sys.path.insert(0, _src_dir)
+            _spec = importlib.util.spec_from_file_location("tools.composio.bridge", str(_target))
+            if _spec and _spec.loader:
+                _mod = importlib.util.module_from_spec(_spec)
+                sys.modules["tools.composio.bridge"] = _mod
+                _spec.loader.exec_module(_mod)
+                _composio_bridge = _mod
+                break
+logger = logging.getLogger(__name__)
 
 
 
@@ -44,11 +76,9 @@ class CalendarConnectorClient:
         """Expose the local store for guard checks; provider calls use the bridge."""
         with self._lock:
             if self._service is None:
-                factory = self._service_factory
+                factory = self._service_factory or _build_service_fn
                 if factory is None:
-                    from tools.calendar.cli import build_service
-
-                    factory = build_service
+                    raise RuntimeError("calendar build_service factory unavailable")
                 self._service = factory()
             return self._service
 
@@ -65,32 +95,10 @@ class CalendarConnectorClient:
         principal_id: str,
         params: Optional[Dict[str, Any]] = None,
     ) -> Any:
-        try:
-            from tools.composio.bridge import call_google
-            return call_google(operation, principal_id, params)
-        except (ImportError, ModuleNotFoundError):
-            pass
-        import importlib.util, sys
-        for candidate in _candidate_src_dirs():
-            target = candidate / "tools" / "composio" / "bridge.py"
-            if target.is_file():
-                src_dir = str(candidate.resolve())
-                if src_dir not in sys.path:
-                    sys.path.insert(0, src_dir)
-                try:
-                    import tools
-                    tools_dir = str((candidate / "tools").resolve())
-                    if hasattr(tools, "__path__") and tools_dir not in tools.__path__:
-                        tools.__path__.insert(0, tools_dir)
-                except Exception:
-                    pass
-                spec = importlib.util.spec_from_file_location("tools.composio.bridge", str(target))
-                if spec and spec.loader:
-                    mod = importlib.util.module_from_spec(spec)
-                    sys.modules["tools.composio.bridge"] = mod
-                    spec.loader.exec_module(mod)
-                    return mod.call_google(operation, principal_id, params)
-        raise RuntimeError("call_google bridge unavailable; run python src/setup_local.py --local")
+        bridge = sys.modules.get("tools.composio.bridge") or _composio_bridge
+        if bridge is None or not hasattr(bridge, "call_google"):
+            raise RuntimeError("call_google bridge unavailable; run python src/setup_local.py --local")
+        return bridge.call_google(operation, principal_id, params)
 
     def list_events(
         self,

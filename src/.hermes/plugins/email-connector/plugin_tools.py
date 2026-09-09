@@ -86,36 +86,34 @@ def _candidate_src_dirs() -> list[Path]:
     return candidates
 
 
+_composio_bridge = None
+try:
+    from tools.composio import bridge as _composio_bridge
+except (ImportError, ModuleNotFoundError):
+    for _cand in _candidate_src_dirs():
+        _target = _cand / "tools" / "composio" / "bridge.py"
+        if _target.is_file():
+            _src_dir = str(_cand.resolve())
+            if _src_dir not in sys.path:
+                sys.path.insert(0, _src_dir)
+            _spec = importlib.util.spec_from_file_location("tools.composio.bridge", str(_target))
+            if _spec and _spec.loader:
+                _mod = importlib.util.module_from_spec(_spec)
+                sys.modules["tools.composio.bridge"] = _mod
+                _spec.loader.exec_module(_mod)
+                _composio_bridge = _mod
+                break
+
+
 def _call_google(
     operation: str,
     principal_id: str,
     params: Dict[str, Any] | None = None,
 ) -> Any:
-    try:
-        from tools.composio.bridge import call_google
-        return call_google(operation, principal_id, params)
-    except (ImportError, ModuleNotFoundError):
-        pass
-    for candidate in _candidate_src_dirs():
-        target = candidate / "tools" / "composio" / "bridge.py"
-        if target.is_file():
-            src_dir = str(candidate.resolve())
-            if src_dir not in sys.path:
-                sys.path.insert(0, src_dir)
-            try:
-                import tools
-                tools_dir = str((candidate / "tools").resolve())
-                if hasattr(tools, "__path__") and tools_dir not in tools.__path__:
-                    tools.__path__.insert(0, tools_dir)
-            except Exception:
-                pass
-            spec = importlib.util.spec_from_file_location("tools.composio.bridge", str(target))
-            if spec and spec.loader:
-                mod = importlib.util.module_from_spec(spec)
-                sys.modules["tools.composio.bridge"] = mod
-                spec.loader.exec_module(mod)
-                return mod.call_google(operation, principal_id, params)
-    raise RuntimeError("call_google bridge unavailable; run python src/setup_local.py --local")
+    bridge = sys.modules.get("tools.composio.bridge") or _composio_bridge
+    if bridge is None or not hasattr(bridge, "call_google"):
+        raise RuntimeError("call_google bridge unavailable; run python src/setup_local.py --local")
+    return bridge.call_google(operation, principal_id, params)
 
 
 def handle_email_search(

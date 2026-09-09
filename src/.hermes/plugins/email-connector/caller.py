@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from contextvars import ContextVar
 from dataclasses import dataclass
+import importlib.util
 import os
 from pathlib import Path
 from threading import Lock
@@ -9,11 +10,6 @@ from typing import Any, Optional
 from uuid import UUID
 
 from gateway.session import build_session_key
-
-try:
-    from tools.composio.local_owner import load_local_owner
-except (ImportError, ModuleNotFoundError):
-    load_local_owner = None  # type: ignore[assignment]
 
 
 DM_REDIRECT_TEXT = "Mở chat riêng với Hermes để xem Gmail cá nhân."
@@ -39,8 +35,12 @@ def _candidate_src_dirs() -> list[Path]:
     candidates: list[Path] = []
     for key in ("HERMES_PROJECT_SRC", "HERMES_SRC_DIR"):
         val = os.environ.get(key)
-        if val:
+        if val and (Path(val) / "tools").is_dir():
             candidates.append(Path(val))
+    if len(Path(__file__).resolve().parents) >= 3:
+        parent_candidate = Path(__file__).resolve().parents[2]
+        if (parent_candidate / "tools").is_dir():
+            candidates.append(parent_candidate)
     for env_file in (
         Path.home() / ".hermes" / ".env",
         Path(os.environ.get("LOCALAPPDATA", "")) / "hermes" / ".env" if os.name == "nt" else None,
@@ -50,31 +50,30 @@ def _candidate_src_dirs() -> list[Path]:
                 for line in env_file.read_text(encoding="utf-8").splitlines():
                     if line.strip().startswith("HERMES_PROJECT_SRC="):
                         val = line.strip().split("=", 1)[1].strip().strip('"').strip("'")
-                        if val:
+                        if val and (Path(val) / "tools").is_dir():
                             candidates.append(Path(val))
             except OSError:
                 pass
-    candidates.extend([Path.cwd() / "src", Path.cwd()])
+    for cwd_cand in (Path.cwd() / "src", Path.cwd()):
+        if (cwd_cand / "tools").is_dir():
+            candidates.append(cwd_cand)
     return candidates
 
 
-def _get_load_local_owner():
-    try:
-        from tools.composio.local_owner import load_local_owner
-        return load_local_owner
-    except (ImportError, ModuleNotFoundError):
-        pass
-    for candidate in _candidate_src_dirs():
-        target = candidate / "tools" / "composio" / "local_owner.py"
-        if target.is_file():
-            import importlib.util
-            spec = importlib.util.spec_from_file_location("_local_owner_dyn", str(target))
-            if spec and spec.loader:
-                mod = importlib.util.module_from_spec(spec)
-                spec.loader.exec_module(mod)
-                return getattr(mod, "load_local_owner", None)
-    return None
-
+_load_local_owner = None
+try:
+    from tools.composio.local_owner import load_local_owner as _load_local_owner
+except (ImportError, ModuleNotFoundError):
+    for _cand in _candidate_src_dirs():
+        _target = _cand / "tools" / "composio" / "local_owner.py"
+        if _target.is_file():
+            _spec = importlib.util.spec_from_file_location("_local_owner_dyn", str(_target))
+            if _spec and _spec.loader:
+                _mod = importlib.util.module_from_spec(_spec)
+                _spec.loader.exec_module(_mod)
+                _load_local_owner = getattr(_mod, "load_local_owner", None)
+                if _load_local_owner is not None:
+                    break
 
 class CallerContextRegistry:
     def __init__(
@@ -108,7 +107,7 @@ class CallerContextRegistry:
             self._session_store = session_store
 
     def _resolve_local(self) -> CallerContext:
-        resolver = _get_load_local_owner()
+        resolver = _load_local_owner
         if resolver is None:
             raise LookupError("local owner resolver unavailable")
         owner_id = resolver(self._local_owner_path)

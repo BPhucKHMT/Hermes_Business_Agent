@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from pathlib import Path, PurePosixPath
 from typing import Any, Dict, Optional, Tuple
 
@@ -83,7 +83,6 @@ class EvidenceResult:
         return bool(self.evidence)
 
     def to_dict(self) -> Dict[str, Any]:
-        from dataclasses import asdict
         return {
             "status": self.status,
             "has_valid_evidence": self.has_valid_evidence,
