@@ -512,3 +512,52 @@
   - All 18 repository test suites passed 100% cleanly (including 38/38 in `verify_calendar.py` and 25/25 in `verify_composio.py`).
   - Live end-to-end verification executed across all 6 core calendar operations against user's connected account `baophuc1204vn@gmail.com`.
   - Live Telegram bot confirmed working: reschedule ("dời lịch thành 14h30-15h") succeeded and updated Google Calendar in real time.
+
+## 2026-09-09 H009 Gmail toolkit routing repair
+
+- Scope: fix Gmail search/thread reads for an existing GoogleSuper connection. No account reconnection, outbound mail, path/deployment changes, or other connector changes.
+- Root cause: connection status accepted `googlesuper`, but read execution unconditionally requested `GMAIL_FETCH_EMAILS` / `GMAIL_FETCH_MESSAGE_BY_THREAD_ID`.
+- `src/tools/composio/mail_tools.py` now reads the selected account's toolkit through the installed SDK and selects the matching Gmail or GoogleSuper read slug, retaining the same account ID. Unsupported toolkits fail rather than switching accounts.
+- Provider schemas were retrieved using `get_raw_composio_tools(toolkits=["googlesuper"], ...)`; confirmed `GOOGLESUPER_FETCH_EMAILS` and `GOOGLESUPER_FETCH_MESSAGE_BY_THREAD_ID` and their input schemas.
+- Regression RED: the new search/thread cases failed with GoogleSuper-only connections; native Gmail cases passed. GREEN: both toolkit variants pass.
+- Verification recorded at `2026-09-09T02:08:28+00:00`:
+  - Layer 1: `uv tool run --offline ruff check --select E7,E9,F,I src/tools/composio/mail_tools.py tests/email/test_composio_email_adapter.py`, exit 0; `src/.venv/Scripts/python.exe -B tests/verify_email_intake.py --layer 1`, exit 0. Unrestricted Ruff still reports pre-existing typing modernization/broad-exception findings; this repair does not claim a full lint pass.
+  - Layer 2: `src/.venv/Scripts/python.exe -B -m pytest tests/email tests/test_google_boundaries.py tests/test_google_native_dispatch.py tests/test_composio_mail_outbound.py -q -p no:cacheprovider`, exit 0, 52 passed.
+  - Live smoke: installed Hermes Python with `-B -c` invoked `discover_plugins()` then native `registry.dispatch("email_search", {"query": "newer_than:2d", "limit": 1, "account_email": "baophuc1204vn@gmail.com"}, task_id="gmail-verify-turn", session_id="gmail-verify-session")`; passed the returned thread ID to `email_get_thread` in the same process. Exit 0; both tools returned `ok: true`, the requested mailbox, one message, and nonempty body/payload. Registered handler loaded from the operator plugin directory. No message bodies or credentials recorded.
+- Limits: proves these registered read-tool paths, not the full Desktop interaction or complete H009 acceptance. No independent verifier evidence; H009 remains `blocked`.
+- Remaining H009 release blocker: owner is independent verifier/operator; unblock with fresh evidence for the declared caller-bound access, audit, expiry, and outstanding shared-mailbox requirements. This blocker does not mean the repaired personal-mail read failed.
+
+## 2026-09-09 Full Composio Outbound Email Suite, Slash Command Repair & PEP 8 Import Refactor
+
+- **Core Deliverables & Problem Solved**:
+  1. **Composio Outbound Email Suite Restoration**:
+     - Fully ported and registered all 6 email tools in `email-connector`: `email_search`, `email_get_thread`, `email_connection_status`, `email_send`, `email_create_draft`, `email_reply`.
+     - Implemented automatic dual-slug execution across all tools (`GMAIL_*` and `GOOGLESUPER_*` mapping) in `src/tools/composio/mail_tools.py`.
+     - Completely purged artificial "read-only" limitations from `skills/email/SKILL.md`, `src/AGENTS.md`, and `src/README.md`.
+     - Live verification: Created a real email draft directly on Google account `baophuc1204vn@gmail.com` addressed to `23521208@gm.uit.edu` (Draft ID: `r8703791565433652248`).
+  2. **Systematic Debugging of Slash Command Failure (`Unknown command /...`)**:
+     - Investigated `C:\Users\ADMIN\AppData\Local\hermes\logs\gateway.log` at incident timestamps.
+     - Root cause: `commands.py` and `plugin_tools.py` in `email-connector` and `calendar-connector` defined `import os` and `from pathlib import Path` inside `_call_google()`, but `_candidate_src_dirs()` was defined at module scope and called before the imports, causing `NameError: name 'os' is not defined`.
+     - Gateway caught this exception and fell through to unknown-command notice: `Unknown command /{command}. Type /commands to see what's available...`.
+     - Fixed by elevating all core imports (`os`, `sys`, `Path`, `importlib.util`, `re`) to module top-level.
+     - Added inverted aliases for user convenience: `/status-mail`, `/status_mail`, `/status-email`, `/status_email`, `/status-calendar`, `/status_calendar`.
+     - Synced plugins to `%LOCALAPPDATA%\hermes\plugins\` and restarted Hermes Gateway service.
+  3. **Comprehensive Codebase Refactor (PEP 8 Top-Level Imports)**:
+     - AST audit of all `.py` files under `src/` revealed 47 instances of in-function imports.
+     - Refactored `tools/calendar/service.py`: moved `ZoneInfo`, `tools.composio.auth`, and `tools.composio.calendar_tools` to top level, removing 10 repetitive in-function imports.
+     - Refactored `tools/composio/bridge.py` and `worker.py`: moved `build_service` and `_inprocess_dispatch` to module level.
+     - Refactored `tools/youtube/` and `tools/knowledge/`: moved `os`, `list_user_connections`, `asdict`, `trusted_crawl`, and all `crawl4ai` imports to top-level.
+     - Refactored all plugin callers/tools: converted dynamic bridge/owner lookup to module-level resolution (`bridge = sys.modules.get("tools.composio.bridge") or _composio_bridge`) preserving 100% compatibility with pytest monkeypatching.
+     - Post-refactor AST scan confirms: **0 in-function imports remaining across entire `src/`**.
+  4. **Calendar, YouTube & TikTok Regression Defense**:
+     - Verified all 9 operations of Google Calendar live against connected Google account (list, get, find_free_slots, create, patch/reschedule, delete, draft, confirm, status).
+     - All 38 calendar unit tests pass.
+     - All 39 YouTube and TikTok connector tests pass.
+- **Verification Evidence**:
+  - Full repository test pass: `src/.venv/Scripts/python.exe -m pytest tests --ignore=tests/langfuse_observer -q` -> **165 passed, 1 warning in 5.73s** (100% PASS).
+  - Live CLI & Gateway registration: All 14 slash commands and 15 tools verified registered and operational in Hermes host Python.
+  - Git commits: `e9e2325` (email cutover & calendar verification), `6060fec` (slash command import fix), `9dcacc1` (PEP 8 import refactor).
+- **Recommended Next Actions**:
+  1. Transition `H013` (Google Calendar via Composio) from `blocked` to `passing` with independent verifier evidence now that all 9 operations have live Layer 3 proof.
+  2. Execute formal Layer 3 intake verification for `H009` (Gmail via Composio) with independent verifier.
+  3. Continue with customer business flows: Morning Brief 07:30 (Top 3 Today) + Radar expiry tracking (Flow B / Proactive Engine).

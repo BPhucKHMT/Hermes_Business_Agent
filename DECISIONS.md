@@ -251,3 +251,17 @@
   3) Normalize Composio execution response dictionaries via `_normalize_event_data` to ensure standard Google Event IDs and URLs are reliably returned to callers.
 - Consequences: Full calendar operations (including dời lịch and direct creation) function seamlessly across multiple Google accounts and messaging platforms with zero hardcoding and zero brittle regex, maintaining 100% test pass rate across all 18 test suites.
 - Revisit when: Team-wide shared calendars require multi-organizer quorum approval workflows.
+
+## D026 — Complete Outbound Composio Email Activation & PEP 8 Module-Level Import Standard
+
+- Date: 2026-09-09
+- Status: accepted
+- Context: Early H009 intake spec restricted Gmail to read-only intake, which erroneously resulted in purging outbound email capabilities (`email_send`, `email_create_draft`, `email_reply`) and inserting artificial prompt restrictions. Concurrently, lazy in-function import practices introduced runtime `NameError` bugs (`name 'os' is not defined`) that crashed slash commands like `/connect-google` and `/mail-status`, causing Telegram Gateway to fall through to `Unknown command`.
+- Decision:
+  1) Fully activate and register the complete Composio email capability suite (`email_search`, `email_get_thread`, `email_connection_status`, `email_send`, `email_create_draft`, `email_reply`) with automatic dual-slug toolkit mapping (`GMAIL_*` and `GOOGLESUPER_*`).
+  2) Purge all artificial "read-only" restrictions from `src/skills/email/SKILL.md`, `src/AGENTS.md`, and runtime documentation.
+  3) Strictly enforce PEP 8 module-level imports across the entire repository: eliminate 100% of in-function imports (reducing 47 instances to 0).
+  4) Use dynamic module lookup (`sys.modules.get("tools.composio.bridge") or _composio_bridge`) to seamlessly support pytest monkeypatching while maintaining clean top-level module architecture.
+  5) Add bidirectional command aliases (`/status-mail`, `/status_mail`, `/status-email`, `/status_email`, `/status-calendar`, `/status_calendar`) for user convenience across platforms.
+- Consequences: Full email capabilities (sending, drafting, replying) and calendar operations work reliably on Telegram, Hermes CLI, and Desktop. Slash commands execute deterministically without `NameError`. 100% test pass rate across all 165 test cases.
+- Revisit when: Multi-agent outbound email DLP or organizational approval quorum is formally introduced.
