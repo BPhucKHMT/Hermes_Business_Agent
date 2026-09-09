@@ -1,8 +1,12 @@
 from __future__ import annotations
 
+import importlib.util
 import json
 import logging
+import os
+from pathlib import Path
 import re
+import sys
 from typing import Any, Dict
 
 from caller import CallerContextRegistry, DmOnlyError
@@ -57,8 +61,12 @@ def _candidate_src_dirs() -> list[Path]:
     candidates: list[Path] = []
     for key in ("HERMES_PROJECT_SRC", "HERMES_SRC_DIR"):
         val = os.environ.get(key)
-        if val:
+        if val and (Path(val) / "tools").is_dir():
             candidates.append(Path(val))
+    if len(Path(__file__).resolve().parents) >= 3:
+        parent_candidate = Path(__file__).resolve().parents[2]
+        if (parent_candidate / "tools").is_dir():
+            candidates.append(parent_candidate)
     for env_file in (
         Path.home() / ".hermes" / ".env",
         Path(os.environ.get("LOCALAPPDATA", "")) / "hermes" / ".env" if os.name == "nt" else None,
@@ -68,11 +76,13 @@ def _candidate_src_dirs() -> list[Path]:
                 for line in env_file.read_text(encoding="utf-8").splitlines():
                     if line.strip().startswith("HERMES_PROJECT_SRC="):
                         val = line.strip().split("=", 1)[1].strip().strip('"').strip("'")
-                        if val:
+                        if val and (Path(val) / "tools").is_dir():
                             candidates.append(Path(val))
             except OSError:
                 pass
-    candidates.extend([Path.cwd() / "src", Path.cwd()])
+    for cwd_cand in (Path.cwd() / "src", Path.cwd()):
+        if (cwd_cand / "tools").is_dir():
+            candidates.append(cwd_cand)
     return candidates
 
 
@@ -86,8 +96,6 @@ def _call_google(
         return call_google(operation, principal_id, params)
     except (ImportError, ModuleNotFoundError):
         pass
-    import importlib.util, os, sys
-    from pathlib import Path
     for candidate in _candidate_src_dirs():
         target = candidate / "tools" / "composio" / "bridge.py"
         if target.is_file():

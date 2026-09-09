@@ -162,7 +162,16 @@ def register(ctx: Any) -> PersonalGmailTools:
             partial(handle_connect_gmail, client=client, registry=registry),
             description="Connect a Google account (Gmail, Calendar, YouTube)",
         )
-    for cmd_name in ("mail_status", "mail-status", "email_status", "email-status"):
+    for cmd_name in (
+        "mail_status",
+        "mail-status",
+        "email_status",
+        "email-status",
+        "status_mail",
+        "status-mail",
+        "status_email",
+        "status-email",
+    ):
         ctx.register_command(
             cmd_name,
             partial(handle_mail_status, client=client, registry=registry),

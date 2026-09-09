@@ -171,7 +171,7 @@ def register(ctx: Any) -> CalendarToolsGuard:
             partial(handle_connect_calendar, client=client, registry=registry),
             description="Connect a Google Calendar account",
         )
-    for cmd in ("calendar_status", "calendar-status"):
+    for cmd in ("calendar_status", "calendar-status", "status_calendar", "status-calendar"):
         ctx.register_command(
             cmd,
             partial(handle_calendar_status_cmd, client=client, registry=registry),
