@@ -12,14 +12,16 @@ Read `AGENTS.md` before project work. Follow its startup workflow, state artifac
 
 This project merges Claude Code's installed plugin ecosystem with the Antigravity Kit (`.agents/`):
 
-1. **Meta-Workflow & Execution (Claude Plugins / Superpowers)**:
-   - Use `using-superpowers` as the skill selection and orchestration protocol.
-   - Follow `test-driven-development` for feature implementation and bugfixes (RED-GREEN-REFACTOR).
-   - Use `writing-plans`, `executing-plans`, and `subagent-driven-development` for multi-step task execution.
-   - Use `using-git-worktrees` for isolated development when appropriate.
-   - Use `verification-before-completion` before declaring any task done.
-   - Use `document-skills` (`docx`, `pptx`, `pdf`, `slides`) for document creation and analysis.
-   - Retain and update Claude project memory alongside `.agents/memory/`.
+1. **Senior AI Workflow: 6-Phase Competitive Skill Combination**:
+
+| Giai đoạn | Các skill ứng viên trong kho | Skill chiến thắng được chọn | Lý do tuyển chọn kỹ thuật |
+| :--- | :--- | :--- | :--- |
+| **1. Làm rõ & Phản biện** | `grill-me`, `grilling`, `brainstorming`, `loop-me`, `to-spec` | **`grilling` + `grill-me`** | `brainstorming` chỉ hỏi chung. `grilling` (bộ Matt Pocock) mạnh hơn hẳn nhờ thuật toán Design Tree + chia câu hỏi theo Frontier Rounds (những câu hỏi đã đủ tiền đề) và BẮT BUỘC đưa kèm câu trả lời gợi ý (➡️) thay vì đùn đẩy việc suy nghĩ cho user. |
+| **2. Kiến trúc module** | `codebase-design`, `architecture`, `domain-modeling` | **`codebase-design`** | Triết lý Deep Modules (năng lực xử lý lớn ẩn sau interface hẹp, đường cắt seam rõ ràng, testable cao). Tránh việc đẻ ra các class/interface nông (shallow module) gây phân mảnh code. |
+| **3. Kế hoạch thực thi** | `writing-plans`, `plan-writing`, `wayfinder`, `to-tickets` | **`writing-plans`** | Chia nhỏ task theo dạng 3–5 milestone kèm tiêu chí kiểm chứng (verification criteria) độc lập cho từng bước. |
+| **4. Chất lượng code & Tinh gọn** | `clean-code`, `simplify-code`, `code-review-excellence` | **`clean-code` + `simplify-code` + `# ponytail:`** | `clean-code` triệt tiêu over-engineering (KISS, YAGNI, DRY, PEP 8). `simplify-code` làm phẳng logic, dọn dead-code. Bắt buộc gắn `# ponytail: [ceiling], upgrade when [trigger]` cho các đoạn code tối giản có chủ ý. |
+| **5. Chẩn đoán & Debug** | `diagnosing-bugs`, `systematic-debugging` | **`diagnosing-bugs` + `systematic-debugging`** | Kết hợp 2 kỷ luật thép: 1) Redact First (không để lộ secret/token ra log); 2) 4 pha nghiêm ngặt: Tái hiện deterministic ➔ Tìm root cause bằng bằng chứng ➔ Sửa tối thiểu ➔ Chạy kiểm tra hồi quy. Cấm đoán mò hoặc sửa thử sai. |
+| **6. Kiểm chứng hoàn thành** | `verification-before-completion`, `verify-changes`, `lint-and-validate` | **`verification-before-completion` + `verify-changes`** | Nguyên tắc cốt lõi: Evidence before assertion. Tuyệt đối cấm LLM tự tuyên bố "đã xong", "đã fix" nếu chưa tự chạy terminal command ra kết quả exit code 0. |
 
 2. **Domain Architecture & Standards (Antigravity Kit)**:
    - `.agents/` is the canonical domain kit containing domain skills, rules, and memory.
@@ -27,11 +29,10 @@ This project merges Claude Code's installed plugin ecosystem with the Antigravit
    - Load domain specialist skills (`python-patterns`, `api-patterns`, `database-design`, `mcp-builder`, `security-audit`, `architecture`) based on the task domain.
    - Read `.agents/memory/MEMORY.md` for project-specific persistent conventions.
 
-3. **Coexistence Rules**:
+3. **Coexistence & Operating Rules**:
    - Superpowers drives the *how* of task orchestration, TDD, planning, subagents, and verification.
    - Antigravity Kit drives the *what* of code quality, architecture patterns, domain rules, and project memory.
    - Neither ecosystem overrides or disables the other; they operate in synergy.
-
 ## Coding Contract
 
 Before any code change, read and apply `.agents/skills/clean-code/SKILL.md`.

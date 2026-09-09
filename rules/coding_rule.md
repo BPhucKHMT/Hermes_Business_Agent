@@ -2,8 +2,30 @@
 
 > **Phạm vi áp dụng:** Tài liệu này là hợp đồng tiêu chuẩn kỹ thuật (Engineering Standards) bắt buộc cho mọi kỹ sư và mô hình AI tham gia phát triển mã nguồn trong dự án **Hermes Business Agent**.
 
----
+## 0. Quy Trình Phối Hợp Kỹ Năng Cạnh Tranh (6-Phase Competitive Skill Matrix)
 
+Là OMP Coding Agent chuyên nghiệp, agent bắt buộc kích hoạt và áp dụng bộ kết hợp skill chiến thắng cho 6 giai đoạn phát triển:
+
+| Giai đoạn | Các skill ứng viên trong kho | Skill chiến thắng được chọn | Lý do tuyển chọn kỹ thuật |
+| :--- | :--- | :--- | :--- |
+| **1. Làm rõ & Phản biện** | `grill-me`, `grilling`, `brainstorming`, `loop-me`, `to-spec` | **`grilling` + `grill-me`** | `brainstorming` chỉ hỏi chung. `grilling` (bộ Matt Pocock) mạnh hơn hẳn nhờ thuật toán Design Tree + chia câu hỏi theo Frontier Rounds (những câu hỏi đã đủ tiền đề) và BẮT BUỘC đưa kèm câu trả lời gợi ý (➡️) thay vì đùn đẩy việc suy nghĩ cho user. |
+| **2. Kiến trúc module** | `codebase-design`, `architecture`, `domain-modeling` | **`codebase-design`** | Triết lý Deep Modules (năng lực xử lý lớn ẩn sau interface hẹp, đường cắt seam rõ ràng, testable cao). Tránh việc đẻ ra các class/interface nông (shallow module) gây phân mảnh code. |
+| **3. Kế hoạch thực thi** | `writing-plans`, `plan-writing`, `wayfinder`, `to-tickets` | **`writing-plans`** | Chia nhỏ task theo dạng 3–5 milestone kèm tiêu chí kiểm chứng (verification criteria) độc lập cho từng bước. |
+| **4. Chất lượng code & Tinh gọn** | `clean-code`, `simplify-code`, `code-review-excellence` | **`clean-code` + `simplify-code` + `# ponytail:`** | `clean-code` triệt tiêu over-engineering (KISS, YAGNI, DRY, PEP 8). `simplify-code` làm phẳng logic, dọn dead-code. Bắt buộc gắn `# ponytail: [ceiling], upgrade when [trigger]` cho các đoạn code tối giản có chủ ý. |
+| **5. Chẩn đoán & Debug** | `diagnosing-bugs`, `systematic-debugging` | **`diagnosing-bugs` + `systematic-debugging`** | Kết hợp 2 kỷ luật thép: 1) Redact First (không để lộ secret/token ra log); 2) 4 pha nghiêm ngặt: Tái hiện deterministic ➔ Tìm root cause bằng bằng chứng ➔ Sửa tối thiểu ➔ Chạy kiểm tra hồi quy. Cấm đoán mò hoặc sửa thử sai. |
+| **6. Kiểm chứng hoàn thành** | `verification-before-completion`, `verify-changes`, `lint-and-validate` | **`verification-before-completion` + `verify-changes`** | Nguyên tắc cốt lõi: Evidence before assertion. Tuyệt đối cấm LLM tự tuyên bố "đã xong", "đã fix" nếu chưa tự chạy terminal command ra kết quả exit code 0. |
+
+### 🐴 Hợp Đồng Ponytail (The Ponytail Contract)
+Mọi đoạn code được tối giản có chủ đích (để giữ sự đơn giản, không build scaffolding vô ích) **BẮT BUỘC** phải có comment đánh dấu trần giới hạn và điều kiện nâng cấp:
+```python
+# ponytail: [trần giới hạn của giải pháp hiện tại], upgrade when [điều kiện kích hoạt nâng cấp]
+```
+Ví dụ:
+```python
+# ponytail: simple in-memory LRU cache; upgrade when multi-worker concurrency or cache persistence is required.
+```
+
+---
 ## 1. Nguyên Tắc Cốt Lõi (Core Principles)
 
 1. **PEP 8 là Luật Tuyệt Đối:** Mọi file Python phải tuân thủ chuẩn PEP 8.
