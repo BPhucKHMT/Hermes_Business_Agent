@@ -122,6 +122,23 @@ def _provision_owner(root: Path) -> str:
         raise SetupError("Local owner provisioning returned no owner id; setup stopped.")
     return owner_id
 
+def _update_dotenv_var(path: Path, key: str, value: str) -> None:
+    if not path.parent.exists():
+        return
+    lines = []
+    found = False
+    if path.is_file():
+        for line in path.read_text(encoding="utf-8").splitlines():
+            if line.strip().startswith(f"{key}="):
+                lines.append(f"{key}={value}")
+                found = True
+            else:
+                lines.append(line)
+    if not found:
+        lines.append(f"{key}={value}")
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
 
 def _configure_hermes(executable: str, root: Path) -> None:
     external_dirs = _merge_skill_directory(
@@ -137,7 +154,13 @@ def _configure_hermes(executable: str, root: Path) -> None:
     )
     for key, value in config_values:
         _run_hermes(executable, ("config", "set", key, value), root)
-
+    for env_path in (
+        Path.home() / ".hermes" / ".env",
+        Path(os.environ.get("LOCALAPPDATA", "")) / "hermes" / ".env" if os.name == "nt" else None,
+    ):
+        if env_path:
+            _update_dotenv_var(env_path, "HERMES_PROJECT_SRC", str(root))
+            _update_dotenv_var(env_path, "HERMES_ENABLE_PROJECT_PLUGINS", "1")
 
 def _enable_project_plugins(executable: str, root: Path) -> None:
     for plugin in PROJECT_PLUGINS:
@@ -151,13 +174,36 @@ def _sync_plugins(root: Path) -> None:
     source_dir = root / ".hermes" / "plugins"
     if not source_dir.is_dir():
         return
-    target_dirs: list[Path] = []
+    hermes_bases: list[Path] = []
     if os.environ.get("HERMES_HOME"):
-        target_dirs.append(Path(os.environ["HERMES_HOME"]) / "plugins")
+        hermes_bases.append(Path(os.environ["HERMES_HOME"]))
     if os.name == "nt" and os.environ.get("LOCALAPPDATA"):
-        target_dirs.append(Path(os.environ["LOCALAPPDATA"]) / "hermes" / "plugins")
-    target_dirs.append(Path.home() / ".hermes" / "plugins")
+        hermes_bases.append(Path(os.environ["LOCALAPPDATA"]) / "hermes")
+    hermes_bases.append(Path.home() / ".hermes")
 
+    target_dirs: list[Path] = []
+    for base in hermes_bases:
+        if not base.exists():
+            continue
+        target_dirs.append(base / "plugins")
+        # Support active named profile if set
+        act_file = base / "active_profile"
+        if act_file.is_file():
+            try:
+                act = act_file.read_text(encoding="utf-8").strip()
+                if act:
+                    target_dirs.append(base / "profiles" / act / "plugins")
+            except OSError:
+                pass
+        # Support all configured named profiles
+        profiles_dir = base / "profiles"
+        if profiles_dir.is_dir():
+            try:
+                for prof in profiles_dir.iterdir():
+                    if prof.is_dir():
+                        target_dirs.append(prof / "plugins")
+            except OSError:
+                pass
     seen: set[str] = set()
     for target_base in target_dirs:
         norm = os.path.normcase(str(target_base.resolve())) if target_base.exists() else str(target_base)

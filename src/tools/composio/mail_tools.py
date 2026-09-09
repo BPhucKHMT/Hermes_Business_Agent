@@ -4,9 +4,18 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional, Union
 
-from .auth import check_connection_status, get_user_emails, resolve_account_target
-from .client import execute_composio_tool, format_user_id, get_composio_client, get_response_data
-
+from .auth import (
+    _toolkit_slug,
+    check_connection_status,
+    get_user_emails,
+    resolve_account_target,
+)
+from .client import (
+    execute_composio_tool,
+    format_user_id,
+    get_composio_client,
+    get_response_data,
+)
 
 _NOT_CONNECTED = {
     "status": "error",
@@ -38,6 +47,12 @@ def _execute(
     kwargs: Dict[str, Any] = {"arguments": arguments}
     if account_id:
         kwargs["account"] = account_id
+        if tool_slug in ("GMAIL_FETCH_EMAILS", "GMAIL_FETCH_MESSAGE_BY_THREAD_ID"):
+            selected = get_composio_client().connected_accounts.get(account_id)
+            toolkit = _toolkit_slug(selected).lower()
+            if toolkit not in ("gmail", "googlesuper"):
+                raise ValueError("Selected account does not support Gmail reads")
+            tool_slug = f"{toolkit.upper()}_{tool_slug.removeprefix('GMAIL_')}"
     return execute_composio_tool(session, tool_slug, **kwargs)
 
 
@@ -58,9 +73,9 @@ def composio_mail_search(
     account_email: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Search Gmail messages for the caller's selected mailbox."""
-    if not check_connection_status(telegram_user_id, app="gmail"):
-        return dict(_NOT_CONNECTED)
     try:
+        if not check_connection_status(telegram_user_id, app="gmail"):
+            return dict(_NOT_CONNECTED)
         session, account_id, resolved_email, all_emails = _mailbox_context(
             telegram_user_id, account_email
         )
@@ -88,9 +103,9 @@ def composio_mail_get_thread(
     account_email: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Retrieve a Gmail thread from the caller's selected mailbox."""
-    if not check_connection_status(telegram_user_id, app="gmail"):
-        return dict(_NOT_CONNECTED)
     try:
+        if not check_connection_status(telegram_user_id, app="gmail"):
+            return dict(_NOT_CONNECTED)
         session, account_id, resolved_email, all_emails = _mailbox_context(
             telegram_user_id, account_email
         )
@@ -120,9 +135,9 @@ def composio_mail_send(
     account_email: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Send a Gmail message from the caller's selected mailbox."""
-    if not check_connection_status(telegram_user_id, app="gmail"):
-        return dict(_NOT_CONNECTED)
     try:
+        if not check_connection_status(telegram_user_id, app="gmail"):
+            return dict(_NOT_CONNECTED)
         session, account_id, resolved_email, all_emails = _mailbox_context(
             telegram_user_id, account_email
         )
@@ -152,9 +167,9 @@ def composio_mail_create_draft(
     account_email: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Create a Gmail draft in the caller's selected mailbox."""
-    if not check_connection_status(telegram_user_id, app="gmail"):
-        return dict(_NOT_CONNECTED)
     try:
+        if not check_connection_status(telegram_user_id, app="gmail"):
+            return dict(_NOT_CONNECTED)
         session, account_id, resolved_email, all_emails = _mailbox_context(
             telegram_user_id, account_email
         )
@@ -183,9 +198,9 @@ def composio_mail_reply(
     account_email: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Reply to a Gmail thread from the caller's selected mailbox."""
-    if not check_connection_status(telegram_user_id, app="gmail"):
-        return dict(_NOT_CONNECTED)
     try:
+        if not check_connection_status(telegram_user_id, app="gmail"):
+            return dict(_NOT_CONNECTED)
         session, account_id, resolved_email, all_emails = _mailbox_context(
             telegram_user_id, account_email
         )

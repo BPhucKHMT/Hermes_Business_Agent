@@ -2,7 +2,10 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
+
+import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
 SRC = ROOT / "src"
@@ -113,3 +116,47 @@ def test_composio_mail_reply_success():
             body="Đã xác nhận",
         )
         assert res.get("status") == "success"
+
+
+@pytest.mark.parametrize("toolkit", ["googlesuper", "gmail"])
+@pytest.mark.parametrize("operation", ["search", "thread"])
+def test_mail_reads_use_selected_accounts_toolkit(monkeypatch, toolkit, operation):
+    from tools.composio import mail_tools
+
+    def execute(*, tool_slug, account, arguments):
+        if account != "selected-account":
+            raise RuntimeError("Wrong account")
+        expected_slug = {
+            ("googlesuper", "search"): "GOOGLESUPER_FETCH_EMAILS",
+            ("googlesuper", "thread"): "GOOGLESUPER_FETCH_MESSAGE_BY_THREAD_ID",
+            ("gmail", "search"): "GMAIL_FETCH_EMAILS",
+            ("gmail", "thread"): "GMAIL_FETCH_MESSAGE_BY_THREAD_ID",
+        }[toolkit, operation]
+        if tool_slug != expected_slug:
+            raise RuntimeError("No active connection for requested toolkit")
+        return {"messages": [{"messageId": "message-1", "threadId": "thread-1"}]}
+
+    client = SimpleNamespace(
+        create=lambda **kwargs: SimpleNamespace(execute=execute),
+        connected_accounts=SimpleNamespace(
+            get=lambda account_id: SimpleNamespace(
+                id=account_id, toolkit=SimpleNamespace(slug=toolkit)
+            )
+        ),
+    )
+    monkeypatch.setattr(mail_tools, "get_composio_client", lambda: client)
+    monkeypatch.setattr(mail_tools, "check_connection_status", lambda *a, **k: True)
+    monkeypatch.setattr(
+        mail_tools, "resolve_account_target",
+        lambda *a: ("selected-account", "reader@example.invalid"),
+    )
+    monkeypatch.setattr(
+        mail_tools, "get_user_emails",
+        lambda *a: {"selected-account": "reader@example.invalid"},
+    )
+    if operation == "search":
+        result = composio_mail_search("local:owner:test", query="is:unread")
+    else:
+        result = composio_mail_get_thread("local:owner:test", thread_id="thread-1")
+    assert result["status"] == "success", result
+    assert result["data"]["messages"][0]["messageId"] == "message-1"

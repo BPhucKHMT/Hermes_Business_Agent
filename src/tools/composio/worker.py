@@ -7,6 +7,7 @@ from importlib import import_module
 import json
 import sys
 from types import SimpleNamespace
+from typing import Any
 
 PROVIDER_OPERATIONS = {
     "handle_connect_google": "commands",
@@ -34,6 +35,20 @@ CALENDAR_OPERATIONS = frozenset({
     "create_draft_event", "confirm_event", "get_draft", "status",
     "list_events", "find_free_slots", "get_event",
 })
+
+def normalize_result(value: Any) -> Any:
+    """Normalize domain return values to JSON-safe structures."""
+    if is_dataclass(value):
+        return asdict(value)
+    if isinstance(value, Enum):
+        return value.value
+    if isinstance(value, list):
+        return [normalize_result(item) for item in value]
+    if isinstance(value, tuple):
+        return [normalize_result(item) for item in value]
+    if isinstance(value, dict):
+        return {k: normalize_result(v) for k, v in value.items()}
+    return value
 
 
 def calendar_operation(name, principal_id, params):
@@ -70,11 +85,13 @@ def dispatch(request):
             if principal_id.startswith("telegram:")
             else principal_id
         )
-        return getattr(module, operation)(target_id, **params)
+        raw = getattr(module, operation)(target_id, **params)
+        return normalize_result(raw)
     if isinstance(operation, str) and operation.startswith("calendar."):
         name = operation.removeprefix("calendar.")
         if name in CALENDAR_OPERATIONS:
-            return calendar_operation(name, principal_id, params)
+            raw = calendar_operation(name, principal_id, params)
+            return normalize_result(raw)
     raise ValueError("Unsupported Google worker operation")
 
 

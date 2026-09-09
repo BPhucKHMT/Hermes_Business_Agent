@@ -19,6 +19,29 @@ def _principal_id(caller: Any) -> str:
     return principal_id
 
 
+def _candidate_src_dirs() -> list[Path]:
+    candidates: list[Path] = []
+    for key in ("HERMES_PROJECT_SRC", "HERMES_SRC_DIR"):
+        val = os.environ.get(key)
+        if val:
+            candidates.append(Path(val))
+    for env_file in (
+        Path.home() / ".hermes" / ".env",
+        Path(os.environ.get("LOCALAPPDATA", "")) / "hermes" / ".env" if os.name == "nt" else None,
+    ):
+        if env_file and env_file.is_file():
+            try:
+                for line in env_file.read_text(encoding="utf-8").splitlines():
+                    if line.strip().startswith("HERMES_PROJECT_SRC="):
+                        val = line.strip().split("=", 1)[1].strip().strip('"').strip("'")
+                        if val:
+                            candidates.append(Path(val))
+            except OSError:
+                pass
+    candidates.extend([Path.cwd() / "src", Path.cwd()])
+    return candidates
+
+
 def _call_google(
     operation: str,
     principal_id: str,
@@ -31,12 +54,7 @@ def _call_google(
         pass
     import importlib.util, os, sys
     from pathlib import Path
-    for candidate in (
-        Path(os.environ.get("HERMES_PROJECT_SRC", "")),
-        Path("C:/Hermes-Business-Agent/src"),
-        Path.cwd() / "src",
-        Path.cwd(),
-    ):
+    for candidate in _candidate_src_dirs():
         target = candidate / "tools" / "composio" / "bridge.py"
         if target.is_file():
             src_dir = str(candidate.resolve())

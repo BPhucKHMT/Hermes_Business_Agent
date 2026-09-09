@@ -14,6 +14,7 @@ def call_google(operation: str, principal_id: str, params: dict | None = None):
     if not principal_id or not principal_id.strip():
         raise ValueError("Google operation requires a bound caller")
     if os.environ.get("HERMES_FORCE_GOOGLE_BRIDGE") != "1":
+        inprocess_dispatch = None
         try:
             import composio  # noqa: F401
             import tools
@@ -22,12 +23,14 @@ def call_google(operation: str, principal_id: str, params: dict | None = None):
             if hasattr(tools, "__path__") and tools_path not in tools.__path__:
                 tools.__path__.insert(0, tools_path)
 
-            from tools.composio.worker import dispatch
-            return dispatch(
+            from tools.composio.worker import dispatch as inprocess_dispatch
+        except (ImportError, ModuleNotFoundError):
+            inprocess_dispatch = None
+
+        if inprocess_dispatch is not None:
+            return inprocess_dispatch(
                 {"operation": operation, "principal_id": principal_id, "params": params or {}}
             )
-        except (ImportError, ModuleNotFoundError):
-            pass
     uv = shutil.which("uv")
     if not uv:
         for candidate in (

@@ -80,20 +80,16 @@ def check_connection_status(
     if app_name in ("google_calendar", "calendar"):
         app_name = "googlecalendar"
 
-    try:
-        accounts = client.connected_accounts.list(user_ids=[user_id])
-        items = getattr(accounts, "items", accounts)
-        for item in items:
-            status = str(_item_value(item, "status", "") or "")
-            slug = _toolkit_slug(item).lower()
-            if status.upper() == "ACTIVE" and (
-                slug == "googlesuper" or not app_name or slug == app_name or app_name in slug
-            ):
-                return True
-        return False
-    except Exception as exc:
-        logger.warning("Failed to check connection status for %s (%s): %s", user_id, app, exc)
-        return False
+    accounts = client.connected_accounts.list(user_ids=[user_id])
+    items = getattr(accounts, "items", accounts)
+    for item in items:
+        status = str(_item_value(item, "status", "") or "")
+        slug = _toolkit_slug(item).lower()
+        if status.upper() == "ACTIVE" and (
+            slug == "googlesuper" or not app_name or slug == app_name or app_name in slug
+        ):
+            return True
+    return False
 
 
 def _execute_account_probe(session: Any, tool_slug: str, **kwargs: Any) -> Dict[str, Any]:
@@ -152,30 +148,25 @@ def get_user_emails(telegram_user_id: Union[int, str]) -> Dict[str, str]:
                 email_found = str(profile["emailAddress"])
 
             if not email_found:
+                mail_profile = _execute_account_probe(
+                    session,
+                    "GMAIL_GET_PROFILE",
+                    arguments={"user_id": "me"},
+                    account=account_id,
+                )
+                if mail_profile.get("emailAddress"):
+                    email_found = str(mail_profile["emailAddress"])
+
+            if not email_found:
                 events = _execute_account_probe(
                     session,
                     "GOOGLESUPER_EVENTS_LIST",
                     arguments={"calendar_id": "primary", "max_results": 1},
                     account=account_id,
                 )
-                summary = str(events.get("summary", ""))
-                if "@" in summary:
+                summary = str(events.get("summary", "")).strip()
+                if "@" in summary and " " not in summary:
                     email_found = summary
-
-            if not email_found:
-                mail_session = client.create(
-                    user_id=user_id,
-                    toolkits=["gmail"],
-                    multi_account={"enable": True},
-                )
-                messages = _execute_account_probe(
-                    mail_session,
-                    "GMAIL_FETCH_EMAILS",
-                    arguments={"max_results": 1},
-                    account=account_id,
-                ).get("messages", [])
-                if messages and isinstance(messages[0], dict) and messages[0].get("to"):
-                    email_found = str(messages[0]["to"])
 
             if email_found:
                 cache[account_id] = email_found
