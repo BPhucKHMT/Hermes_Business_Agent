@@ -1,0 +1,27 @@
+# Hermes clean-code baseline: international Python standards (PEP 8 + modern idioms).
+# Formatter line length is a best-effort target; E501 is a deliberate exclusion.
+# Rationale per rule family:
+#   E   pycodestyle errors (except E501)
+#   F   pyflakes: unused imports/variables, undefined names, redefinitions
+#   I   isort: one canonical import order, no drift between editors
+#   UP  pyupgrade target py312: dict/X|None/collections.abc, no legacy syntax
+#   B   flake8-bugbear: B904 raise-from, B905 zip strict, mutable-arg traps
+#   SIM flake8-simplify: suppress(), merged withs, direct returns, no nesting
+#   BLE blind-except: broad catches only at boundaries with noqa + reason
+#   PLC0415 no function-level imports except optional/deferred deps + noqa
+#   C401 generator-to-set comprehension style
+#   RUF100 reject unused suppression directives
+line-length = 88
+target-version = "py312"
+
+[format]
+quote-style = "double"
+indent-style = "space"
+
+[lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "BLE", "PLC0415", "C401", "RUF100"]
+ignore = ["E501"]
+
+[lint.isort]
+combine-as-imports = true
+force-sort-within-sections = true

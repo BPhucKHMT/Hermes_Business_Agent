@@ -1,0 +1,11 @@
+name: zalo-platform
+label: Zalo Bot Platform
+kind: platform
+version: 0.1.0
+description: Official Zalo Bot Platform private and group message adapter
+author: Hermes project team
+requires_env:
+  - name: ZALO_BOT_TOKEN
+    description: Zalo Bot Platform token
+    prompt: Zalo bot token
+    password: true
