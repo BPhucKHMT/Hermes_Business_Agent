@@ -213,6 +213,31 @@ Isolation is defense-in-depth:
 A cross-workspace Protein Bar query scoped to `titan-ai` has been verified to
 return `no_evidence`.
 
+## Optional Zalo Bot Platform Transport (H016)
+
+`src/.hermes/plugins/zalo-platform` registers `zalo` through the installed
+Hermes `PluginContext.register_platform` interface. No upstream engine,
+Telegram adapter, agent pipeline, or memory architecture is replaced.
+
+```text
+Zalo private text -> official getUpdates -> ZaloAdapter
+  -> native MessageEvent / SessionSource
+  -> gateway authorization / pairing / profile routing / agent
+  -> native adapter send -> official sendMessage -> original Zalo chat
+```
+
+The plugin owns only Bot API transport and message validation. Hermes owns
+authorization, conversation sessions, credential locking, and response dispatch.
+Credentials remain in the gateway owner's operator environment; secondary
+profiles must not poll the same token. Existing Telegram configuration is
+unchanged.
+
+This milestone uses outbound-only long polling for Windows local development
+and is portable to Linux. Zalo recommends webhook delivery for production:
+public HTTPS provisioning and a webhook transport are a separate rollout gate,
+not a delivery guarantee of this polling implementation. Cross-host migration
+requires stopping the old poller. Groups and media are outside this milestone.
+
 ## State and Secret Ownership
 
 | State | Location | Rule |

@@ -4,6 +4,101 @@ Production workspace and engineering harness for a Hermes-powered business agent
 Current verified pilot routes one Telegram forum topic to an isolated Protein Bar
 profile and retrieves workspace-scoped evidence from Azure AI Search.
 
+
+## Windows local — hướng dẫn bàn giao cho khách hàng
+
+**Trạng thái H017: đang kiểm chứng, chưa phát hành bản cài đặt được nghiệm thu.**
+Không dùng hướng dẫn Linux/Docker như bằng chứng rằng Windows đã chạy được.
+
+Máy Windows của khách có thể chạy Hermes Desktop và gateway Telegram/Zalo;
+không cần Docker. Máy phải bật, có Internet và không sleep khi cần nhận tin hoặc
+chạy nhắc việc. Model, Google, Tavily và Azure vẫn là dịch vụ bên ngoài: chạy
+local không có nghĩa là offline hay miễn phí.
+
+### Trước khi bắt đầu
+
+- Nhận release ZIP đã được bên bàn giao kiểm chứng, không tải nhánh phát triển.
+- Nhận tài khoản/billing và bí mật qua kênh bảo mật riêng; không gửi password
+  Google cho bot hoặc chụp màn hình token.
+- Không copy thư mục AppData, `.venv`, `auth.json` hoặc sessions từ máy developer.
+- Nếu máy đã có Hermes, nhờ bên bàn giao kiểm tra backup và installation đích
+  trước khi chạy setup; không ghi đè môi trường đang sử dụng.
+
+### Bước 1 — cài Hermes chính thức
+
+Mở [trang Hermes chính thức](https://hermes-agent.nousresearch.com/) và dùng bản
+cài Windows đã được bên bàn giao chỉ định. Không tự nâng cấp sang bản mới nhất
+trong lúc nghiệm thu. Phiên bản/commit phải có trong biên bản kiểm chứng release.
+
+**Đạt khi:** mở được Hermes và gửi một câu chào nhận phản hồi từ model đã chọn.
+Nếu báo thiếu tài khoản/model, hoàn thành đăng nhập với bên bàn giao trước.
+
+### Bước 2 — giải nén dự án
+
+Nhấp phải file ZIP → **Extract All / Giải nén tất cả**. Đặt ở một thư mục ổn định,
+không chạy trực tiếp trong ZIP và không đặt trong thư mục đồng bộ OneDrive.
+Mở thư mục `src`; phải thấy `setup.cmd`, `setup_local.py`, `skills`, `tools`
+và `.hermes/plugins/zalo-platform`. Không có Zalo plugin nghĩa là gói bị thiếu.
+
+Không di chuyển hoặc đổi tên thư mục sau cài đặt; cấu hình lưu đường dẫn của nó.
+
+### Bước 3 — kết nối dự án với Hermes
+
+Trong File Explorer đang mở `src`, gõ `cmd` vào thanh địa chỉ rồi nhấn Enter.
+Trong cửa sổ xuất hiện, dán:
+
+```bat
+setup.cmd --local
+```
+
+Chờ quá trình cài thư viện và trình duyệt kết thúc. Khi có `ERROR` hoặc traceback,
+dừng lại và gửi thông báo lỗi đã che thông tin riêng tư cho bên bàn giao.
+Không tự chạy `pip install` vào Hermes hoặc bỏ qua bước lỗi.
+
+**Đạt khi:** script kết thúc không lỗi và thông báo đã cấu hình local.
+Đây chỉ là kết quả bootstrap, chưa chứng minh Telegram/Zalo/Azure hoạt động.
+Setup không tự gửi tin, chuyển tài khoản hay khởi động gateway.
+### Bước 4 — kết nối dịch vụ của khách
+
+Bên bàn giao cấu hình một lần cùng khách:
+
+| Dịch vụ | Khách làm | Bên bàn giao kiểm tra |
+|---|---|---|
+| Model/Tavily/Azure | Đăng nhập, xác nhận quyền và chi phí | Secret, model, tài nguyên và truy vấn thật |
+| Telegram | Mở bot, thêm vào nhóm được duyệt | Allowlist, topic, profile Protein Bar |
+| Zalo | Mở bot và xác nhận tài khoản được phép | Plugin, token, pairing, tin nhắn thật |
+| Google | Gõ `/connect-google`, mở link và đồng ý cấp quyền | `/mail-status`, `/calendar-status` và thao tác đọc thật |
+| Zalo media (ảnh) | Gửi ảnh dạng URL công khai hoặc ảnh đã nạp Azure | Bucket, quyền SAS và kết quả gửi thật |
+
+Google trên Desktop và trên Telegram/Zalo có danh tính riêng. Kết nối ở một nơi
+không tự cấp quyền cho tất cả kênh khác; chỉ kết nối ở các kênh khách muốn dùng.
+Không đặt token vào câu chat. Không bật chế độ cho phép tất cả người dùng.
+
+### Bước 5 — nghiệm thu và sử dụng hằng ngày
+
+Khách cùng bên bàn giao kiểm tra:
+
+- Desktop mở đúng thư mục `src` và dùng được tài liệu được cấp quyền.
+- Telegram và Zalo trả lời hai tin liên tiếp, giữ đúng hội thoại.
+- Topic Protein Bar truy vấn đúng tài liệu, không lộ sang workspace khác.
+- Gmail đọc được thư đã chọn; Calendar đọc được lịch đúng tài khoản.
+- Ảnh Zalo gửi được dưới dạng URL công khai/SAS hoặc ảnh đã nạp Azure.
+- Research trả nguồn; Azure RAG trả citation của tài liệu đã nạp.
+
+Chỉ ghi hoàn thành các mục đã trực tiếp quan sát; không thử gửi email hoặc tạo
+lịch thật nếu chưa duyệt dữ liệu. Đóng/ngủ/tắt laptop sẽ ngừng bot.
+
+### Nếu có sự cố
+| Hiện tượng | Việc cần làm |
+|---|---|
+| Không tìm thấy `hermes`, `uv`, `node` hoặc `npm` | Đóng cửa sổ, mở lại sau cài Hermes; còn lỗi thì liên hệ bên bàn giao |
+| Google chưa kết nối | Chạy `/connect-google` tại đúng kênh đang sử dụng |
+| Bot im lặng | Kiểm tra Internet, máy không sleep và gateway; không chạy thêm bản bot thứ hai |
+| Azure không có dữ liệu | Nhờ kiểm tra ingestion và quyền; không bỏ workspace filter |
+| Cảnh báo antivirus | Dừng và xác minh installer chính thức; không tắt bảo vệ toàn máy |
+
+Trước khi đổi máy, cập nhật hoặc gỡ Hermes, yêu cầu backup và kế hoạch khôi phục.
+Không tự xóa AppData hoặc `.runtime`: chúng có thể chứa công việc và lịch nhắc.
 Read [`ARCHITECTURE.md`](ARCHITECTURE.md) before changing deployment topology.
 
 ## Claude Code Engineering Workflow
@@ -371,6 +466,22 @@ Once connected, you can chat with Hermes using standard natural language (Vietna
 - *"Kiểm tra trạng thái kết nối hòm thư của tôi"*
 
 Hermes autonomously invokes the underlying tools (`email_search`, `email_get_thread`, `email_connection_status`) with strict privacy boundaries.
+
+## Zalo Bot Platform Text Chat (H016)
+
+Use the opt-in `src/.hermes/plugins/zalo-platform` platform plugin alongside
+Telegram. It uses official Bot Platform APIs and Hermes's existing authorization
+and session pipeline; no Hermes engine changes or extra dependencies.
+
+Follow [the Windows/Linux configuration and pairing instructions](src/README.md#zalo-bot-platform-private-text-chat-h016).
+Store `ZALO_BOT_TOKEN` only in the gateway owner's operator environment.
+The current transport is polling for local development. Linux source deployment
+is portable, but production webhook rollout needs public HTTPS and is not part
+of this milestone. Do not run Windows and VPS pollers with the same token.
+
+Private text only; no group, voice, image, or document transport. Acceptance is
+tracked in H016; only real two-message exchanges plus independent restart and
+Telegram verification can establish end-to-end completion.
 
 ## Troubleshooting
 

@@ -265,3 +265,18 @@
   5) Add bidirectional command aliases (`/status-mail`, `/status_mail`, `/status-email`, `/status_email`, `/status-calendar`, `/status_calendar`) for user convenience across platforms.
 - Consequences: Full email capabilities (sending, drafting, replying) and calendar operations work reliably on Telegram, Hermes CLI, and Desktop. Slash commands execute deterministically without `NameError`. 100% test pass rate across all 165 test cases.
 - Revisit when: Multi-agent outbound email DLP or organizational approval quorum is formally introduced.
+
+## D027 — Official Zalo Bot Platform Integration via Dedicated Platform Plugin
+
+- Date: 2026-09-10
+- Status: accepted
+- Context: Connecting Hermes to Zalo requires integrating the official Zalo Bot Platform without modifying Hermes core or installed Telegram adapters, and maintaining portability from Windows development to Linux production VPS.
+- Decision:
+  1) Use the official Zalo Bot Platform API (`https://bot-api.zaloplatforms.com/bot<TOKEN>/<method>`) rather than unofficial personal-account automation (`zca-js`) or Zalo OA.
+  2) Implement integration as a self-contained Hermes platform plugin at `src/.hermes/plugins/zalo-platform/` using native `PluginContext.register_platform()` and `BasePlatformAdapter`.
+  3) Target milestone 1 as private text messaging only via long-polling (`getUpdates` with idle error code 408 handling) and text responses (`sendMessage`), splitting long content to the official 2,000-character limit.
+  4) Do not implement unverified file upload/download endpoints or unofficial media servers; fail closed on existing webhooks rather than auto-deleting them.
+  5) Enforce secret redaction via dedicated HTTP logging filter preventing bot token leakage across HTTPX/HTTPCore logs, error traces, and SendResult objects.
+  6) Use native scoped platform locks (`_acquire_platform_lock`) to prevent duplicate gateway polling instances on the same host.
+- Consequences: 100% clean isolation; zero modifications to Hermes core codebase; Telegram and Google Workspace adapters remain completely unaffected. 100% test pass rate across all 179 test cases.
+- Revisit when: Production VPS deployment requires public HTTPS webhook mode (`setWebhook`) or official multi-media support is published.

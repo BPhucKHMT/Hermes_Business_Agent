@@ -298,5 +298,35 @@
       "blocked": "Core implementation, store, policy, plugin, and Layer 1/2 verification complete (17 tests passing). Live Layer 3 verification is blocked on real TikTok Developer App OAuth credentials and live test creator account.",
       "depends_on": ["H008"]
     }
+    ,
+    {
+      "id": "H016",
+      "title": "Hermes supports official Zalo Bot Platform text conversations",
+      "behavior": "An opt-in native Hermes platform plugin receives private text messages through official Zalo getUpdates polling, preserves native authorization and sessions, and replies through sendMessage. Windows local deployment is portable to Linux; production webhook migration, groups, and media are outside this milestone.",
+      "verification": {
+        "layer_1": "Compile and lint the Zalo plugin and its focused tests; validate feature state JSON.",
+        "layer_2": "Exercise native adapter text delivery, message identity, authorization, malformed updates, API failures, log safety, shutdown, and restart against a controlled HTTP transport.",
+        "layer_3": "Verify live getMe and plugin loading; independent verifier observes two real Zalo user messages and Hermes replies, restart, and unchanged Telegram behavior."
+      },
+      "state": "blocked",
+      "evidence": null,
+      "blocked": "Core implementation, Layer 1 static checks, and Layer 2 behavioral tests complete (14/14 passing). Live getMe and official API verified with bot ID 2378155714377146898. Live Layer 3 verification is blocked on user sending two real private test messages from their Zalo account to the bot to verify live conversation and outbound delivery.",
+      "depends_on": ["H003"]
+    }
+    ,
+    {
+      "id": "H017",
+      "title": "Customer-owned Windows local installation and handoff",
+      "behavior": "A non-technical customer installs an approved source release on a clean Windows machine with a fresh supported Hermes installation, isolated locked project dependencies, explicit operator secrets and channel bindings, Desktop, Telegram, Zalo, Google OAuth and Azure RAG. Existing setup entrypoints are reused; setup is rerunnable, installation-scoped and fail-fast. External provisioning, account consent and cutover remain explicit; no developer AppData is copied.",
+      "verification": {
+        "layer_1": "Configured Ruff baseline and formatter, Python syntax, feature JSON and setup command validation.",
+        "layer_2": "Existing setup tests plus isolated filesystem and process scenarios covering repeat runs, missing dependencies, paths with spaces, configuration preservation, plugin synchronization and failure propagation.",
+        "layer_3": "Independent verifier follows customer README from a clean Windows release installation; verifies Desktop, Telegram Protein Bar routing, Zalo, Gmail/Calendar consent and behavior, Tavily, Azure evidence and isolation, then reboot and single-poller cutover; records UTC, command/event, exit status and result."
+      },
+      "state": "blocked",
+      "evidence": null,
+      "blocked": "Implementer-local Layer 1/2 pass (230/230 tests incl. isolated langfuse venv) and isolated same-OS clean-tree bootstrap pass: pinned upstream Hermes commit ab173e26 in temp tree, fresh project venv from uv.lock, setup.cmd exit 0 on a path with spaces, setup_local.py --local idempotent, plugins doctor --ci 4/4, operator AppData untouched, release tree complete without .env/.runtime. Independent Layer 3 is blocked on: (1) a genuinely clean Windows machine/user (Windows Home lacks Windows Sandbox; no VM tooling on PATH) following README customer walkthrough; (2) customer-owned operator secrets and channel bindings (Telegram route/topic, Zalo token/pairing, Composio OAuth consent); (3) Azure provision/ingest and live citation verification; (4) reboot/single-poller cutover observation. Zalo image delivery additionally requires azure-storage-blob in the Hermes interpreter or SAS/URL-based images (graceful PhotoPublishError otherwise). Owner: independent verifier plus operator. No developer AppData is to be copied.",
+      "depends_on": ["H003"]
+    }
   ]
 }

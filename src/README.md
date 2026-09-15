@@ -70,6 +70,93 @@ gateway caller behavior, while malformed binding fails closed. Local mode is
 not a shared backend or multi-user service; each installation must be
 provisioned separately.
 
+### Zalo Bot Platform: private text chat (H016)
+
+The opt-in `zalo-platform` plugin uses the official **Bot Platform**, not Zalo
+OA or a personal-account bot. It feeds private text messages into the normal
+Hermes gateway, authorization, profile routing, and session pipeline.
+
+Install with the same Hermes interpreter/environment that runs the gateway.
+`httpx` is already a Hermes dependency; no Zalo SDK or additional service is
+required. The host must support `PluginContext.register_platform` and the native
+`BasePlatformAdapter` lifecycle/credential-lock helpers.
+
+From this deployed directory, copy the plugin into the **gateway owner's**
+operator home. Do not install a second polling instance in each business profile.
+
+Windows PowerShell (default installation):
+
+```powershell
+$HermesHome = Join-Path $env:LOCALAPPDATA "hermes"
+Copy-Item -Recurse -Force ".hermes/plugins/zalo-platform" "$HermesHome/plugins/"
+hermes plugins enable zalo-platform --no-allow-tool-override
+hermes config set platforms.zalo.enabled true
+```
+
+Linux (use the actual service user's `HERMES_HOME`):
+
+```bash
+export HERMES_HOME="${HERMES_HOME:-$HOME/.hermes}"
+mkdir -p "$HERMES_HOME/plugins"
+cp -R .hermes/plugins/zalo-platform "$HERMES_HOME/plugins/"
+hermes plugins enable zalo-platform --no-allow-tool-override
+hermes config set platforms.zalo.enabled true
+```
+
+If the existing deployment already symlinks `$HERMES_HOME/plugins` to this
+workspace's `.hermes/plugins`, **skip the copy**. Pulling source updates refreshes
+the plugin through that link; enablement and credentials remain operator-owned.
+For a copied installation, repeat the copy after updating source.
+
+Privately edit the native operator `.env` and set `ZALO_BOT_TOKEN` to the token
+from Zalo Bot Creator. Do not put it in this workspace, shell command history,
+screenshots, Git, or shared logs. For pairing, both `ZALO_ALLOW_ALL_USERS` and
+`GATEWAY_ALLOW_ALL_USERS` must be unset/false, and global allowlists must not
+grant unintended users access. Do not change global policy without reviewing
+its effect on existing channels.
+The plugin refuses to start if an existing webhook is configured; it never
+deletes or replaces one automatically.
+
+Restart the existing gateway using its service manager (do not start a second
+poller), then send a private message to the bot. When native access policy
+requires pairing, approve the returned code locally:
+
+```text
+hermes pairing approve zalo <PAIRING_CODE>
+```
+
+Only approve the code from your own conversation. Send two successive text
+messages after approval and verify both replies and conversation continuity.
+Alternatively configure `ZALO_ALLOWED_USERS` with approved Zalo sender IDs.
+Zalo identities are not linked to Telegram or the local CLI/Desktop owner.
+
+Native global authorization is honored, not overridden by this plugin.
+With `GATEWAY_ALLOW_ALL_USERS=true` and no restricting allowlist, anyone who can
+message the bot can invoke Hermes without pairing. The local operator explicitly
+selected retaining this open policy; that choice is not a safe production
+default and should be revisited before VPS rollout.
+
+**Scope and deployment limits:**
+
+- Text-only private conversations. Groups, images, voice, and documents are not
+  supported by this adapter. There is no `sendFile`/`sendDocument` API.
+- Long replies are split to the official 2,000-character limit.
+- Polling needs outbound HTTPS only and runs on Windows or Linux. Zalo recommends
+  it for local/development use; production VPS rollout needs a separately
+  configured public HTTPS webhook deployment. Webhook mode is not implemented
+  in this milestone. Do not claim guaranteed delivery across polling outages.
+- Stop the Windows poller before enabling the same token on Linux. Native locks
+  prevent duplicate pollers on one host, not across two machines.
+- A send timeout may mean the server already accepted the message. The adapter
+  reports failure rather than blindly resending a whole response.
+- End-to-end acceptance requires real Zalo messages, restart, and a Telegram
+  regression check; mocked transport checks alone are insufficient.
+
+Official references: [API/authentication](https://bot.zapps.me/docs/call-api/),
+[getUpdates limitations](https://bot.zapps.me/docs/apis/getUpdates/),
+[sendMessage](https://bot.zapps.me/docs/apis/sendMessage/),
+[webhook setup](https://bot.zapps.me/docs/apis/setWebhook/).
+
 ### Optional: Langfuse Tracing Plugin (`langfuse-observer`)
 
 > **Feature Status:** Pending verification. No credentials bundled.

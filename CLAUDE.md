@@ -36,6 +36,8 @@ This project merges Claude Code's installed plugin ecosystem with the Antigravit
 ## Coding Contract
 
 Before any code change, read and apply `.agents/skills/clean-code/SKILL.md`.
+Read and apply `rules/coding_rule.md` before writing, modifying, or reviewing
+code; it owns project-specific import, exception, suppression, and evidence gates.
 Python code and tests must follow PEP 8. Keep changes minimal, direct, and
 self-documenting; prefer deletion and standard-library or existing-native
 capabilities over new abstractions or dependencies. Preserve input validation,

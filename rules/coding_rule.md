@@ -1,145 +1,324 @@
-# Quy Chuẩn Lập Trình & Thiết Kế Phần Mềm (Senior AI Coding Standards)
+# Quy chuẩn coding — Hermes Business Agent
 
-> **Phạm vi áp dụng:** Tài liệu này là hợp đồng tiêu chuẩn kỹ thuật (Engineering Standards) bắt buộc cho mọi kỹ sư và mô hình AI tham gia phát triển mã nguồn trong dự án **Hermes Business Agent**.
+## 1. Mục đích và phạm vi
 
-## 0. Quy Trình Phối Hợp Kỹ Năng Cạnh Tranh (6-Phase Competitive Skill Matrix)
+Áp dụng cho mọi thay đổi production code, test code, script và review trong
+repository. Đây là chuẩn kỹ thuật dành cho coding agent; không phải runtime
+context của Hermes.
 
-Là OMP Coding Agent chuyên nghiệp, agent bắt buộc kích hoạt và áp dụng bộ kết hợp skill chiến thắng cho 6 giai đoạn phát triển:
+Thứ tự ưu tiên khi có xung đột:
 
-| Giai đoạn | Các skill ứng viên trong kho | Skill chiến thắng được chọn | Lý do tuyển chọn kỹ thuật |
-| :--- | :--- | :--- | :--- |
-| **1. Làm rõ & Phản biện** | `grill-me`, `grilling`, `brainstorming`, `loop-me`, `to-spec` | **`grilling` + `grill-me`** | `brainstorming` chỉ hỏi chung. `grilling` (bộ Matt Pocock) mạnh hơn hẳn nhờ thuật toán Design Tree + chia câu hỏi theo Frontier Rounds (những câu hỏi đã đủ tiền đề) và BẮT BUỘC đưa kèm câu trả lời gợi ý (➡️) thay vì đùn đẩy việc suy nghĩ cho user. |
-| **2. Kiến trúc module** | `codebase-design`, `architecture`, `domain-modeling` | **`codebase-design`** | Triết lý Deep Modules (năng lực xử lý lớn ẩn sau interface hẹp, đường cắt seam rõ ràng, testable cao). Tránh việc đẻ ra các class/interface nông (shallow module) gây phân mảnh code. |
-| **3. Kế hoạch thực thi** | `writing-plans`, `plan-writing`, `wayfinder`, `to-tickets` | **`writing-plans`** | Chia nhỏ task theo dạng 3–5 milestone kèm tiêu chí kiểm chứng (verification criteria) độc lập cho từng bước. |
-| **4. Chất lượng code & Tinh gọn** | `clean-code`, `simplify-code`, `code-review-excellence` | **`clean-code` + `simplify-code` + `# ponytail:`** | `clean-code` triệt tiêu over-engineering (KISS, YAGNI, DRY, PEP 8). `simplify-code` làm phẳng logic, dọn dead-code. Bắt buộc gắn `# ponytail: [ceiling], upgrade when [trigger]` cho các đoạn code tối giản có chủ ý. |
-| **5. Chẩn đoán & Debug** | `diagnosing-bugs`, `systematic-debugging` | **`diagnosing-bugs` + `systematic-debugging`** | Kết hợp 2 kỷ luật thép: 1) Redact First (không để lộ secret/token ra log); 2) 4 pha nghiêm ngặt: Tái hiện deterministic ➔ Tìm root cause bằng bằng chứng ➔ Sửa tối thiểu ➔ Chạy kiểm tra hồi quy. Cấm đoán mò hoặc sửa thử sai. |
-| **6. Kiểm chứng hoàn thành** | `verification-before-completion`, `verify-changes`, `lint-and-validate` | **`verification-before-completion` + `verify-changes`** | Nguyên tắc cốt lõi: Evidence before assertion. Tuyệt đối cấm LLM tự tuyên bố "đã xong", "đã fix" nếu chưa tự chạy terminal command ra kết quả exit code 0. |
+1. Acceptance criteria và guardrail trong feature đang thực hiện.
+2. [`AGENTS.md`](../AGENTS.md) — workflow, phạm vi `src/`, feature state và ba lớp
+   kiểm chứng.
+3. [`CLAUDE.md`](../CLAUDE.md) — hành vi và quy trình coding.
+4. [Canonical clean-code skill](../.agents/skills/clean-code/SKILL.md) — KISS,
+   YAGNI, SRP, DRY và build-or-reuse gate.
+5. Tài liệu này — quy tắc Python, import, exception, suppression và evidence.
+6. [`ruff.toml`](../ruff.toml) và [`src/pyproject.toml`](../src/pyproject.toml) —
+   cấu hình tool, phiên bản Python và dependency đã pin.
 
-### 🐴 Hợp Đồng Ponytail (The Ponytail Contract)
-Mọi đoạn code được tối giản có chủ đích (để giữ sự đơn giản, không build scaffolding vô ích) **BẮT BUỘC** phải có comment đánh dấu trần giới hạn và điều kiện nâng cấp:
+Code mới phải sạch ngay từ lần viết đầu. “Không refactor trước khi core behavior
+được kiểm chứng” chỉ ngăn thay đổi ngoài phạm vi; không cho phép tạo nợ kỹ thuật
+có chủ ý.
+
+## 2. Nguyên tắc bắt buộc
+
+### 2.1 Correctness trước, đơn giản sau
+
+- Implement đúng contract đã được xác minh; không tự mở rộng yêu cầu.
+- Giữ nguyên authentication, authorization, workspace isolation, approval,
+  evidence, data-loss prevention và secret redaction.
+- Sửa nguyên nhân gốc. Không che lỗi bằng fallback giả, success rỗng, mock data,
+  tài khoản khác hoặc nhánh riêng cho input gây lỗi.
+- Khi thay đổi public/exported contract, cập nhật toàn bộ caller, test và tài liệu
+  liên quan trong cùng một cutover. Không giữ alias hoặc compatibility shim nếu
+  không còn consumer đã xác minh.
+
+### 2.2 Build-or-reuse gate
+
+Dừng tại lựa chọn đầu tiên đáp ứng đầy đủ yêu cầu:
+
+1. Loại bỏ hành vi nếu sản phẩm không cần.
+2. Dùng Python standard library.
+3. Dùng behavior native của platform/framework.
+4. Tái sử dụng code hiện có trong repository.
+5. Dùng API được tài liệu hóa của dependency đang cài.
+6. Chỉ viết lượng custom code tối thiểu cho invariant Hermes sở hữu.
+
+Trước khi viết parser, crawler, retry loop, cache, serializer, validator, state
+machine, repository wrapper hoặc framework mới, phải kiểm tra API của dependency
+đúng phiên bản đã lock và ghi rõ thiếu sót khiến custom code thực sự cần thiết.
+
+### 2.3 Thiết kế và cấu trúc
+
+- Một module sở hữu một miền trách nhiệm rõ; một hàm thực hiện một công việc.
+- Ưu tiên guard clause và luồng phẳng. Tách hàm khi tên gọi tạo ra abstraction có
+  nghĩa, không tách chỉ để đạt số dòng tùy ý.
+- Tên biểu đạt domain intent. Boolean dùng dạng câu hỏi như `is_ready`,
+  `has_access`, `can_publish`; constant dùng `UPPER_SNAKE_CASE`.
+- Type hint chính xác tại boundary và API dùng chung. Không thêm `Any`, `cast()`,
+  `# type: ignore` hoặc wrapper chỉ để làm checker im lặng.
+- Tránh mutable global state và side effect ẩn. Side effect phải nằm ở boundary
+  có tên rõ và có thể kiểm chứng.
+- Không tạo interface/factory/plugin framework cho một implementation giả định.
+  Chỉ tạo seam khi có ít nhất hai implementation thật hoặc một trust boundary cần
+  cô lập.
+- Comment giải thích invariant, lý do hoặc trade-off không thể hiện từ code.
+  Code tự giải thích cú pháp và luồng hiển nhiên.
+- `# ponytail:` chỉ ghi một giới hạn tối giản có chủ ý cùng upgrade trigger có thể
+  đo được; không dùng như comment trang trí hoặc giấy phép bỏ acceptance criteria.
+
+## 3. Python và PEP 8
+
+- Production và test code tuân thủ PEP 8 cùng baseline trong `ruff.toml`.
+- Target hiện tại là Python 3.12: dùng built-in generics (`list[str]`), union `|`
+  và interface collection từ `collections.abc`.
+- Formatter dùng double quotes và line length mục tiêu 88. `E501` bị loại khỏi
+  baseline vì formatter không thể bảo đảm mọi dòng đạt ngưỡng; điều này không cho
+  phép viết dòng khó đọc khi có thể xuống dòng tự nhiên.
+- Dùng pathlib, context manager, dataclass, enum, timezone-aware datetime và API
+  standard library khi chúng giải quyết đúng bài toán; không dựng helper tương
+  đương.
+- Tránh allocation/copy/compute trong hot path khi có lựa chọn rõ ràng không tạo
+  thêm độ phức tạp. Không tối ưu sớm khi chưa có bằng chứng profiling.
+
+### 3.1 Import
+
+Import production đặt ở module level theo PEP 8 và D026:
+
 ```python
-# ponytail: [trần giới hạn của giải pháp hiện tại], upgrade when [điều kiện kích hoạt nâng cấp]
-```
-Ví dụ:
-```python
-# ponytail: simple in-memory LRU cache; upgrade when multi-worker concurrency or cache persistence is required.
-```
-
----
-## 1. Nguyên Tắc Cốt Lõi (Core Principles)
-
-1. **PEP 8 là Luật Tuyệt Đối:** Mọi file Python phải tuân thủ chuẩn PEP 8.
-2. **KISS & YAGNI (Đơn giản là trên hết):** Không xây dựng trừu tượng dự phòng (speculative abstractions), không tạo interface/factory chỉ cho 1 đối tượng, không thêm dependency mới khi thư viện chuẩn (stdlib) hoặc module hiện có giải quyết được.
-3. **Mã Nguồn Tự Giải Thích (Self-Documenting):** Đặt tên biến, hàm rõ ràng theo đúng ngữ cảnh nghiệp vụ; dùng Type Hints đầy đủ cho các hàm công khai; chỉ viết docstring/comment khi giải thích lý do ("tại sao làm vậy") chứ không diễn giải lại cú pháp hiển nhiên.
-4. **Xóa Bỏ Trước Khi Thêm Mới (Deletion Over Addition):** Ưu tiên rút gọn mã nguồn, loại bỏ dead code, giữ diff nhỏ nhất có thể (**Minimum Working Diff**).
-
----
-
-## 2. Chuẩn Hóa Kiến Trúc Import (Import Architecture & Anti-Pattern Bans)
-
-### ⛔ CẤM TUYỆT ĐỐI: Import Bên Trong Thân Hàm (In-Function Imports)
-* **Quy tắc:** Mọi câu lệnh `import` và `from ... import ...` **bắt buộc phải nằm ở đầu file (module top-level)**.
-* **Lý do:**
-  - Import trong hàm gây lỗi nghiêm trọng về tầm vực biến (`NameError` khi hàm helper khác cần dùng module).
-  - Làm chậm hiệu năng runtime do phải tra cứu import lặp đi lặp lại ở mỗi lượt gọi.
-  - Phá vỡ khả năng kiểm tra tĩnh (static analysis) và công cụ format tự động (Ruff, Flake8).
-
-### Thứ Tự Import Chuẩn (Import Ordering)
-Theo chuẩn PEP 8, các khối import ở đầu file phải cách nhau đúng 1 dòng trống:
-1. **Khối 1:** Thư viện chuẩn Python (Standard Library: `os`, `sys`, `json`, `pathlib`, `typing`, `dataclasses`, `datetime`,...).
-2. **Khối 2:** Thư viện bên thứ ba (Third-party packages: `composio`, `pydantic`, `pytest`,...).
-3. **Khối 3:** Module nội bộ của dự án (Local/Project modules: `tools.composio.*`, `tools.calendar.*`,...).
-
-```python
-# CHUẨN (DO THIS):
-from __future__ import annotations
-
 import json
-import logging
-import os
 from pathlib import Path
-from typing import Any, Dict, Optional
 
-import composio
-from pydantic import BaseModel
+from composio import Composio
 
-from tools.composio.bridge import call_google
-
-# SAI (DON'T DO THIS):
-def fetch_data():
-    import os          # ❌ CẤM: Import stdlib trong hàm
-    from tools import x # ❌ CẤM: Import module trong hàm
+from tools.composio.bridge import execute_tool
 ```
 
-### Xử Lý Optional Dependency & Dynamic Bridge Ở Phạm Vi Module
-Khi một module phụ thuộc vào môi trường hoặc thư viện tùy chọn, xử lý tại **module level** bằng khối `try...except ImportError`:
+Quy tắc:
+
+- Thứ tự: standard library → third-party → local; mỗi nhóm cách nhau một dòng.
+- Không chen constant, logger hoặc executable statement giữa các nhóm import.
+- Không dùng `import *`.
+- Không import trong function/method để né circular dependency, startup cost hoặc
+  tổ chức module. Sửa dependency direction hoặc module ownership ở nguồn.
+- Không bọc import bằng `try/except` tùy tiện. Dependency bắt buộc thiếu phải fail
+  rõ với lỗi import gốc.
+- Optional dependency chỉ được xử lý như optional khi product contract xác nhận
+  feature có thể vắng mặt. Bắt đúng `ModuleNotFoundError` của package dự kiến;
+  không nuốt lỗi từ dependency con hay lỗi khởi tạo.
+- Test/probe có thể trì hoãn import khi cần thiết lập environment, fixture hoặc
+  host stub trước khi module được load. Ghi lý do cụ thể tại import và suppression
+  đúng mã. Ngoại lệ test không trở thành pattern production.
+- Module-level bootstrap sau một executable setup liên quan `E402`; import trong
+  function liên quan `PLC0415`. Không dùng suppression của rule này để che rule kia.
+
+Import trong function vẫn là Python hợp lệ và được cache; quy định module-level là
+kỷ luật dependency của Hermes, không phải tuyên bố sai về cơ chế Python.
+
+### 3.2 Exception
+
 ```python
-# CHUẨN: Xử lý ở module scope một lần duy nhất khi nạp file
-_composio_bridge = None
 try:
-    from tools.composio import bridge as _composio_bridge
-except (ImportError, ModuleNotFoundError):
-    # Tìm kiếm đường dẫn dự án dự phòng (chỉ chạy ở module level)
-    for cand in _candidate_src_dirs():
-        target = cand / "tools" / "composio" / "bridge.py"
-        if target.is_file():
-            # Nạp động một lần duy nhất
-            ...
+    event = client.create_event(payload)
+except ProviderRequestError as exc:
+    raise CalendarWriteError("Google Calendar rejected the event") from exc
 ```
 
-### Hỗ Trợ Monkeypatching Trong Kiểm Thử
-Tránh import trực tiếp các hàm có thể bị mock trong test theo kiểu `from module import func`. Hãy import theo tên module (`import module as mod`) để khi test dùng `monkeypatch.setattr(module, "func", mock_func)`, mã nguồn luôn trỏ tới mock handler chính xác.
+Quy tắc:
 
----
+- Giữ `try` nhỏ, chỉ bao quanh operation có thể phát sinh lỗi cần xử lý.
+- Bắt loại exception cụ thể được API tài liệu hóa hoặc đã quan sát trong test.
+- Chỉ bắt lỗi khi tầng hiện tại có hành động đúng: recover, translate sang domain
+  error, fail closed, cleanup rồi re-raise, hoặc trả error result theo contract.
+- `except Exception` chỉ hợp lệ ở process/task/API boundary chịu trách nhiệm ngăn
+  crash lan rộng. Boundary phải ghi log đã redact, trả trạng thái lỗi thật và có
+  test cho error path. Dùng `# noqa: BLE001` kèm lý do cụ thể tại dòng đó.
+- Không dùng bare `except`, `except BaseException` hoặc suppression rộng; chúng có
+  thể nuốt `KeyboardInterrupt`, `SystemExit`, cancellation và lỗi lập trình.
+- Dùng bare `raise` để re-raise. Dùng `raise DomainError(...) from exc` khi đổi
+  abstraction. `from None` chỉ khi intentionally ẩn context không hữu ích và có
+  lý do rõ.
+- `contextlib.suppress(SpecificError)` chỉ dùng khi lỗi cụ thể đó được contract
+  xác nhận là an toàn để bỏ qua.
+- Cleanup phải dùng context manager hoặc `finally` khi tài nguyên cần được giải
+  phóng bất kể operation thành công hay thất bại.
 
-## 3. Quản Lý Lỗi & An Toàn Biên (Error Handling & Fail-Closed Boundaries)
+### 3.3 Logging và dữ liệu nhạy cảm
 
-1. **Không Nuốt Lỗi (Never Swallow Exceptions):**
-   - ❌ Tuyệt đối không viết `except Exception: pass` hoặc `except: pass` làm mất dấu vết lỗi.
-   - ✅ Nếu bắt ngoại lệ không nghiêm trọng, **phải ghi log chẩn đoán** (`logger.debug(...)` hoặc `logger.warning(...)`).
-2. **Đóng Chặt Khi Thiếu Quyền (Fail-Closed Security):**
-   - Khi không xác định được danh tính người gọi (`principal_id`), token ủy quyền, hoặc quyền truy cập hòm thư/lịch: **bắt buộc phải từ chối (deny/raise) ngay lập tức**.
-   - Không tự ý fallback về tài khoản mặc định, không đoán mò danh tính người dùng.
-3. **Bảo Vệ Quyền Riêng Tư Trên Nền Tảng Nhắn Tin (DM-Only Enforcement):**
-   - Các thao tác xem email, quản lý lịch, đọc thông tin cá nhân chỉ được phép thực thi trong chat riêng tư (Direct Message).
-   - Kiểm tra trực tiếp qua thuộc tính ngữ cảnh: `getattr(source, "chat_type", "") != "dm"` và chuyển hướng về DM, không phụ thuộc vào whitelist tên nền tảng cứng nhắc.
-4. **Khử Nhạy Cảm Dữ Liệu (Secret Scrubbing):**
-   - Mọi token, API key, mật khẩu, Bearer header phải được lọc sạch (redacted) trước khi ghi log hoặc gửi về giao diện chat.
+- Log event, trạng thái và identifier tối thiểu cần cho vận hành; log ở boundary
+  sở hữu lỗi, không lặp cùng exception qua nhiều tầng.
+- Redact token, API key, authorization header, signed URL, OAuth code, raw email,
+  private payload, customer PII và exception text có thể chứa dữ liệu nhạy cảm.
+- Không ghi secret vào source, test fixture, snapshot, command output, `PROGRESS.md`
+  hoặc Git history.
+- Provider timeout/error phải được báo là lỗi thật; “không có dữ liệu” chỉ dùng khi
+  provider đã trả một kết quả rỗng hợp lệ.
 
----
+## 4. Dữ liệu, API và trust boundary
 
-## 4. Thiết Kế Hướng Module Sâu (Deep Module Design)
+- Validate input bên ngoài tại boundary: kiểu, required field, enum, độ dài, path,
+  URL, identity và quyền thực thi.
+- Workspace/profile/chat binding phải được xác định trước inference. Model input
+  không được chọn identity, workspace hoặc authorization scope.
+- Query SQL dùng parameter binding. OData, shell argument, URL và filesystem path
+  phải được encode/validate bằng API đúng miền; không nội suy trực tiếp dữ liệu
+  không tin cậy.
+- Side effect phải idempotent khi contract yêu cầu. Approval denial, timeout hoặc
+  im lặng không bao giờ là approval.
+- External communication, invoice, booking và landlord negotiation tuân thủ tier
+  hiện hành. Money movement, payment và legal signing là human-only.
+- Success chỉ được trả khi target system cung cấp evidence tương ứng và verifier
+  đọc lại được trạng thái cần thiết.
 
-1. **Giao Diện Đơn Giản, Triển Khai Mạnh Mẽ (Deep Modules):**
-   - Interface bên ngoài của tool hoặc service càng ngắn gọn, dễ hiểu càng tốt.
-   - Toàn bộ sự phức tạp (chuẩn hóa múi giờ, tra cứu kết nối, fallback toolkit `googlesuper` / `googlecalendar`, chuyển đổi ID) phải được đóng gói bên trong module.
-2. **Bất Biến Theo Mặc Định (Immutability by Default):**
-   - Ưu tiên sử dụng `@dataclass(frozen=True)` cho các cấu trúc dữ liệu hợp đồng nghiệp vụ (contracts, DTOs).
-   - Đảm bảo dữ liệu không bị thay đổi ngầm (side-effects) khi truyền qua các tầng kiến trúc.
+## 5. Test
 
----
+Test phải bảo vệ observable contract và thất bại với một bug hợp lý:
 
-## 5. Quy Trình Kiểm Chứng 3 Lớp (Three-Layer Verification)
+- Behavior, boundary, invariant, state transition, precedence, isolation và error
+  path là mục tiêu test phù hợp.
+- Không test source text, field copy, argument forwarding, mock echo, default ngẫu
+  nhiên hoặc chi tiết implementation không thuộc contract.
+- Mock network/SDK tại boundary nơi code gọi dependency; production code không
+  được nhận diện mock, dò test runner hoặc chọn nhánh dành riêng cho test.
+- Patch symbol tại namespace nơi consumer tra cứu symbol.
+- Bugfix cần red-green: reproduction phải fail trước fix và pass sau fix. Nếu
+  regression test lâu dài không xứng đáng, dùng throwaway smoke probe rồi xóa.
+- Test deterministic, isolated, không dùng secret thật và chạy an toàn trong full
+  suite.
+- Không thêm nhiều parameter row chạy cùng một path chỉ để tăng test count.
+- Test cũ chỉ pin wording/implementation và không bảo vệ behavior phải được xóa,
+  không sửa lại expected text để tiếp tục duy trì test vô nghĩa.
 
-Không có tính năng hay bản sửa lỗi nào được coi là hoàn thành nếu chưa có bằng chứng kiểm thử cụ thể:
+## 6. Suppression và modernization
 
-* **Layer 1: Kiểm Tra Cú Pháp & Schema (Static Check)**
-  - Chạy `ruff check` hoặc kiểm tra cú pháp AST toàn diện.
-  - Không có lỗi type, không còn biến hoặc import chưa sử dụng.
-* **Layer 2: Kiểm Thử Hành Vi & Unit Test (Artifact Behavior)**
-  - Chạy toàn bộ bộ test `pytest tests/` (100% test cases phải PASS).
-  - Kiểm tra cả kịch bản thành công (happy paths) lẫn kịch bản biên/lỗi (edge cases).
-* **Layer 3: Kiểm Chứng Thực Tế Biên Hệ Thống (System Boundary Verification)**
-  - Chạy kiểm thử trực tiếp trên engine runtime thực tế (`hermes` host CLI / Desktop / Telegram Gateway).
-  - Ghi nhận đầy đủ: Lệnh chạy, Timestamp UTC, Mã trạng thái (exit status), và kết quả trả về thực tế.
+### 6.1 Suppression
 
----
+- Sửa nguyên nhân trước. Mỗi `noqa` phải có mã rule hẹp và lý do cụ thể có thể
+  review.
+- Không dùng blanket `noqa`, bulk `--add-noqa`, file-wide ignore hoặc giảm rule set
+  chỉ để checker xanh.
+- `# type: ignore[...]` phải chỉ rõ mã và giới hạn thiếu sót thật của dependency.
+- Xóa suppression hết hiệu lực; `RUF100` là gate bắt buộc.
+- “0 diagnostics” không đồng nghĩa code đúng nếu lỗi đã bị suppress.
 
-## 6. Checklist Tự Rà Soát Trước Khi Đưa Code Lên (Pre-Flight Checklist)
+### 6.2 Modernization
 
-Trước khi commit hoặc bàn giao bất kỳ task nào, hãy tự trả lời 5 câu hỏi:
-- [ ] 1. Toàn bộ `import` có nằm ở đầu file (top-level) không? Có câu lệnh `import` nào bị giấu trong hàm không?
-- [ ] 2. Đoạn mã này có thực sự cần thiết không, hay thư viện chuẩn/code có sẵn đã làm được?
-- [ ] 3. Có khối `try...except` nào đang âm thầm nuốt lỗi mà không có log không?
-- [ ] 4. Khi gặp lỗi xác thực hoặc thiếu quyền, code có Fail-Closed an toàn không?
-- [ ] 5. Toàn bộ test suite (`pytest`) có PASS 100% không?
+Autofix chỉ được áp dụng khi giữ nguyên semantics:
+
+- `%` → f-string: giữ escaping, quoting và kiểu dữ liệu; không biến parameterized
+  SQL thành string interpolation.
+- `Enum` → `StrEnum`: kiểm tra `str()`, formatting, equality và serialization ở
+  caller.
+- `zip(strict=...)`: chọn từ invariant độ dài; không thêm `strict=False` chỉ để
+  hết lint.
+- Không chạy `--unsafe-fixes` hàng loạt nếu chưa review từng loại rewrite.
+
+## 7. Workflow bắt buộc
+
+### 7.1 Trước khi sửa
+
+1. Đọc feature, acceptance criteria, file liên quan và code lân cận.
+2. Xác định callers, side effects, trust boundaries và evidence cần có.
+3. Với exported symbol, dùng LSP references trước khi đổi contract.
+4. Áp dụng build-or-reuse gate và chọn minimum working diff.
+5. Xác định command chứng minh behavior trước khi viết.
+
+### 7.2 Trong khi sửa
+
+1. Giữ diff trong scope; không format hoặc refactor file không liên quan.
+2. Cập nhật mọi caller bị ảnh hưởng trong cùng cutover.
+3. Thêm test chỉ khi nó bảo vệ contract lâu dài; nếu không, dùng smoke probe.
+4. Không sửa operator config, deploy, gửi email hoặc tạo external side effect nếu
+   task không yêu cầu rõ.
+
+### 7.3 Sau khi sửa
+
+Ba lớp chạy theo thứ tự; lớp trước fail thì dừng và sửa trước khi chạy lớp sau.
+
+#### Layer 1 — static và schema
+
+Chạy từ repository root bằng môi trường operator:
+
+```text
+uv tool run ruff --version
+uv tool run ruff check --config ruff.toml src tests
+uv tool run ruff check --config ruff.toml --extend-select RUF100 src tests
+uv tool run ruff format --check --config ruff.toml src tests
+```
+
+Bổ sung compile/schema/type checker áp dụng cho feature. Ruff không phải type
+checker. Lệnh `--select` hẹp chỉ là chẩn đoán partial, không thay baseline cấu hình.
+Không pipe checker qua command khác làm mất exit status.
+
+#### Layer 2 — artifact behavior
+
+```text
+uv run --project src --frozen python -B -m pytest tests/ -q -p no:cacheprovider
+```
+
+Chạy thêm verifier Layer 1/2 được khai báo trong `feature-list.json`. Một suite có
+`--ignore`, deselection hoặc skip phải báo đúng exclusion; không gọi là full-suite
+pass.
+
+#### Layer 3 — system boundary
+
+Chạy scenario thật tại CLI, gateway hoặc provider tương ứng acceptance criteria.
+Mock test không chứng minh deployment, OAuth, delivery hoặc target-system state.
+UI phải được kiểm tra trên surface thật; external mutation phải tuân thủ approval.
+
+## 8. Evidence và bàn giao
+
+Mỗi kết luận kiểm chứng phải ghi:
+
+- command/scenario đã chạy;
+- UTC timestamp;
+- exit status;
+- kết quả quan sát được;
+- phạm vi và exclusion.
+
+Báo riêng ba nhóm: static/format, behavior và live boundary. Không suy rộng bằng
+chứng partial thành kết luận toàn hệ thống.
+
+Khi gate fail:
+
+- giữ trạng thái chưa đạt;
+- ghi finding, owner và unblock condition cụ thể;
+- sửa code hoặc contract gốc, không giảm chuẩn để tự chấm xanh.
+
+Chỉ independent verifier được chuyển feature sang `passing`. Cập nhật
+`PROGRESS.md`, `DECISIONS.md` và `feature-list.json` khi workflow của feature yêu
+cầu; không dùng số dòng sửa hoặc số warning giảm làm bằng chứng hoàn thành.
+
+## 9. Checklist review
+
+### Standards
+
+- [ ] Diff tối thiểu và mọi dòng thay đổi truy ngược được về yêu cầu.
+- [ ] Không tái hiện capability đã có trong stdlib, platform, repository hoặc SDK.
+- [ ] Import ở module level, đúng nhóm; optional import có contract thật.
+- [ ] Exception cụ thể; broad catch chỉ ở tested boundary.
+- [ ] Không fallback giả, mock-aware production branch hoặc suppression vô cớ.
+- [ ] Type hint, naming, ownership và side effect rõ ràng.
+- [ ] Secret/PII được redact; authorization và workspace isolation được giữ.
+
+### Spec
+
+- [ ] Mọi acceptance criterion được đáp ứng end-to-end.
+- [ ] Tất cả caller, test và tài liệu bị ảnh hưởng đã được xử lý.
+- [ ] Layer 1, Layer 2 và Layer 3 có evidence đúng phạm vi.
+- [ ] Không có stub, placeholder, dead compatibility path hoặc task artifact sót lại.
+- [ ] Feature state phản ánh đúng authority và verifier evidence.
+
+## 10. Tài liệu tham chiếu
+
+- [PEP 8 — Imports](https://peps.python.org/pep-0008/#imports)
+- [Python — Errors and Exceptions](https://docs.python.org/3/tutorial/errors.html)
+- [Python — Exception chaining](https://docs.python.org/3/tutorial/errors.html#exception-chaining)
+- [Ruff — Rule selection](https://docs.astral.sh/ruff/linter/)
+- [Ruff — Formatter](https://docs.astral.sh/ruff/formatter/)
+- [Ruff PLC0415 — import-outside-top-level](https://docs.astral.sh/ruff/rules/import-outside-top-level/)
+- [Ruff BLE001 — blind-except](https://docs.astral.sh/ruff/rules/blind-except/)
+- [Ruff B036 — except BaseException](https://docs.astral.sh/ruff/rules/except-base-exception/)
+- [Ruff RUF100 — unused-noqa](https://docs.astral.sh/ruff/rules/unused-noqa/)
