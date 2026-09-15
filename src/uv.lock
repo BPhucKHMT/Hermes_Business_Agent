@@ -724,6 +724,7 @@ dependencies = [
     { name = "google-api-python-client" },
     { name = "google-auth-oauthlib" },
     { name = "pyinstaller" },
+    { name = "python-dotenv" },
 ]
 
 [package.dev-dependencies]
@@ -742,6 +743,7 @@ requires-dist = [
     { name = "google-api-python-client", specifier = ">=2.199,<3" },
     { name = "google-auth-oauthlib", specifier = ">=1.4,<2" },
     { name = "pyinstaller", specifier = ">=6,<7" },
+    { name = "python-dotenv", specifier = ">=1.2,<2" },
 ]
 
 [package.metadata.requires-dev]

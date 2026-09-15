@@ -3,16 +3,18 @@
 from __future__ import annotations
 
 import argparse
+from collections.abc import Sequence
 import json
 import os
+from pathlib import Path
 import shutil
 import subprocess
 import sys
-from pathlib import Path
-from typing import Sequence
+import tempfile
+
+from dotenv import set_key
 
 from tools.composio.local_owner import ensure_local_owner
-
 
 PROJECT_PLUGINS = ("email-connector", "calendar-connector")
 
@@ -53,8 +55,9 @@ def _run_hermes(
             capture_output=True,
             text=True,
             check=False,
+            timeout=60,
         )
-    except OSError as exc:
+    except (OSError, subprocess.TimeoutExpired) as exc:
         raise SetupError(
             "Unable to execute native Hermes. Check the PATH entry and "
             "operator permissions."
@@ -119,28 +122,19 @@ def _provision_owner(root: Path) -> str:
             "the installation owner and rerun setup."
         ) from exc
     if not owner_id:
-        raise SetupError("Local owner provisioning returned no owner id; setup stopped.")
+        raise SetupError(
+            "Local owner provisioning returned no owner id; setup stopped."
+        )
     return owner_id
 
+
 def _update_dotenv_var(path: Path, key: str, value: str) -> None:
-    if not path.parent.exists():
-        return
-    lines = []
-    found = False
-    if path.is_file():
-        for line in path.read_text(encoding="utf-8").splitlines():
-            if line.strip().startswith(f"{key}="):
-                lines.append(f"{key}={value}")
-                found = True
-            else:
-                lines.append(line)
-    if not found:
-        lines.append(f"{key}={value}")
-    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    if not path.parent.is_dir():
+        raise SetupError("Hermes operator directory is missing; complete native setup.")
+    set_key(str(path), key, value, quote_mode="always", encoding="utf-8")
 
 
-
-def _configure_hermes(executable: str, root: Path) -> None:
+def _configure_hermes(executable: str, root: Path) -> Path:
     external_dirs = _merge_skill_directory(
         _read_external_dirs(executable, root),
         root / "skills",
@@ -151,19 +145,19 @@ def _configure_hermes(executable: str, root: Path) -> None:
         ("skills.external_dirs", json.dumps(external_dirs, separators=(",", ":"))),
         ("HERMES_PROJECT_SRC", str(root)),
         ("HERMES_ENABLE_PROJECT_PLUGINS", "1"),
+        ("terminal.backend", "local"),
     )
     for key, value in config_values:
         _run_hermes(executable, ("config", "set", key, value), root)
-    env_paths: list[Path] = []
-    if os.environ.get("HERMES_HOME"):
-        env_paths.append(Path(os.environ["HERMES_HOME"]) / ".env")
-    else:
-        env_paths.append(Path.home() / ".hermes" / ".env")
-        if os.name == "nt" and os.environ.get("LOCALAPPDATA"):
-            env_paths.append(Path(os.environ["LOCALAPPDATA"]) / "hermes" / ".env")
-    for env_path in env_paths:
-        _update_dotenv_var(env_path, "HERMES_PROJECT_SRC", str(root))
-        _update_dotenv_var(env_path, "HERMES_ENABLE_PROJECT_PLUGINS", "1")
+    result = _run_hermes(executable, ("config", "env-path"), root)
+    env_path = Path(result.stdout.strip())
+    if not env_path.is_absolute() or env_path.name != ".env":
+        raise SetupError("Hermes returned an invalid operator environment path.")
+    _update_dotenv_var(env_path, "HERMES_PROJECT_SRC", str(root))
+    _update_dotenv_var(env_path, "HERMES_ENABLE_PROJECT_PLUGINS", "1")
+    return env_path.parent
+
+
 def _enable_project_plugins(executable: str, root: Path) -> None:
     for plugin in PROJECT_PLUGINS:
         _run_hermes(
@@ -172,77 +166,70 @@ def _enable_project_plugins(executable: str, root: Path) -> None:
             root,
         )
 
-def _sync_plugins(root: Path) -> None:
+
+def _sync_plugins(root: Path, home: Path | None = None) -> None:
     source_dir = root / ".hermes" / "plugins"
     if not source_dir.is_dir():
+        raise SetupError("The release is missing .hermes/plugins; extract it again.")
+    configured_home = os.environ.get("HERMES_HOME")
+    if home is None:
+        if configured_home:
+            home = Path(configured_home)
+        elif os.name == "nt" and os.environ.get("LOCALAPPDATA"):
+            home = Path(os.environ["LOCALAPPDATA"]) / "hermes"
+        else:
+            home = Path.home() / ".hermes"
+    target_base = home / "plugins"
+    target_base.mkdir(parents=True, exist_ok=True)
+    if target_base.resolve() == source_dir.resolve():
         return
-    hermes_bases: list[Path] = []
-    if os.environ.get("HERMES_HOME"):
-        hermes_bases.append(Path(os.environ["HERMES_HOME"]))
-    if os.name == "nt" and os.environ.get("LOCALAPPDATA"):
-        hermes_bases.append(Path(os.environ["LOCALAPPDATA"]) / "hermes")
-    hermes_bases.append(Path.home() / ".hermes")
+    if target_base.is_symlink() or target_base.is_junction():
+        raise SetupError("Operator plugins directory points outside this installation.")
+    for plugin_dir in source_dir.iterdir():
+        if not plugin_dir.is_dir() or plugin_dir.name == "__pycache__":
+            continue
+        target = target_base / plugin_dir.name
+        if target.resolve() == plugin_dir.resolve():
+            continue
+        if target.is_symlink() or target.is_junction():
+            raise SetupError(
+                f"Plugin {plugin_dir.name} points outside this installation."
+            )
+        with tempfile.TemporaryDirectory(prefix=".setup-", dir=target_base) as staging:
+            staged = Path(staging) / plugin_dir.name
+            shutil.copytree(
+                plugin_dir,
+                staged,
+                ignore=shutil.ignore_patterns("__pycache__", "*.pyc"),
+            )
+            previous = Path(staging) / "previous"
+            if target.exists():
+                target.rename(previous)
+            try:
+                staged.rename(target)
+            except OSError:
+                if previous.exists():
+                    previous.rename(target)
+                raise
 
-    target_dirs: list[Path] = []
-    for base in hermes_bases:
-        if not base.exists():
-            continue
-        target_dirs.append(base / "plugins")
-        # Support active named profile if set
-        act_file = base / "active_profile"
-        if act_file.is_file():
-            try:
-                act = act_file.read_text(encoding="utf-8").strip()
-                if act:
-                    target_dirs.append(base / "profiles" / act / "plugins")
-            except OSError:
-                pass
-        # Support all configured named profiles
-        profiles_dir = base / "profiles"
-        if profiles_dir.is_dir():
-            try:
-                for prof in profiles_dir.iterdir():
-                    if prof.is_dir():
-                        target_dirs.append(prof / "plugins")
-            except OSError:
-                pass
-    seen: set[str] = set()
-    for target_base in target_dirs:
-        norm = os.path.normcase(str(target_base.resolve())) if target_base.exists() else str(target_base)
-        if norm in seen:
-            continue
-        seen.add(norm)
-        if target_base.parent.exists():
-            target_base.mkdir(parents=True, exist_ok=True)
-            for plugin_dir in source_dir.iterdir():
-                if not plugin_dir.is_dir():
-                    continue
-                dst_p = target_base / plugin_dir.name
-                shutil.copytree(plugin_dir, dst_p, dirs_exist_ok=True)
-                for pycache in dst_p.rglob("__pycache__"):
-                    if pycache.is_dir():
-                        shutil.rmtree(pycache, ignore_errors=True)
 
 def configure_local(root: Path) -> str:
     """Provision the local owner and configure native Hermes for this workspace."""
     root = root.resolve()
     if not (root / "skills").is_dir():
-        raise SetupError(
-            f"Deployed Hermes workspace has no skills directory: {root}"
-        )
+        raise SetupError(f"Deployed Hermes workspace has no skills directory: {root}")
 
     _resolve_executable(
         "uv",
-        "Install uv from "
-        "https://docs.astral.sh/uv/getting-started/installation/",
+        "Install uv from https://docs.astral.sh/uv/getting-started/installation/",
     )
     hermes = _resolve_executable(
         "hermes",
         "Install Hermes Agent using its official instructions, then retry setup.",
     )
     owner_id = _provision_owner(root)
-    _configure_hermes(hermes, root)
-    _sync_plugins(root)
+    home = _configure_hermes(hermes, root)
+    _sync_plugins(root, home)
     _enable_project_plugins(hermes, root)
     return owner_id
 
@@ -262,11 +249,14 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     if not args.local:
-        print("Refusing to change Hermes configuration without explicit --local.", file=sys.stderr)
+        print(
+            "Refusing to change Hermes configuration without explicit --local.",
+            file=sys.stderr,
+        )
         return 2
     try:
         configure_local(Path(__file__).resolve().parent)
-    except SetupError as exc:
+    except (SetupError, OSError) as exc:
         print(f"Local setup failed: {exc}", file=sys.stderr)
         return 1
     print("Local Hermes mode configured for this deployed workspace.")
