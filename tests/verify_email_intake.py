@@ -3,9 +3,9 @@ from __future__ import annotations
 import argparse
 import json
 import os
+from pathlib import Path
 import subprocess
 import sys
-from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src"
@@ -32,7 +32,10 @@ def layer_1() -> None:
     assert feature_file.is_file()
     features = json.loads(feature_file.read_text(encoding="utf-8"))
     assert features["schema_version"] == 1
-    assert sum(f["state"] == "active" for f in features["features"]) <= features["wip_limit"]
+    assert (
+        sum(f["state"] == "active" for f in features["features"])
+        <= features["wip_limit"]
+    )
 
     print("email intake layer 1: pass")
 

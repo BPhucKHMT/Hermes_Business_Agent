@@ -1,9 +1,9 @@
-from pathlib import Path
 import json
+from pathlib import Path
 import sys
+from types import SimpleNamespace
 from unittest.mock import patch
 
-from types import SimpleNamespace
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -11,10 +11,26 @@ sys.path.insert(0, str(ROOT / "src"))
 for name in ("email-connector", "calendar-connector"):
     sys.path.insert(0, str(ROOT / "src/.hermes/plugins" / name))
 
-from caller import CallerContextRegistry as MailRegistry
-from calendar_caller import CallerContextRegistry as CalendarRegistry
+from calendar_caller import (  # noqa: E402 -- imports follow plugin path bootstrap
+    CallerContextRegistry as CalendarRegistry,
+)
+from calendar_commands import (  # noqa: E402 -- imports follow plugin path bootstrap
+    _candidate_src_dirs as calendar_candidate_src_dirs,
+)
+from caller import (  # noqa: E402 -- imports follow plugin path bootstrap
+    CallerContextRegistry as MailRegistry,
+)
+from commands import (  # noqa: E402 -- imports follow plugin path bootstrap
+    _candidate_src_dirs as email_candidate_src_dirs,
+)
 
-from tools.composio.local_owner import ensure_local_owner, load_local_owner
+from tools.composio.auth import (  # noqa: E402 -- imports follow source path bootstrap
+    resolve_account_target,
+)
+from tools.composio.local_owner import (  # noqa: E402 -- imports follow source path bootstrap
+    ensure_local_owner,
+    load_local_owner,
+)
 
 OWNER_ID = "12345678-1234-4234-8234-123456789abc"
 
@@ -24,6 +40,45 @@ def owner_file(tmp_path):
     path = tmp_path / "local-owner.json"
     path.write_text(json.dumps({"schema_version": 1, "owner_id": OWNER_ID}))
     return path
+
+
+@pytest.mark.parametrize(
+    ("candidate_src_dirs", "yaml_mode"),
+    [
+        (email_candidate_src_dirs, "missing"),
+        (email_candidate_src_dirs, "malformed"),
+        (calendar_candidate_src_dirs, "missing"),
+        (calendar_candidate_src_dirs, "malformed"),
+    ],
+)
+def test_yaml_discovery_continues_after_optional_config_failure(
+    tmp_path, monkeypatch, candidate_src_dirs, yaml_mode
+):
+    home = tmp_path / "home"
+    config_dir = home / ".hermes"
+    config_dir.mkdir(parents=True)
+    (config_dir / "config.yaml").write_text("terminal: [", encoding="utf-8")
+    source_dir = tmp_path / "project-src"
+    (source_dir / "tools").mkdir(parents=True)
+    monkeypatch.setattr(Path, "home", lambda: home)
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "localappdata"))
+    monkeypatch.setenv("HERMES_PROJECT_SRC", str(source_dir))
+    module = sys.modules[candidate_src_dirs.__module__]
+    if yaml_mode == "missing":
+        monkeypatch.setattr(module, "yaml", None)
+    else:
+
+        class BrokenYaml:
+            class YAMLError(Exception):
+                pass
+
+            @classmethod
+            def safe_load(cls, _text):
+                raise cls.YAMLError("malformed")
+
+        monkeypatch.setattr(module, "yaml", BrokenYaml)
+
+    assert source_dir in candidate_src_dirs()
 
 
 def test_owner_provisioning_is_idempotent_and_restart_stable(tmp_path):
@@ -104,9 +159,10 @@ def test_captured_native_session_without_identity_cannot_be_local(owner_file):
             registry.capture(event)
         with pytest.raises((ValueError, LookupError, Exception)):
             registry.resolve_command()
-    from tools.composio.auth import resolve_account_target
 
     accounts = {"account-a": "alpha@example.invalid"}
-    with patch("tools.composio.auth.get_user_emails", return_value=accounts):
-        with pytest.raises(ValueError):
-            resolve_account_target("local:owner:audit", "absent@example.invalid")
+    with (
+        patch("tools.composio.auth.get_user_emails", return_value=accounts),
+        pytest.raises(ValueError),
+    ):
+        resolve_account_target("local:owner:audit", "absent@example.invalid")

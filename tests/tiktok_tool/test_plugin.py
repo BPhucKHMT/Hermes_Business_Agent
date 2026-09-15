@@ -53,7 +53,10 @@ class FakeRegistry:
 
 class FakeClient:
     def get_creator_info(self, caller):
-        return {"ok": True, "result": {"open_id": "open-tt-1", "creator_nickname": "Test Creator"}}
+        return {
+            "ok": True,
+            "result": {"open_id": "open-tt-1", "creator_nickname": "Test Creator"},
+        }
 
     def create_draft_post(self, caller, **kwargs):
         return {"ok": True, "result": {"draft": {"draft_id": "drf-tt-1"}}}

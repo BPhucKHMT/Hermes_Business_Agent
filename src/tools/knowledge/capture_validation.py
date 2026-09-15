@@ -1,14 +1,13 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from hashlib import sha256
 import json
 from pathlib import Path
 import socket
-from typing import Callable
 
 from session import stable_id
 from url_validation import validate_public_target
-
 
 ALLOWED_IMAGE_TYPES = {"image/png", "image/jpeg", "image/svg+xml", "image/webp"}
 
@@ -22,7 +21,10 @@ def _validate_asset(asset: dict, root: Path, resolver: Callable) -> dict:
     digest = str(asset.get("sha256", ""))
     if not digest or sha256(content).hexdigest() != digest:
         raise ValueError("captured asset digest does not match binary")
-    if asset.get("byte_count") != len(content) or asset.get("mime_type") not in ALLOWED_IMAGE_TYPES:
+    if (
+        asset.get("byte_count") != len(content)
+        or asset.get("mime_type") not in ALLOWED_IMAGE_TYPES
+    ):
         raise ValueError("captured asset metadata is malformed")
 
     asset_id = str(asset.get("asset_id", "")).strip()
@@ -51,7 +53,9 @@ def _normalize_page(
     if not text:
         raise ValueError("capture rendered text is required")
 
-    assets = [_validate_asset(asset, root, resolver) for asset in page.get("assets", [])]
+    assets = [
+        _validate_asset(asset, root, resolver) for asset in page.get("assets", [])
+    ]
     media = list(page.get("media", []))
     semantic = {
         "text": " ".join(text.split()),
@@ -70,7 +74,9 @@ def _normalize_page(
         "title": str(page.get("title") or canonical),
         "rendered_text": text,
         "minimal_html": str(page.get("minimal_html", "")),
-        "content_hash": sha256(json.dumps(semantic, sort_keys=True).encode()).hexdigest(),
+        "content_hash": sha256(
+            json.dumps(semantic, sort_keys=True).encode()
+        ).hexdigest(),
         "assets": assets,
         "media": media,
         "event_id": event["event_id"],
@@ -83,7 +89,10 @@ def validate_capture(
     runtime_root: Path,
     resolver: Callable = socket.getaddrinfo,
 ) -> dict:
-    if "completion" not in session or capture.get("session_id") != session["session_id"]:
+    if (
+        "completion" not in session
+        or capture.get("session_id") != session["session_id"]
+    ):
         raise ValueError("capture is not bound to a finalized crawl session")
 
     generation = str(capture.get("generation", "")).strip()

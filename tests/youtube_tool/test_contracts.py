@@ -3,7 +3,6 @@ from tools.youtube.contracts import (
     VideoDraft,
     VideoDraftStatus,
     VideoPrivacyStatus,
-    YouTubeVideo,
     compute_video_draft_idempotency_key,
 )
 

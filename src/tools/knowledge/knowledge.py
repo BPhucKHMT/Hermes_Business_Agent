@@ -6,8 +6,6 @@ import sys
 from cli import build_parser
 from clients import create_clients, load_config
 from crawl import trusted_crawl
-
-WORKSPACE_FLAG = "--workspace"
 from indexing import (
     indexer_status,
     run_indexers,
@@ -34,6 +32,7 @@ from web import (
     validate_capture,
 )
 
+WORKSPACE_FLAG = "--workspace"
 INTERNAL_GROUP = "internal"
 RUNTIME = Path(".runtime/knowledge/web-sessions")
 
@@ -51,7 +50,9 @@ def load_env(path: Path) -> None:
 def atomic_json(path: Path, value: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_suffix(path.suffix + ".tmp")
-    temporary.write_text(json.dumps(value, ensure_ascii=False, indent=2), encoding="utf-8")
+    temporary.write_text(
+        json.dumps(value, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
     temporary.replace(path)
 
 
@@ -65,13 +66,17 @@ def runtime_path(value: str) -> Path:
 
 def run_offline_command(args):
     if args.command == "web-start":
-        result = start_session(args.url, load_website_policy(Path(args.policy)), args.scope)
+        result = start_session(
+            args.url, load_website_policy(Path(args.policy)), args.scope
+        )
         path = RUNTIME / f"{result['session_id']}.json"
         atomic_json(path, result)
         result = {"status": "started", "session": str(path), "crawl": result}
 
     elif args.command == "web-crawl":
-        crawled = trusted_crawl(args.url, load_website_policy(Path(args.policy)), RUNTIME, args.scope)
+        crawled = trusted_crawl(
+            args.url, load_website_policy(Path(args.policy)), RUNTIME, args.scope
+        )
         session_path = RUNTIME / f"{crawled['session']['session_id']}.json"
         validated_path = RUNTIME / f"{crawled['session']['session_id']}.validated.json"
         atomic_json(session_path, crawled["session"])
@@ -86,7 +91,9 @@ def run_offline_command(args):
 
     elif args.command == "web-observe":
         path = runtime_path(args.session)
-        result = accept_observation(load_manifest(path), load_manifest(Path(args.event)))
+        result = accept_observation(
+            load_manifest(path), load_manifest(Path(args.event))
+        )
         atomic_json(path, result)
 
     elif args.command == "web-finalize":
@@ -97,10 +104,16 @@ def run_offline_command(args):
             else []
         )
         session = finalize_session(load_manifest(path), args.stop_reason, frontier)
-        result = validate_capture(session, load_manifest(Path(args.capture)), Path.cwd())
+        result = validate_capture(
+            session, load_manifest(Path(args.capture)), Path.cwd()
+        )
         output = RUNTIME / f"{session['session_id']}.validated.json"
         atomic_json(output, result)
-        result = {"status": "validated", "validated_capture": str(output), "capture": result}
+        result = {
+            "status": "validated",
+            "validated_capture": str(output),
+            "capture": result,
+        }
 
     return result
 
@@ -121,19 +134,27 @@ def run_basic_command(args, clients, config, image_indexer_enabled):
         )
 
     elif args.command == "delete":
-        result = delete_source(clients.layout_container, clients.text_container, args.source_path)
+        result = delete_source(
+            clients.layout_container, clients.text_container, args.source_path
+        )
 
     elif args.command == "index":
         result = run_indexers(
             clients.indexers,
-            [config["AZURE_SEARCH_LAYOUT_INDEXER"], config["AZURE_SEARCH_TEXT_INDEXER"]],
+            [
+                config["AZURE_SEARCH_LAYOUT_INDEXER"],
+                config["AZURE_SEARCH_TEXT_INDEXER"],
+            ],
         )
 
     elif args.command == "status":
         status_indexers = ["AZURE_SEARCH_LAYOUT_INDEXER", "AZURE_SEARCH_TEXT_INDEXER"]
         if image_indexer_enabled:
             status_indexers.append("AZURE_SEARCH_IMAGE_INDEXER")
-        result = {name: indexer_status(clients.indexers, config[name]) for name in status_indexers}
+        result = {
+            name: indexer_status(clients.indexers, config[name])
+            for name in status_indexers
+        }
 
     elif args.command == "search":
         if args.generation and not args.website_id:
@@ -191,18 +212,32 @@ def run_refresh_command(args, clients, config, image_indexer_enabled):
             if page["page_id"] in selected
         ]
         used = [config["AZURE_SEARCH_TEXT_INDEXER"]]
-        if image_indexer_enabled and any(page.get("assets") for page in current["captures"] if page["page_id"] in selected):
+        if image_indexer_enabled and any(
+            page.get("assets")
+            for page in current["captures"]
+            if page["page_id"] in selected
+        ):
             used.append(config["AZURE_SEARCH_IMAGE_INDEXER"])
 
         submitted = run_indexers(clients.indexers, used)
-        waited = wait_for_indexers(clients.indexers, used, submitted_at=submitted["submitted_at"])
+        waited = wait_for_indexers(
+            clients.indexers, used, submitted_at=submitted["submitted_at"]
+        )
         readiness = (
-            website_readiness(clients.search, current["website_id"], current["generation"], current["captures"])
+            website_readiness(
+                clients.search,
+                current["website_id"],
+                current["generation"],
+                current["captures"],
+            )
             if waited["status"] == "success"
             else {"status": "not_checked"}
         )
         cleanup = None
-        if readiness["status"] == "ready" and previous["generation"] != current["generation"]:
+        if (
+            readiness["status"] == "ready"
+            and previous["generation"] != current["generation"]
+        ):
             cleanup = delete_website_capture(
                 clients.text_container,
                 clients.image_container,
@@ -224,7 +259,11 @@ def run_refresh_command(args, clients, config, image_indexer_enabled):
 def run_website_command(args, clients, config, image_indexer_enabled):
     if args.command == "web-ingest":
         captured = load_manifest(runtime_path(args.validated_capture))
-        if not captured.get("session_id") or not captured.get("completion") or not captured.get("captures"):
+        if (
+            not captured.get("session_id")
+            or not captured.get("completion")
+            or not captured.get("captures")
+        ):
             raise ValueError("web-ingest requires a finalized validated capture")
 
         ws = getattr(args, "workspace", None) or captured.get("workspace")
@@ -239,13 +278,22 @@ def run_website_command(args, clients, config, image_indexer_enabled):
             for page in captured["captures"]
         ]
         used = [config["AZURE_SEARCH_TEXT_INDEXER"]]
-        if image_indexer_enabled and any(page.get("assets") for page in captured["captures"]):
+        if image_indexer_enabled and any(
+            page.get("assets") for page in captured["captures"]
+        ):
             used.append(config["AZURE_SEARCH_IMAGE_INDEXER"])
 
         submitted = run_indexers(clients.indexers, used)
-        waited = wait_for_indexers(clients.indexers, used, submitted_at=submitted["submitted_at"])
+        waited = wait_for_indexers(
+            clients.indexers, used, submitted_at=submitted["submitted_at"]
+        )
         readiness = (
-            website_readiness(clients.search, captured["website_id"], captured["generation"], captured["captures"])
+            website_readiness(
+                clients.search,
+                captured["website_id"],
+                captured["generation"],
+                captured["captures"],
+            )
             if waited["status"] == "success"
             else {"status": "not_checked"}
         )
@@ -281,7 +329,9 @@ def run_website_command(args, clients, config, image_indexer_enabled):
         if args.confirm != args.website_id:
             raise ValueError("web-delete confirmation must exactly match website id")
 
-        deletion = delete_website_capture(clients.text_container, clients.image_container, args.website_id)
+        deletion = delete_website_capture(
+            clients.text_container, clients.image_container, args.website_id
+        )
         used = [config["AZURE_SEARCH_TEXT_INDEXER"]]
         if image_indexer_enabled:
             used.append(config["AZURE_SEARCH_IMAGE_INDEXER"])
@@ -289,7 +339,9 @@ def run_website_command(args, clients, config, image_indexer_enabled):
         absent_result = wait_for_website_absent(clients.search, args.website_id)
         result = dict(
             deletion,
-            status="deleted" if absent_result and deletion["status"] == "deleted" else "partial",
+            status="deleted"
+            if absent_result and deletion["status"] == "deleted"
+            else "partial",
             submitted=submitted,
             search_absent=absent_result,
         )
@@ -301,8 +353,13 @@ def run_azure_command(args):
     load_env(Path(args.env_file))
     config = load_config()
     clients = create_clients(config)
-    image_indexer_enabled = os.environ.get("HERMES_IMAGE_INDEXER", "true").strip().lower() not in {
-        "false", "0", "no", "off",
+    image_indexer_enabled = os.environ.get(
+        "HERMES_IMAGE_INDEXER", "true"
+    ).strip().lower() not in {
+        "false",
+        "0",
+        "no",
+        "off",
     }
     basic = {"provision", "upload", "delete", "index", "status", "search"}
     runner = run_basic_command if args.command in basic else run_website_command
@@ -315,7 +372,11 @@ def main() -> None:
 
     args = build_parser().parse_args()
     offline = {"web-start", "web-crawl", "web-observe", "web-finalize"}
-    result = run_offline_command(args) if args.command in offline else run_azure_command(args)
+    result = (
+        run_offline_command(args)
+        if args.command in offline
+        else run_azure_command(args)
+    )
     print(json.dumps(result, ensure_ascii=False, indent=2))
 
 

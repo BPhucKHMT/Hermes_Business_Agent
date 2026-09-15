@@ -1,7 +1,7 @@
 import asyncio
 import os
-import sys
 from pathlib import Path
+import sys
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -13,21 +13,29 @@ for path in (PLUGIN, UPSTREAM):
         sys.path.insert(0, str(path))
 
 if (PLUGIN / "__init__.py").is_file():
-    from __init__ import ReliableTelegramAdapter
+    from __init__ import (
+        ReliableTelegramAdapter,
+    )
 else:
-    from plugins.platforms.telegram.adapter import TelegramAdapter as ReliableTelegramAdapter
-from gateway.config import PlatformConfig
+    from plugins.platforms.telegram.adapter import (
+        TelegramAdapter as ReliableTelegramAdapter,
+    )
+from gateway.config import (  # noqa: E402 -- imports follow plugin path bootstrap
+    PlatformConfig,
+)
 
 
 def message(index, count, release, caption=None):
     async def download():
         if index == count - 1:
             await release.wait()
-        return bytearray(("pdf-%d" % index).encode())
+        return bytearray(f"pdf-{index}".encode())
 
-    file_obj = SimpleNamespace(download_as_bytearray=download, file_path="documents/%d.pdf" % index)
+    file_obj = SimpleNamespace(
+        download_as_bytearray=download, file_path=f"documents/{index}.pdf"
+    )
     document = SimpleNamespace(
-        file_name="%d.pdf" % index,
+        file_name=f"{index}.pdf",
         mime_type="application/pdf",
         file_size=64,
         get_file=AsyncMock(return_value=file_obj),
@@ -60,13 +68,38 @@ async def check_album(count):
     adapter.handle_message = AsyncMock()
     adapter._is_callback_user_authorized = lambda user_id, **kwargs: True
     release = asyncio.Event()
-    updates = [SimpleNamespace(message=message(i, count, release, "retain these documents" if i == 0 else None), update_id=i) for i in range(count)]
+    updates = [
+        SimpleNamespace(
+            message=message(
+                i, count, release, "retain these documents" if i == 0 else None
+            ),
+            update_id=i,
+        )
+        for i in range(count)
+    ]
 
-    with patch("plugins.platforms.telegram.adapter.cache_document_from_bytes", side_effect=lambda data, name: "/cache/" + name, create=True), \
-         patch("gateway.platforms.base.cache_media_bytes", side_effect=lambda data, filename, mime_type: SimpleNamespace(path="/cache/" + filename, media_type="application/pdf", kind="document"), create=True):
-        tasks = [asyncio.create_task(adapter._handle_media_message(update, MagicMock())) for update in updates]
+    with (
+        patch(
+            "plugins.platforms.telegram.adapter.cache_document_from_bytes",
+            side_effect=lambda data, name: "/cache/" + name,
+            create=True,
+        ),
+        patch(
+            "gateway.platforms.base.cache_media_bytes",
+            side_effect=lambda data, filename, mime_type: SimpleNamespace(
+                path="/cache/" + filename, media_type="application/pdf", kind="document"
+            ),
+            create=True,
+        ),
+    ):
+        tasks = [
+            asyncio.create_task(adapter._handle_media_message(update, MagicMock()))
+            for update in updates
+        ]
         await asyncio.sleep(adapter.MEDIA_GROUP_WAIT_SECONDS * 3)
-        assert adapter.handle_message.await_count == 0, "album dispatched while a sibling download remained in flight"
+        assert adapter.handle_message.await_count == 0, (
+            "album dispatched while a sibling download remained in flight"
+        )
         release.set()
         await asyncio.gather(*tasks)
         for _ in range(50):
@@ -74,10 +107,12 @@ async def check_album(count):
                 break
             await asyncio.sleep(0.01)
 
-    assert adapter.handle_message.await_count == 1, "one media group must create one agent turn"
+    assert adapter.handle_message.await_count == 1, (
+        "one media group must create one agent turn"
+    )
     event = adapter.handle_message.await_args.args[0]
     assert event.text == "retain these documents"
-    assert sorted(event.media_urls) == ["/cache/%d.pdf" % i for i in range(count)]
+    assert sorted(event.media_urls) == [f"/cache/{i}.pdf" for i in range(count)]
 
 
 async def main():

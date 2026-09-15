@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import sys
 from pathlib import Path
+import sys
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
@@ -12,7 +12,10 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from tools.composio.mail_tools import (
+from tools.composio import (  # noqa: E402 -- source path bootstrap above
+    mail_tools,
+)
+from tools.composio.mail_tools import (  # noqa: E402 -- imports follow source path bootstrap
     composio_mail_create_draft,
     composio_mail_get_thread,
     composio_mail_reply,
@@ -30,10 +33,20 @@ def test_composio_mail_search_success():
     mock_client = MagicMock()
     mock_client.create.return_value = mock_session
 
-    with patch("tools.composio.mail_tools.check_connection_status", return_value=True), \
-         patch("tools.composio.mail_tools.get_composio_client", return_value=mock_client), \
-         patch("tools.composio.mail_tools.resolve_account_target", return_value=(None, "test@gmail.com")), \
-         patch("tools.composio.mail_tools.get_user_emails", return_value={"c1": "test@gmail.com"}):
+    with (
+        patch("tools.composio.mail_tools.check_connection_status", return_value=True),
+        patch(
+            "tools.composio.mail_tools.get_composio_client", return_value=mock_client
+        ),
+        patch(
+            "tools.composio.mail_tools.resolve_account_target",
+            return_value=(None, "test@gmail.com"),
+        ),
+        patch(
+            "tools.composio.mail_tools.get_user_emails",
+            return_value={"c1": "test@gmail.com"},
+        ),
+    ):
         res = composio_mail_search(7275339077, query="báo giá")
         assert res.get("status") == "success"
         assert res.get("active_mailbox") == "test@gmail.com"
@@ -56,23 +69,45 @@ def test_composio_mail_get_thread_success():
     mock_client = MagicMock()
     mock_client.create.return_value = mock_session
 
-    with patch("tools.composio.mail_tools.check_connection_status", return_value=True), \
-         patch("tools.composio.mail_tools.get_composio_client", return_value=mock_client), \
-         patch("tools.composio.mail_tools.resolve_account_target", return_value=(None, "test@gmail.com")), \
-         patch("tools.composio.mail_tools.get_user_emails", return_value={"c1": "test@gmail.com"}):
+    with (
+        patch("tools.composio.mail_tools.check_connection_status", return_value=True),
+        patch(
+            "tools.composio.mail_tools.get_composio_client", return_value=mock_client
+        ),
+        patch(
+            "tools.composio.mail_tools.resolve_account_target",
+            return_value=(None, "test@gmail.com"),
+        ),
+        patch(
+            "tools.composio.mail_tools.get_user_emails",
+            return_value={"c1": "test@gmail.com"},
+        ),
+    ):
         res = composio_mail_get_thread(7275339077, thread_id="th_123")
         assert res.get("status") == "success"
         assert res.get("data", {}).get("id") == "th_123"
+
+
 def test_composio_mail_send_success():
     mock_session = MagicMock()
     mock_session.execute.return_value = {"id": "sent_msg_001"}
     mock_client = MagicMock()
     mock_client.create.return_value = mock_session
 
-    with patch("tools.composio.mail_tools.check_connection_status", return_value=True), \
-         patch("tools.composio.mail_tools.get_composio_client", return_value=mock_client), \
-         patch("tools.composio.mail_tools.resolve_account_target", return_value=(None, "test@gmail.com")), \
-         patch("tools.composio.mail_tools.get_user_emails", return_value={"c1": "test@gmail.com"}):
+    with (
+        patch("tools.composio.mail_tools.check_connection_status", return_value=True),
+        patch(
+            "tools.composio.mail_tools.get_composio_client", return_value=mock_client
+        ),
+        patch(
+            "tools.composio.mail_tools.resolve_account_target",
+            return_value=(None, "test@gmail.com"),
+        ),
+        patch(
+            "tools.composio.mail_tools.get_user_emails",
+            return_value={"c1": "test@gmail.com"},
+        ),
+    ):
         res = composio_mail_send(
             7275339077,
             recipient="client@example.com",
@@ -81,16 +116,28 @@ def test_composio_mail_send_success():
         )
         assert res.get("status") == "success"
         assert res.get("data", {}).get("id") == "sent_msg_001"
+
+
 def test_composio_mail_create_draft_success():
     mock_session = MagicMock()
     mock_session.execute.return_value = {"id": "draft_001"}
     mock_client = MagicMock()
     mock_client.create.return_value = mock_session
 
-    with patch("tools.composio.mail_tools.check_connection_status", return_value=True), \
-         patch("tools.composio.mail_tools.get_composio_client", return_value=mock_client), \
-         patch("tools.composio.mail_tools.resolve_account_target", return_value=(None, "test@gmail.com")), \
-         patch("tools.composio.mail_tools.get_user_emails", return_value={"c1": "test@gmail.com"}):
+    with (
+        patch("tools.composio.mail_tools.check_connection_status", return_value=True),
+        patch(
+            "tools.composio.mail_tools.get_composio_client", return_value=mock_client
+        ),
+        patch(
+            "tools.composio.mail_tools.resolve_account_target",
+            return_value=(None, "test@gmail.com"),
+        ),
+        patch(
+            "tools.composio.mail_tools.get_user_emails",
+            return_value={"c1": "test@gmail.com"},
+        ),
+    ):
         res = composio_mail_create_draft(
             7275339077,
             recipient="client@example.com",
@@ -106,10 +153,20 @@ def test_composio_mail_reply_success():
     mock_client = MagicMock()
     mock_client.create.return_value = mock_session
 
-    with patch("tools.composio.mail_tools.check_connection_status", return_value=True), \
-         patch("tools.composio.mail_tools.get_composio_client", return_value=mock_client), \
-         patch("tools.composio.mail_tools.resolve_account_target", return_value=(None, "test@gmail.com")), \
-         patch("tools.composio.mail_tools.get_user_emails", return_value={"c1": "test@gmail.com"}):
+    with (
+        patch("tools.composio.mail_tools.check_connection_status", return_value=True),
+        patch(
+            "tools.composio.mail_tools.get_composio_client", return_value=mock_client
+        ),
+        patch(
+            "tools.composio.mail_tools.resolve_account_target",
+            return_value=(None, "test@gmail.com"),
+        ),
+        patch(
+            "tools.composio.mail_tools.get_user_emails",
+            return_value={"c1": "test@gmail.com"},
+        ),
+    ):
         res = composio_mail_reply(
             7275339077,
             thread_id="th_123",
@@ -121,8 +178,6 @@ def test_composio_mail_reply_success():
 @pytest.mark.parametrize("toolkit", ["googlesuper", "gmail"])
 @pytest.mark.parametrize("operation", ["search", "thread"])
 def test_mail_reads_use_selected_accounts_toolkit(monkeypatch, toolkit, operation):
-    from tools.composio import mail_tools
-
     def execute(*, tool_slug, account, arguments):
         if account != "selected-account":
             raise RuntimeError("Wrong account")
@@ -147,11 +202,13 @@ def test_mail_reads_use_selected_accounts_toolkit(monkeypatch, toolkit, operatio
     monkeypatch.setattr(mail_tools, "get_composio_client", lambda: client)
     monkeypatch.setattr(mail_tools, "check_connection_status", lambda *a, **k: True)
     monkeypatch.setattr(
-        mail_tools, "resolve_account_target",
+        mail_tools,
+        "resolve_account_target",
         lambda *a: ("selected-account", "reader@example.invalid"),
     )
     monkeypatch.setattr(
-        mail_tools, "get_user_emails",
+        mail_tools,
+        "get_user_emails",
         lambda *a: {"selected-account": "reader@example.invalid"},
     )
     if operation == "search":

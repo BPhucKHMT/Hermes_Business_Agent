@@ -7,7 +7,7 @@ import os
 from pathlib import Path
 import re
 import sys
-from typing import Any, Dict
+from typing import Any
 
 from caller import CallerContextRegistry, DmOnlyError
 
@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 
 def _error(code: str, message: str = "") -> str:
-    err: Dict[str, Any] = {"code": code}
+    err: dict[str, Any] = {"code": code}
     if message:
         err["message"] = message
         lower = message.lower()
@@ -45,6 +45,8 @@ def _resolve_principal(caller: Any) -> str:
     if not principal_id:
         raise LookupError("caller_principal_unavailable")
     return principal_id
+
+
 def _target_user_id(caller: Any) -> str:
     user_id = getattr(caller, "user_id", None)
     if user_id is not None and str(user_id).strip():
@@ -56,6 +58,7 @@ def _caller_error(exc: Exception) -> str:
     if isinstance(exc, DmOnlyError):
         return _error("dm_required", str(exc))
     return _error("missing_caller_context", str(exc))
+
 
 def _candidate_src_dirs() -> list[Path]:
     candidates: list[Path] = []
@@ -69,13 +72,17 @@ def _candidate_src_dirs() -> list[Path]:
             candidates.append(parent_candidate)
     for env_file in (
         Path.home() / ".hermes" / ".env",
-        Path(os.environ.get("LOCALAPPDATA", "")) / "hermes" / ".env" if os.name == "nt" else None,
+        Path(os.environ.get("LOCALAPPDATA", "")) / "hermes" / ".env"
+        if os.name == "nt"
+        else None,
     ):
         if env_file and env_file.is_file():
             try:
                 for line in env_file.read_text(encoding="utf-8").splitlines():
                     if line.strip().startswith("HERMES_PROJECT_SRC="):
-                        val = line.strip().split("=", 1)[1].strip().strip('"').strip("'")
+                        val = (
+                            line.strip().split("=", 1)[1].strip().strip('"').strip("'")
+                        )
                         if val and (Path(val) / "tools").is_dir():
                             candidates.append(Path(val))
             except OSError:
@@ -96,7 +103,9 @@ except (ImportError, ModuleNotFoundError):
             _src_dir = str(_cand.resolve())
             if _src_dir not in sys.path:
                 sys.path.insert(0, _src_dir)
-            _spec = importlib.util.spec_from_file_location("tools.composio.bridge", str(_target))
+            _spec = importlib.util.spec_from_file_location(
+                "tools.composio.bridge", str(_target)
+            )
             if _spec and _spec.loader:
                 _mod = importlib.util.module_from_spec(_spec)
                 sys.modules["tools.composio.bridge"] = _mod
@@ -108,16 +117,18 @@ except (ImportError, ModuleNotFoundError):
 def _call_google(
     operation: str,
     principal_id: str,
-    params: Dict[str, Any] | None = None,
+    params: dict[str, Any] | None = None,
 ) -> Any:
     bridge = sys.modules.get("tools.composio.bridge") or _composio_bridge
     if bridge is None or not hasattr(bridge, "call_google"):
-        raise RuntimeError("call_google bridge unavailable; run python src/setup_local.py --local")
+        raise RuntimeError(
+            "call_google bridge unavailable; run python src/setup_local.py --local"
+        )
     return bridge.call_google(operation, principal_id, params)
 
 
 def handle_email_search(
-    params: Dict[str, Any],
+    params: dict[str, Any],
     *,
     client: Any = None,
     registry: Any = None,
@@ -133,8 +144,13 @@ def handle_email_search(
         principal_id = _resolve_principal(caller)
     except (DmOnlyError, LookupError) as exc:
         return _caller_error(exc)
-    if hasattr(client, "search") and (hasattr(client, "calls") or client.__class__.__name__ == "UnavailableConnectorClient"):
-        return json.dumps(client.search(caller, params.get("query", ""), params.get("limit", 10)))
+    if hasattr(client, "search") and (
+        hasattr(client, "calls")
+        or client.__class__.__name__ == "UnavailableConnectorClient"
+    ):
+        return json.dumps(
+            client.search(caller, params.get("query", ""), params.get("limit", 10))
+        )
 
     query = str(params.get("query", "label:inbox"))
     account_email = params.get("account_email")
@@ -175,13 +191,13 @@ def handle_email_search(
             },
             ensure_ascii=False,
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 -- tool/gateway boundary maps to error payload
         logger.warning("Composio email search failed for %s: %s", principal_id, exc)
         return _error("mail_search_failed", str(exc))
 
 
 def handle_email_get_thread(
-    params: Dict[str, Any],
+    params: dict[str, Any],
     *,
     client: Any = None,
     registry: Any = None,
@@ -197,7 +213,10 @@ def handle_email_get_thread(
         principal_id = _resolve_principal(caller)
     except (DmOnlyError, LookupError) as exc:
         return _caller_error(exc)
-    if hasattr(client, "get_thread") and (hasattr(client, "calls") or client.__class__.__name__ == "UnavailableConnectorClient"):
+    if hasattr(client, "get_thread") and (
+        hasattr(client, "calls")
+        or client.__class__.__name__ == "UnavailableConnectorClient"
+    ):
         return json.dumps(client.get_thread(caller, params.get("thread_id", "")))
     thread_id = str(params.get("thread_id", "")).strip()
     account_email = params.get("account_email")
@@ -232,7 +251,7 @@ def handle_email_get_thread(
             },
             ensure_ascii=False,
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 -- gateway boundary maps provider failure to error payload
         logger.warning(
             "Composio get_thread failed for %s (thread %s): %s",
             principal_id,
@@ -243,7 +262,7 @@ def handle_email_get_thread(
 
 
 def handle_email_connection_status(
-    params: Dict[str, Any],
+    params: dict[str, Any],
     *,
     client: Any = None,
     registry: Any = None,
@@ -259,7 +278,10 @@ def handle_email_connection_status(
         principal_id = _resolve_principal(caller)
     except (DmOnlyError, LookupError) as exc:
         return _caller_error(exc)
-    if hasattr(client, "connections") and (hasattr(client, "calls") or client.__class__.__name__ == "UnavailableConnectorClient"):
+    if hasattr(client, "connections") and (
+        hasattr(client, "calls")
+        or client.__class__.__name__ == "UnavailableConnectorClient"
+    ):
         return json.dumps(client.connections(caller))
     try:
         connections = _call_google("list_user_connections", principal_id)
@@ -280,13 +302,15 @@ def handle_email_connection_status(
             },
             ensure_ascii=False,
         )
-    except Exception as exc:
-        logger.warning("Failed querying email connections for %s: %s", principal_id, exc)
+    except Exception as exc:  # noqa: BLE001 -- tool/gateway boundary maps to error payload
+        logger.warning(
+            "Failed querying email connections for %s: %s", principal_id, exc
+        )
         return _error("connection_status_failed", str(exc))
 
 
 def handle_email_send(
-    params: Dict[str, Any],
+    params: dict[str, Any],
     *,
     client: Any = None,
     registry: Any = None,
@@ -309,7 +333,9 @@ def handle_email_send(
     account_email = params.get("account_email")
 
     if not recipient or not subject or not body:
-        return _error("missing_required_fields", "recipient, subject, và body là bắt buộc.")
+        return _error(
+            "missing_required_fields", "recipient, subject, và body là bắt buộc."
+        )
 
     try:
         res = _call_google(
@@ -323,19 +349,24 @@ def handle_email_send(
             },
         )
         if res.get("status") == "success":
-            return json.dumps({
-                "ok": True,
-                "active_mailbox": res.get("active_mailbox"),
-                "all_connected_mailboxes": res.get("all_connected_mailboxes"),
-                "result": res.get("data", {}),
-            }, ensure_ascii=False)
-        return _error("mail_send_failed", res.get("message", "Lỗi gửi email qua Composio"))
-    except Exception as exc:
+            return json.dumps(
+                {
+                    "ok": True,
+                    "active_mailbox": res.get("active_mailbox"),
+                    "all_connected_mailboxes": res.get("all_connected_mailboxes"),
+                    "result": res.get("data", {}),
+                },
+                ensure_ascii=False,
+            )
+        return _error(
+            "mail_send_failed", res.get("message", "Lỗi gửi email qua Composio")
+        )
+    except Exception as exc:  # noqa: BLE001 -- tool/gateway boundary maps to error payload
         return _error("mail_send_failed", str(exc))
 
 
 def handle_email_create_draft(
-    params: Dict[str, Any],
+    params: dict[str, Any],
     *,
     client: Any = None,
     registry: Any = None,
@@ -358,7 +389,9 @@ def handle_email_create_draft(
     account_email = params.get("account_email")
 
     if not recipient or not subject or not body:
-        return _error("missing_required_fields", "recipient, subject, và body là bắt buộc.")
+        return _error(
+            "missing_required_fields", "recipient, subject, và body là bắt buộc."
+        )
 
     try:
         res = _call_google(
@@ -372,19 +405,24 @@ def handle_email_create_draft(
             },
         )
         if res.get("status") == "success":
-            return json.dumps({
-                "ok": True,
-                "active_mailbox": res.get("active_mailbox"),
-                "all_connected_mailboxes": res.get("all_connected_mailboxes"),
-                "result": res.get("data", {}),
-            }, ensure_ascii=False)
-        return _error("mail_draft_failed", res.get("message", "Lỗi tạo bản nháp qua Composio"))
-    except Exception as exc:
+            return json.dumps(
+                {
+                    "ok": True,
+                    "active_mailbox": res.get("active_mailbox"),
+                    "all_connected_mailboxes": res.get("all_connected_mailboxes"),
+                    "result": res.get("data", {}),
+                },
+                ensure_ascii=False,
+            )
+        return _error(
+            "mail_draft_failed", res.get("message", "Lỗi tạo bản nháp qua Composio")
+        )
+    except Exception as exc:  # noqa: BLE001 -- tool/gateway boundary maps to error payload
         return _error("mail_draft_failed", str(exc))
 
 
 def handle_email_reply(
-    params: Dict[str, Any],
+    params: dict[str, Any],
     *,
     client: Any = None,
     registry: Any = None,
@@ -419,12 +457,17 @@ def handle_email_reply(
             },
         )
         if res.get("status") == "success":
-            return json.dumps({
-                "ok": True,
-                "active_mailbox": res.get("active_mailbox"),
-                "all_connected_mailboxes": res.get("all_connected_mailboxes"),
-                "result": res.get("data", {}),
-            }, ensure_ascii=False)
-        return _error("mail_reply_failed", res.get("message", "Lỗi trả lời email qua Composio"))
-    except Exception as exc:
+            return json.dumps(
+                {
+                    "ok": True,
+                    "active_mailbox": res.get("active_mailbox"),
+                    "all_connected_mailboxes": res.get("all_connected_mailboxes"),
+                    "result": res.get("data", {}),
+                },
+                ensure_ascii=False,
+            )
+        return _error(
+            "mail_reply_failed", res.get("message", "Lỗi trả lời email qua Composio")
+        )
+    except Exception as exc:  # noqa: BLE001 -- tool/gateway boundary maps to error payload
         return _error("mail_reply_failed", str(exc))

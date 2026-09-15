@@ -2,32 +2,43 @@ from argparse import ArgumentParser
 from html import escape
 import json
 import os
-import re
 from pathlib import Path
+import re
 import tempfile
 
 try:
     from research_store import validate_dossier
 except ImportError:
     from skills.research.scripts.research_store import validate_dossier
- 
+
+
 def validate_deck_html(html: str) -> None:
     """Reject HTML decks that cannot be navigated or do not preserve 16:9 slides."""
     slide_count = len(re.findall(r'class=["\'][^"\']*\bslide\b', html, re.IGNORECASE))
     if slide_count == 0:
         raise ValueError("deck must contain slides")
-    if not re.search(r'\.slide\b[^{}]*\{[^}]*aspect-ratio\s*:\s*16\s*/\s*9', html, re.IGNORECASE | re.DOTALL):
+    if not re.search(
+        r"\.slide\b[^{}]*\{[^}]*aspect-ratio\s*:\s*16\s*/\s*9",
+        html,
+        re.IGNORECASE | re.DOTALL,
+    ):
         raise ValueError("deck slides must declare 16:9 structure")
-    controls = re.findall(r'<button\b[^>]*>', html, re.IGNORECASE)
-    if len(controls) < 2 or not re.search(r'aria-label=["\'][^"\']*(?:previous|next)', html, re.IGNORECASE):
+    controls = re.findall(r"<button\b[^>]*>", html, re.IGNORECASE)
+    if len(controls) < 2 or not re.search(
+        r'aria-label=["\'][^"\']*(?:previous|next)', html, re.IGNORECASE
+    ):
         raise ValueError("deck must include visible Previous/Next controls")
-    if not re.search(r'addEventListener\s*\(\s*["\']click|onclick\s*=', html, re.IGNORECASE):
+    if not re.search(
+        r'addEventListener\s*\(\s*["\']click|onclick\s*=', html, re.IGNORECASE
+    ):
         raise ValueError("deck controls must have click handlers")
-    if not re.search(r'(?:current[-_ ]?slide|slide[-_ ]?indicator|aria-live)', html, re.IGNORECASE):
+    if not re.search(
+        r"(?:current[-_ ]?slide|slide[-_ ]?indicator|aria-live)", html, re.IGNORECASE
+    ):
         raise ValueError("deck must include an explicit current-slide indicator")
-    if not re.search(r'(?:ArrowLeft|ArrowRight)', html):
+    if not re.search(r"(?:ArrowLeft|ArrowRight)", html):
         raise ValueError("deck must include keyboard left/right navigation")
-    if not re.search(r'location\.hash|hashchange', html, re.IGNORECASE):
+    if not re.search(r"location\.hash|hashchange", html, re.IGNORECASE):
         raise ValueError("deck must synchronize slide hash")
 
 
@@ -35,28 +46,54 @@ def _report_language(dossier: dict) -> str:
     language = str(dossier.get("language", "")).lower()
     if language in {"vi", "en"}:
         return language
-    return "vi" if re.search(r"[ăâđêôơưĂÂĐÊÔƠƯ]", str(dossier.get("question", ""))) else "en"
+    return (
+        "vi"
+        if re.search(r"[ăâđêôơưĂÂĐÊÔƠƯ]", str(dossier.get("question", "")))
+        else "en"
+    )
 
 
 def _labels(language: str) -> dict[str, str]:
     if language == "vi":
         return {
-            "lang": "vi", "answer": "Trả lời ngắn gọn", "findings": "Phát hiện chính",
-            "interpretation": "Diễn giải", "recommendations": "Khuyến nghị",
-            "open_questions": "Điểm còn bỏ ngỏ", "evidence": "Bằng chứng & nguồn",
-            "question": "Câu hỏi nghiên cứu", "scope": "Phạm vi", "source_note": "Ghi chú nguồn",
-            "confidence": "Độ tin cậy", "method": "Phương pháp", "retrieved": "Thu thập lúc",
-            "freshness": "Độ mới", "audit": "Phụ lục bằng chứng", "contradictions": "Mâu thuẫn",
-            "gaps": "Khoảng trống bằng chứng", "limitations": "Giới hạn",
+            "lang": "vi",
+            "answer": "Trả lời ngắn gọn",
+            "findings": "Phát hiện chính",
+            "interpretation": "Diễn giải",
+            "recommendations": "Khuyến nghị",
+            "open_questions": "Điểm còn bỏ ngỏ",
+            "evidence": "Bằng chứng & nguồn",
+            "question": "Câu hỏi nghiên cứu",
+            "scope": "Phạm vi",
+            "source_note": "Ghi chú nguồn",
+            "confidence": "Độ tin cậy",
+            "method": "Phương pháp",
+            "retrieved": "Thu thập lúc",
+            "freshness": "Độ mới",
+            "audit": "Phụ lục bằng chứng",
+            "contradictions": "Mâu thuẫn",
+            "gaps": "Khoảng trống bằng chứng",
+            "limitations": "Giới hạn",
         }
     return {
-        "lang": "en", "answer": "Executive Answer", "findings": "Key Findings",
-        "interpretation": "Interpretation", "recommendations": "Recommendations",
-        "open_questions": "Open questions", "evidence": "Evidence & sources",
-        "question": "Research question", "scope": "Scope", "source_note": "Source note",
-        "confidence": "Confidence", "method": "Method", "retrieved": "Retrieved",
-        "freshness": "Freshness", "audit": "Evidence Appendix", "contradictions": "Contradictions",
-        "gaps": "Evidence gaps", "limitations": "Limitations",
+        "lang": "en",
+        "answer": "Executive Answer",
+        "findings": "Key Findings",
+        "interpretation": "Interpretation",
+        "recommendations": "Recommendations",
+        "open_questions": "Open questions",
+        "evidence": "Evidence & sources",
+        "question": "Research question",
+        "scope": "Scope",
+        "source_note": "Source note",
+        "confidence": "Confidence",
+        "method": "Method",
+        "retrieved": "Retrieved",
+        "freshness": "Freshness",
+        "audit": "Evidence Appendix",
+        "contradictions": "Contradictions",
+        "gaps": "Evidence gaps",
+        "limitations": "Limitations",
     }
 
 
@@ -81,21 +118,31 @@ def render_html(dossier: dict) -> str:
             )
         return " ".join(links)
 
-    grouped_claims = {"fact": [], "inference": [], "recommendation": [], "unknown": [], "source-assertion": []}
+    grouped_claims = {
+        "fact": [],
+        "inference": [],
+        "recommendation": [],
+        "unknown": [],
+        "source-assertion": [],
+    }
     for claim in dossier["claims"]:
-        grouped_claims.setdefault(str(claim.get("type", "fact")).lower(), []).append(claim)
+        grouped_claims.setdefault(str(claim.get("type", "fact")).lower(), []).append(
+            claim
+        )
 
     def claim_cards(claims: list[dict]) -> str:
         return "".join(
             f'<div class="claim-card"><p class="claim-text">'
-            f'{escape(claim.get("localized_text") or claim.get("text", ""))} {citation_links(claim)}</p></div>'
+            f"{escape(claim.get('localized_text') or claim.get('text', ''))} {citation_links(claim)}</p></div>"
             for claim in claims
         )
+
     claim_audit_html = "".join(
-        f'<li>{escape(claim.get("id", ""))}: {labels["confidence"]} '
-        f'{escape(str(claim.get("confidence", "medium")).lower())}. '
-        f'{escape(claim.get("confidence_rationale", ""))}</li>'
-        for claim in dossier["claims"] if claim.get("confidence_rationale")
+        f"<li>{escape(claim.get('id', ''))}: {labels['confidence']} "
+        f"{escape(str(claim.get('confidence', 'medium')).lower())}. "
+        f"{escape(claim.get('confidence_rationale', ''))}</li>"
+        for claim in dossier["claims"]
+        if claim.get("confidence_rationale")
     )
 
     findings_html = claim_cards(grouped_claims["fact"])
@@ -120,15 +167,25 @@ def render_html(dossier: dict) -> str:
         endpoint = escape(ev.get("data_endpoint", ""))
         page_url = escape(ev.get("visible_page_url", src.get("url", "")))
         val = ev.get("value")
-        val_str = json.dumps(val, ensure_ascii=False, indent=2) if isinstance(val, (dict, list)) else str(val)
-        val_html = f'<pre class="evidence-code"><code>{escape(val_str)}</code></pre>' if isinstance(val, (dict, list)) else f'<blockquote class="evidence-quote">"{escape(val_str)}"</blockquote>'
+        val_str = (
+            json.dumps(val, ensure_ascii=False, indent=2)
+            if isinstance(val, (dict, list))
+            else str(val)
+        )
+        val_html = (
+            f'<pre class="evidence-code"><code>{escape(val_str)}</code></pre>'
+            if isinstance(val, (dict, list))
+            else f'<blockquote class="evidence-quote">"{escape(val_str)}"</blockquote>'
+        )
         source_title = escape(src.get("title", src_id))
-        evidence_cards.append(f'<div class="evidence-card"><strong>{source_title}</strong>{val_html}</div>')
+        evidence_cards.append(
+            f'<div class="evidence-card"><strong>{source_title}</strong>{val_html}</div>'
+        )
         audit_evidence_cards.append(
             f'<div class="evidence-card" id="ev-{e_id}"><div class="ev-header">'
             f'<span class="ev-badge">[{e_id}] ({kind})</span><span class="ev-fp">Fingerprint: {fp}</span></div>'
             f'{val_html}<div class="ev-meta">Source: {src_id} · Method: {method} · '
-            f'Freshness: {freshness} · Retrieved: {retrieved} · {loc} · {endpoint} · {page_url}</div></div>'
+            f"Freshness: {freshness} · Retrieved: {retrieved} · {loc} · {endpoint} · {page_url}</div></div>"
         )
 
     # Render Sources
@@ -144,12 +201,12 @@ def render_html(dossier: dict) -> str:
         status = escape(source.get("access_status", "read"))
 
         if url:
-            title_cell = (
-                f'<a href="{url}" target="_blank" rel="noopener" class="source-link"><strong>{title}</strong></a>'
-            )
+            title_cell = f'<a href="{url}" target="_blank" rel="noopener" class="source-link"><strong>{title}</strong></a>'
         else:
             file_tag = escape(source.get("file_provenance", "file"))
-            title_cell = f'<strong>{title}</strong> <span class="file-tag">[{file_tag}]</span>'
+            title_cell = (
+                f'<strong>{title}</strong> <span class="file-tag">[{file_tag}]</span>'
+            )
 
         source_rows.append(f"""
         <tr>
@@ -171,14 +228,7 @@ def render_html(dossier: dict) -> str:
         f'<li class="limit-item"><span class="limit-icon">&bull;</span><span>{escape(str(item))}</span></li>'
         for item in dossier.get("limitations", [])
     )
-    unknowns_html = "".join(
-        f'<li class="unknown-item"><span class="gap-icon">?</span><span>{escape(str(item))}</span></li>'
-        for item in dossier.get("unknowns", [])
-    )
-    next_q_html = "".join(
-        f'<li class="next-q-item"><span class="gap-icon">&rarr;</span><span>{escape(str(item))}</span></li>'
-        for item in dossier.get("next_questions", [])
-    )
+    # Dossier "unknowns"/"next_questions" are validated claims, not rendered sections.
 
     contradictions = dossier.get("contradictions", [])
     contradictions_text = (
@@ -190,13 +240,14 @@ def render_html(dossier: dict) -> str:
     if not dossier.get("title"):
         title = re.sub(
             r"^(lưu kết quả research|please research|research|how should|what is|what are|can you)\s*",
-            "", title, flags=re.IGNORECASE,
+            "",
+            title,
+            flags=re.IGNORECASE,
         )
     title = title.rstrip(". ?")[:120]
 
-
     return f"""<!doctype html>
-<html lang="{labels['lang']}">
+<html lang="{labels["lang"]}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -486,7 +537,7 @@ def render_html(dossier: dict) -> str:
 <body>
   <div class="container">
     <header class="header-card">
-      <div class="brand-meta"><span>{'Báo cáo nghiên cứu Hermes' if language == 'vi' else 'Hermes Research Report'}</span></div>
+      <div class="brand-meta"><span>{"Báo cáo nghiên cứu Hermes" if language == "vi" else "Hermes Research Report"}</span></div>
       <h1 class="report-title">{escape(title)}</h1>
       <p class="report-scope"><strong>{labels["scope"]}:</strong> {escape(dossier.get("scope", "N/A"))}</p>
     </header>
@@ -503,7 +554,7 @@ def render_html(dossier: dict) -> str:
 
     <section class="section-card">
       <h2 class="section-title">{labels["evidence"]}</h2>
-      <div class="evidence-grid">{''.join(evidence_cards)}</div>
+      <div class="evidence-grid">{"".join(evidence_cards)}</div>
       {f'<h3 style="font-size: 14px; margin-top: 12px;">{labels["source_note"]}</h3><div class="claims-grid">{source_notes_html}</div>' if source_notes_html else ""}
     </section>
 
@@ -514,7 +565,7 @@ def render_html(dossier: dict) -> str:
       <p><strong>{labels["contradictions"]}:</strong> {escape(contradictions_text)}</p>
       {f'<h3>{labels["gaps"]}</h3><ul class="info-list">{gaps_html}</ul>' if gaps_html else ""}
       {f'<h3>{labels["limitations"]}</h3><ul class="info-list">{limitations_html}</ul>' if limitations_html else ""}
-      <div class="evidence-grid">{''.join(audit_evidence_cards)}</div>
+      <div class="evidence-grid">{"".join(audit_evidence_cards)}</div>
     </details>
 
     <footer class="footer-note">Hermes</footer>
@@ -528,7 +579,9 @@ def write_report(dossier_path: Path, output_path: Path) -> Path:
     html = render_html(dossier)
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    fd, name = tempfile.mkstemp(prefix=".report-", suffix=".tmp", dir=output_path.parent)
+    fd, name = tempfile.mkstemp(
+        prefix=".report-", suffix=".tmp", dir=output_path.parent
+    )
     try:
         with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as handle:
             handle.write(html)

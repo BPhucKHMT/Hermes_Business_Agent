@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Iterable, Mapping
 import json
 from pathlib import Path
-from typing import Iterable, Mapping, Optional
 from urllib.parse import quote
 
 from contracts import normalize_workspace, validate_source_path
@@ -12,14 +12,18 @@ WEB_ASSET_SUFFIXES = {".png", ".jpg", ".jpeg", ".svg", ".webp"}
 
 
 def _groups(access_groups: Iterable[str]) -> list[str]:
-    groups = sorted({group.strip() for group in access_groups if group and group.strip()})
+    groups = sorted(
+        {group.strip() for group in access_groups if group and group.strip()}
+    )
     if not groups:
         raise ValueError("at least one access group is required")
     return groups
 
 
 def _metadata(values: Mapping[str, object]) -> dict[str, str]:
-    return {str(key): quote(str(value), safe="-._~:/[]\"") for key, value in values.items()}
+    return {
+        str(key): quote(str(value), safe='-._~:/[]"') for key, value in values.items()
+    }
 
 
 def _source_target(layout_container, text_container, path: str):
@@ -35,7 +39,7 @@ def upload_source(
     source_path: str,
     content: bytes,
     access_groups: Iterable[str],
-    workspace: Optional[str] = None,
+    workspace: str | None = None,
 ) -> Mapping[str, object]:
     path = validate_source_path(source_path)
     groups = _groups(access_groups)
@@ -45,7 +49,9 @@ def upload_source(
         "display_name": path.rsplit("/", 1)[-1],
         "access_groups": json.dumps(groups, separators=(",", ":")),
     }
-    normalized_workspace = normalize_workspace(workspace) if workspace is not None else None
+    normalized_workspace = (
+        normalize_workspace(workspace) if workspace is not None else None
+    )
     if normalized_workspace:
         meta["workspace"] = normalized_workspace
     container.upload_blob(path, content, overwrite=True, metadata=meta)
@@ -58,7 +64,9 @@ def upload_source(
     }
 
 
-def delete_source(layout_container, text_container, source_path: str) -> Mapping[str, str]:
+def delete_source(
+    layout_container, text_container, source_path: str
+) -> Mapping[str, str]:
     path = validate_source_path(source_path)
     pipeline, container = _source_target(layout_container, text_container, path)
     container.delete_blob(path, delete_snapshots="include")
@@ -70,7 +78,7 @@ def upload_website_capture(
     image_container,
     capture: dict,
     access_groups: Iterable[str],
-    workspace: Optional[str] = None,
+    workspace: str | None = None,
 ) -> dict:
     required = ("website_id", "page_id", "generation", "canonical_url", "content_hash")
     if any(not str(capture.get(name, "")).strip() for name in required):
@@ -85,19 +93,21 @@ def upload_website_capture(
     source_path = f"{prefix}/pages/{page_id}.md"
     title = str(capture.get("title") or capture["canonical_url"])
 
-    metadata = _metadata({
-        "website_id": website_id,
-        "page_id": page_id,
-        "generation": generation,
-        "source_url": str(capture["canonical_url"]),
-        "source_path": source_path,
-        "display_name": title,
-        "content_hash": str(capture["content_hash"]),
-        "evidence_type": "page_text",
-        "access_groups": json.dumps(groups, separators=(",", ":")),
-        "workspace": workspace.strip().lower() if workspace else "__global__",
-    })
-    body = (f"# {title}\n\n{capture.get('rendered_text', '')}\n").encode("utf-8")
+    metadata = _metadata(
+        {
+            "website_id": website_id,
+            "page_id": page_id,
+            "generation": generation,
+            "source_url": str(capture["canonical_url"]),
+            "source_path": source_path,
+            "display_name": title,
+            "content_hash": str(capture["content_hash"]),
+            "evidence_type": "page_text",
+            "access_groups": json.dumps(groups, separators=(",", ":")),
+            "workspace": workspace.strip().lower() if workspace else "__global__",
+        }
+    )
+    body = (f"# {title}\n\n{capture.get('rendered_text', '')}\n").encode()
     text_container.upload_blob(source_path, body, overwrite=True, metadata=metadata)
 
     uploaded = [source_path]
@@ -118,7 +128,9 @@ def upload_website_capture(
             path = Path(str(asset.get("path", "")))
             suffix = path.suffix.lower()
             if suffix not in WEB_ASSET_SUFFIXES or not path.is_absolute():
-                raise ValueError("website asset must be an absolute PNG/JPEG/SVG/WebP path")
+                raise ValueError(
+                    "website asset must be an absolute PNG/JPEG/SVG/WebP path"
+                )
             asset_id = str(asset.get("asset_id") or asset.get("id") or "").strip()
             if not asset_id:
                 raise ValueError("website asset id is required")
@@ -126,17 +138,23 @@ def upload_website_capture(
             blob_path = f"{prefix}/assets/{asset_id}{suffix}"
             asset_metadata = dict(
                 metadata,
-                **_metadata({
-                    "source_path": blob_path,
-                    "asset_id": asset_id,
-                    "evidence_type": "image_description" if asset.get("describe_image") else "image_ocr",
-                    "describe_image": "true" if asset.get("describe_image") else "false",
-                    "asset_source_url": asset.get("source_url", ""),
-                    "asset_sha256": asset.get("sha256", ""),
-                    "asset_mime_type": asset.get("mime_type", ""),
-                    "asset_alt": asset.get("alt", ""),
-                    "asset_caption": asset.get("caption", ""),
-                }),
+                **_metadata(
+                    {
+                        "source_path": blob_path,
+                        "asset_id": asset_id,
+                        "evidence_type": "image_description"
+                        if asset.get("describe_image")
+                        else "image_ocr",
+                        "describe_image": "true"
+                        if asset.get("describe_image")
+                        else "false",
+                        "asset_source_url": asset.get("source_url", ""),
+                        "asset_sha256": asset.get("sha256", ""),
+                        "asset_mime_type": asset.get("mime_type", ""),
+                        "asset_alt": asset.get("alt", ""),
+                        "asset_caption": asset.get("caption", ""),
+                    }
+                ),
             )
             image_container.upload_blob(
                 blob_path,
@@ -146,10 +164,12 @@ def upload_website_capture(
             )
             uploaded.append(blob_path)
         except (OSError, ValueError) as error:
-            failures.append({
-                "asset_id": asset.get("asset_id") or asset.get("id"),
-                "reason": str(error),
-            })
+            failures.append(
+                {
+                    "asset_id": asset.get("asset_id") or asset.get("id"),
+                    "reason": str(error),
+                }
+            )
 
     return {
         "status": "partial" if failures else "uploaded",
@@ -188,7 +208,7 @@ def delete_website_capture(
             try:
                 container.delete_blob(name, delete_snapshots="include")
                 deleted.append(name)
-            except Exception as error:
+            except Exception as error:  # noqa: BLE001 -- per-blob failure recorded, batch continues
                 failures.append({"source_path": name, "reason": str(error)})
 
     return {

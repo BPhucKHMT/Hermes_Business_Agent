@@ -1,13 +1,19 @@
 from __future__ import annotations
 
 import importlib.util
-import json
 import os
 from pathlib import Path
 import sys
 from typing import Any
 
 from calendar_caller import DM_REDIRECT_TEXT, DmOnlyError
+
+try:
+    import yaml
+except ModuleNotFoundError as exc:
+    if exc.name != "yaml":
+        raise
+    yaml = None
 
 
 def _caller(registry: Any) -> Any:
@@ -35,17 +41,38 @@ def _candidate_src_dirs() -> list[Path]:
             candidates.append(parent_candidate)
     for env_file in (
         Path.home() / ".hermes" / ".env",
-        Path(os.environ.get("LOCALAPPDATA", "")) / "hermes" / ".env" if os.name == "nt" else None,
+        Path(os.environ.get("LOCALAPPDATA", "")) / "hermes" / ".env"
+        if os.name == "nt"
+        else None,
     ):
         if env_file and env_file.is_file():
             try:
                 for line in env_file.read_text(encoding="utf-8").splitlines():
                     if line.strip().startswith("HERMES_PROJECT_SRC="):
-                        val = line.strip().split("=", 1)[1].strip().strip('"').strip("'")
+                        val = (
+                            line.strip().split("=", 1)[1].strip().strip('"').strip("'")
+                        )
                         if val and (Path(val) / "tools").is_dir():
                             candidates.append(Path(val))
             except OSError:
                 pass
+    if yaml is not None:
+        for cfg_path in (
+            Path.home() / ".hermes" / "config.yaml",
+            Path(os.environ.get("LOCALAPPDATA", "")) / "hermes" / "config.yaml"
+            if os.name == "nt"
+            else None,
+        ):
+            if cfg_path and cfg_path.is_file():
+                try:
+                    c = yaml.safe_load(cfg_path.read_text(encoding="utf-8")) or {}
+                    t_cwd = c.get("terminal", {}).get("cwd")
+                    if t_cwd and (Path(t_cwd) / "tools").is_dir():
+                        candidates.append(Path(t_cwd))
+                except (OSError, ValueError, AttributeError):
+                    pass
+                except yaml.YAMLError:
+                    pass
     for cwd_cand in (Path.cwd() / "src", Path.cwd()):
         if (cwd_cand / "tools").is_dir():
             candidates.append(cwd_cand)
@@ -62,7 +89,9 @@ except (ImportError, ModuleNotFoundError):
             _src_dir = str(_cand.resolve())
             if _src_dir not in sys.path:
                 sys.path.insert(0, _src_dir)
-            _spec = importlib.util.spec_from_file_location("tools.composio.bridge", str(_target))
+            _spec = importlib.util.spec_from_file_location(
+                "tools.composio.bridge", str(_target)
+            )
             if _spec and _spec.loader:
                 _mod = importlib.util.module_from_spec(_spec)
                 sys.modules["tools.composio.bridge"] = _mod
@@ -78,7 +107,9 @@ def _call_google(
 ) -> Any:
     bridge = sys.modules.get("tools.composio.bridge") or _composio_bridge
     if bridge is None or not hasattr(bridge, "call_google"):
-        raise RuntimeError("call_google bridge unavailable; run python src/setup_local.py --local")
+        raise RuntimeError(
+            "call_google bridge unavailable; run python src/setup_local.py --local"
+        )
     return bridge.call_google(operation, principal_id, params)
 
 

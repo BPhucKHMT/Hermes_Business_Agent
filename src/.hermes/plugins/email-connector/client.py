@@ -1,12 +1,14 @@
 from __future__ import annotations
 
+import hashlib
+import hmac
 import json
-from threading import Lock
-from typing import Any
-
 import os
-import sys
 from pathlib import Path
+import sys
+from threading import Lock
+import time
+from typing import Any
 
 _PLUGIN_DIR = Path(__file__).resolve().parent
 for candidate in (
@@ -34,19 +36,15 @@ for candidate in (
             if tools_path_str not in tools.__path__:
                 tools.__path__.insert(0, tools_path_str)
             break
-    except Exception:
+    except Exception:  # noqa: BLE001 -- probe candidate dirs, keep searching
         continue
-
-import hashlib
-import hmac
-import time
 
 
 def make_signed_headers(
     method: str, path: str, body: bytes, secret: str
 ) -> dict[str, str]:
     now = str(int(time.time()))
-    nonce = hashlib.sha256(f"{now}:{time.monotonic()}".encode("utf-8")).hexdigest()[:16]
+    nonce = hashlib.sha256(f"{now}:{time.monotonic()}".encode()).hexdigest()[:16]
     body_sha = hashlib.sha256(body).hexdigest()
     sig_payload = f"{method.upper()}\n{path}\n{now}\n{nonce}\n{body_sha}"
     signature = hmac.new(
@@ -57,6 +55,7 @@ def make_signed_headers(
         "X-Email-Nonce": nonce,
         "X-Email-Signature": signature,
     }
+
 
 def _caller_payload(caller: Any) -> dict[str, Any]:
     return {

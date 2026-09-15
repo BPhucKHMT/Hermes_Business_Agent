@@ -1,5 +1,6 @@
 from pathlib import Path
 from types import SimpleNamespace
+
 import pytest
 
 from tools.tiktok.contracts import TikTokPostDraftStatus, TikTokPublishStatus
@@ -42,5 +43,7 @@ def test_tiktok_service_create_and_publish_draft(service: TikTokService) -> None
     assert pub_res["status"] == "submitted"
     assert "publish_id" in pub_res
 
-    status_res = service.get_post_status(caller=caller, publish_id=pub_res["publish_id"])
+    status_res = service.get_post_status(
+        caller=caller, publish_id=pub_res["publish_id"]
+    )
     assert status_res.status == TikTokPublishStatus.SUCCESS

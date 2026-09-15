@@ -1,15 +1,17 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import asdict
 import os
 from pathlib import Path
 import sys
 from threading import Lock
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any
 
 _PLUGIN_DIR = Path(__file__).resolve().parent
 if str(_PLUGIN_DIR) not in sys.path:
     sys.path.insert(0, str(_PLUGIN_DIR))
+
 
 def _candidate_src_dirs() -> list[Path]:
     candidates: list[Path] = []
@@ -23,13 +25,17 @@ def _candidate_src_dirs() -> list[Path]:
             candidates.append(parent_candidate)
     for env_file in (
         Path.home() / ".hermes" / ".env",
-        Path(os.environ.get("LOCALAPPDATA", "")) / "hermes" / ".env" if os.name == "nt" else None,
+        Path(os.environ.get("LOCALAPPDATA", "")) / "hermes" / ".env"
+        if os.name == "nt"
+        else None,
     ):
         if env_file and env_file.is_file():
             try:
                 for line in env_file.read_text(encoding="utf-8").splitlines():
                     if line.strip().startswith("HERMES_PROJECT_SRC="):
-                        val = line.strip().split("=", 1)[1].strip().strip('"').strip("'")
+                        val = (
+                            line.strip().split("=", 1)[1].strip().strip('"').strip("'")
+                        )
                         if val and (Path(val) / "tools").is_dir():
                             candidates.append(Path(val))
             except OSError:
@@ -38,6 +44,7 @@ def _candidate_src_dirs() -> list[Path]:
         if (cwd_cand / "tools").is_dir():
             candidates.append(cwd_cand)
     return candidates
+
 
 for candidate in _candidate_src_dirs():
     try:
@@ -55,15 +62,20 @@ for candidate in _candidate_src_dirs():
             if tools_path_str not in tools.__path__:
                 tools.__path__.insert(0, tools_path_str)
             break
-    except Exception:
+    except Exception:  # noqa: BLE001 -- probe candidate dirs, keep searching
         continue
-from tools.youtube.cli import build_service
-from tools.youtube.service import YouTubeService
+from tools.youtube.cli import build_service  # noqa: E402 -- needs plugin path bootstrap
+from tools.youtube.service import (  # noqa: E402 -- plugin source path is bootstrapped above
+    YouTubeService,
+)
+
 
 class YouTubeConnectorClient:
-    def __init__(self, service_factory: Callable[[], YouTubeService] = build_service) -> None:
+    def __init__(
+        self, service_factory: Callable[[], YouTubeService] = build_service
+    ) -> None:
         self._service_factory = service_factory
-        self._service: Optional[YouTubeService] = None
+        self._service: YouTubeService | None = None
         self._lock = Lock()
 
     @property
@@ -73,12 +85,15 @@ class YouTubeConnectorClient:
                 self._service = self._service_factory()
             return self._service
 
-    def get_channel_status(self, caller: Any) -> Dict[str, Any]:
+    def get_channel_status(self, caller: Any) -> dict[str, Any]:
         return self.service.get_channel_status(caller)
 
-    def list_videos(self, caller: Any, limit: int = 10) -> Dict[str, Any]:
+    def list_videos(self, caller: Any, limit: int = 10) -> dict[str, Any]:
         videos = self.service.list_videos(caller=caller, limit=limit)
-        return {"ok": True, "result": {"videos": [asdict(v) for v in videos], "count": len(videos)}}
+        return {
+            "ok": True,
+            "result": {"videos": [asdict(v) for v in videos], "count": len(videos)},
+        }
 
     def create_draft_video(
         self,
@@ -89,7 +104,7 @@ class YouTubeConnectorClient:
         tags: tuple[str, ...] = (),
         privacy_status: str = "unlisted",
         thumbnail_file_path: str = "",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         draft = self.service.create_draft_video(
             caller=caller,
             title=title,
@@ -107,7 +122,7 @@ class YouTubeConnectorClient:
             },
         }
 
-    def upload_video(self, caller: Any, draft_id: str) -> Dict[str, Any]:
+    def upload_video(self, caller: Any, draft_id: str) -> dict[str, Any]:
         video = self.service.upload_draft_video(caller=caller, draft_id=draft_id)
         return {"ok": True, "result": {"video": asdict(video), "uploaded": True}}
 
@@ -119,7 +134,7 @@ class YouTubeConnectorClient:
         description: str = "",
         tags: tuple[str, ...] = (),
         privacy_status: str = "unlisted",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         video = self.service.update_metadata(
             caller=caller,
             video_id=video_id,
@@ -131,7 +146,7 @@ class YouTubeConnectorClient:
         return {"ok": True, "result": {"video": asdict(video), "updated": True}}
 
 
-_default_client: Optional[YouTubeConnectorClient] = None
+_default_client: YouTubeConnectorClient | None = None
 _default_lock = Lock()
 
 

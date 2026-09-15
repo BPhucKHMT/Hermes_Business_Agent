@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from types import SimpleNamespace
+
 import pytest
 
 from tools.tiktok.policy import load_tiktok_policy
@@ -22,7 +23,12 @@ def service(tmp_path: Path) -> TikTokService:
     def mock_token_resolver(principal_id: str):
         return {"mock_mode": True}
 
-    return TikTokService(policy=policy, store=store, tiktok_client=client, token_resolver=mock_token_resolver)
+    return TikTokService(
+        policy=policy,
+        store=store,
+        tiktok_client=client,
+        token_resolver=mock_token_resolver,
+    )
 
 
 def test_unsupported_video_extension_raises(service: TikTokService) -> None:

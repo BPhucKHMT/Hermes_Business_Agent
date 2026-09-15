@@ -4,17 +4,16 @@ from dataclasses import dataclass
 from enum import Enum
 import hashlib
 import json
-from typing import Optional
 
 
-class EventDraftStatus(str, Enum):
+class EventDraftStatus(str, Enum):  # noqa: UP042 -- preserve legacy Enum string behavior
     DRAFT = "draft"
     APPROVED = "approved"
     COMMITTED = "committed"
     CANCELLED = "cancelled"
 
 
-class CalendarConnectionStatus(str, Enum):
+class CalendarConnectionStatus(str, Enum):  # noqa: UP042 -- preserve legacy Enum string behavior
     CONNECTED = "connected"
     RECONNECT_REQUIRED = "reconnect_required"
     REVOKED = "revoked"
@@ -49,8 +48,8 @@ class EventDraft:
     attendees: tuple[str, ...]
     created_at: str
     status: EventDraftStatus = EventDraftStatus.DRAFT
-    committed_event_id: Optional[str] = None
-    account_email: Optional[str] = None
+    committed_event_id: str | None = None
+    account_email: str | None = None
 
 
 @dataclass(frozen=True)
@@ -86,7 +85,7 @@ def compute_draft_idempotency_key(
     summary: str,
     start_time: str,
     end_time: str,
-    account_email: Optional[str] = None,
+    account_email: str | None = None,
 ) -> str:
     """Build a stable draft key, including an explicit account target when set."""
     payload = {

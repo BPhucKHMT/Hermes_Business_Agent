@@ -6,11 +6,10 @@ import importlib.util
 import os
 from pathlib import Path
 from threading import Lock
-from typing import Any, Optional
+from typing import Any
 from uuid import UUID
 
 from gateway.session import build_session_key
-
 
 DM_REDIRECT_TEXT = "Mở chat riêng với Hermes để xem Gmail cá nhân."
 
@@ -43,13 +42,17 @@ def _candidate_src_dirs() -> list[Path]:
             candidates.append(parent_candidate)
     for env_file in (
         Path.home() / ".hermes" / ".env",
-        Path(os.environ.get("LOCALAPPDATA", "")) / "hermes" / ".env" if os.name == "nt" else None,
+        Path(os.environ.get("LOCALAPPDATA", "")) / "hermes" / ".env"
+        if os.name == "nt"
+        else None,
     ):
         if env_file and env_file.is_file():
             try:
                 for line in env_file.read_text(encoding="utf-8").splitlines():
                     if line.strip().startswith("HERMES_PROJECT_SRC="):
-                        val = line.strip().split("=", 1)[1].strip().strip('"').strip("'")
+                        val = (
+                            line.strip().split("=", 1)[1].strip().strip('"').strip("'")
+                        )
                         if val and (Path(val) / "tools").is_dir():
                             candidates.append(Path(val))
             except OSError:
@@ -67,7 +70,9 @@ except (ImportError, ModuleNotFoundError):
     for _cand in _candidate_src_dirs():
         _target = _cand / "tools" / "composio" / "local_owner.py"
         if _target.is_file():
-            _spec = importlib.util.spec_from_file_location("_local_owner_dyn", str(_target))
+            _spec = importlib.util.spec_from_file_location(
+                "_local_owner_dyn", str(_target)
+            )
             if _spec and _spec.loader:
                 _mod = importlib.util.module_from_spec(_spec)
                 _spec.loader.exec_module(_mod)
@@ -75,10 +80,11 @@ except (ImportError, ModuleNotFoundError):
                 if _load_local_owner is not None:
                     break
 
+
 class CallerContextRegistry:
     def __init__(
         self,
-        session_store: Optional[Any] = None,
+        session_store: Any | None = None,
         *,
         local_owner_path: Path | None = None,
     ) -> None:
@@ -137,12 +143,12 @@ class CallerContextRegistry:
         try:
             derived_key = build_session_key(source)
             profile_key = build_session_key(source, profile=profile)
-        except Exception:
+        except (AttributeError, TypeError, ValueError):
             derived_key = f"{platform}:{getattr(source, 'chat_id', '')}:{getattr(source, 'user_id', '')}"
             profile_key = derived_key
         effective_key = session_key or derived_key
 
-        if platform != "telegram" or getattr(source, "chat_type", "") != "dm":
+        if getattr(source, "chat_type", "") != "dm":
             self._current_redirect.set(True)
             with self._lock:
                 self._redirect_only_session_keys.add(effective_key)
@@ -151,10 +157,12 @@ class CallerContextRegistry:
             raise DmOnlyError(DM_REDIRECT_TEXT)
 
         if not getattr(source, "user_id", None) or not getattr(source, "chat_id", None):
-            raise ValueError("Telegram DM caller requires user_id and chat_id")
+            raise ValueError(
+                f"{str(platform).capitalize()} DM caller requires user_id and chat_id"
+            )
 
         caller = CallerContext(
-            principal_id=f"telegram:{profile or 'default'}:{source.user_id}",
+            principal_id=f"{platform}:{profile or 'default'}:{source.user_id}",
             platform=platform,
             user_id=str(source.user_id),
             chat_id=str(source.chat_id),
@@ -189,7 +197,7 @@ class CallerContextRegistry:
             raise LookupError("conflicting runtime identifiers")
         runtime_id = session_id or task_id
         if runtime_id:
-            session_key: Optional[str] = None
+            session_key: str | None = None
             with self._lock:
                 session_key = self._session_key_by_session_id.get(runtime_id)
 
@@ -207,7 +215,9 @@ class CallerContextRegistry:
                         raise DmOnlyError(DM_REDIRECT_TEXT)
                     caller = self._by_session_key.get(session_key)
                 if caller is None:
-                    raise LookupError("Hermes session has no captured Telegram DM caller")
+                    raise LookupError(
+                        "Hermes session has no captured Telegram DM caller"
+                    )
                 return caller
 
             if self._current_gateway_context.get():
@@ -227,7 +237,7 @@ class CallerContextRegistry:
             raise LookupError("command has no captured caller")
         return self._resolve_local()
 
-    def get_issued_dm(self, session_key: str) -> Optional[CallerContext]:
+    def get_issued_dm(self, session_key: str) -> CallerContext | None:
         with self._lock:
             return self._issued_by_session_key.get(session_key)
 

@@ -1,5 +1,6 @@
 from pathlib import Path
 from types import SimpleNamespace
+
 import pytest
 
 from tools.calendar.contracts import EventDraftStatus
@@ -16,6 +17,7 @@ def service(tmp_path: Path) -> CalendarService:
     policy_path = ROOT / "src" / "config" / "calendar_policy.json"
     policy = load_calendar_policy(policy_path)
     store = CalendarStore(tmp_path / "test_calendar.sqlite3")
+
     class FakeHttp:
         def post(self, url, headers, body):
             return {
@@ -36,6 +38,7 @@ def service(tmp_path: Path) -> CalendarService:
                 "htmlLink": "https://calendar.google.com/event?id=123",
                 "status": "confirmed",
             }
+
     client = GoogleCalendarClient(http_client=FakeHttp())
     # Pre-configure mock token with some test events
     mock_events = [
@@ -57,7 +60,13 @@ def service(tmp_path: Path) -> CalendarService:
 
     def mock_token_resolver(principal_id: str):
         return {"access_token": "test_token_123", "mock_events": mock_events}
-    return CalendarService(policy=policy, store=store, google_client=client, token_resolver=mock_token_resolver)
+
+    return CalendarService(
+        policy=policy,
+        store=store,
+        google_client=client,
+        token_resolver=mock_token_resolver,
+    )
 
 
 def test_list_events(service: CalendarService) -> None:

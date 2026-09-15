@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import json
 from hashlib import sha256
+import json
 from pathlib import Path
 
 from capture_validation import validate_capture
@@ -9,13 +9,23 @@ from session import accept_observation, finalize_session, start_session
 from url_validation import normalize_public_url, validate_public_target
 
 __all__ = [
-    "accept_observation", "capture_diff", "finalize_session",
-    "load_manifest", "normalize_public_url", "start_session", "stable_id",
-    "validate_capture", "validate_public_target",
+    "accept_observation",
+    "capture_diff",
+    "finalize_session",
+    "load_manifest",
+    "normalize_public_url",
+    "start_session",
+    "stable_id",
+    "validate_capture",
+    "validate_public_target",
 ]
 
 STOP_REASONS = {
-    "frontier_exhausted", "novelty_converged", "budget_exhausted", "blocked_boundary", "cancelled",
+    "frontier_exhausted",
+    "novelty_converged",
+    "budget_exhausted",
+    "blocked_boundary",
+    "cancelled",
 }
 
 
@@ -33,8 +43,16 @@ def capture_diff(previous: dict, current: dict) -> dict:
     shared = set(old) & set(new)
 
     return {
-        "unchanged": sorted(page_id for page_id in shared if old[page_id].get("content_hash") == new[page_id].get("content_hash")),
-        "changed": sorted(page_id for page_id in shared if old[page_id].get("content_hash") != new[page_id].get("content_hash")),
+        "unchanged": sorted(
+            page_id
+            for page_id in shared
+            if old[page_id].get("content_hash") == new[page_id].get("content_hash")
+        ),
+        "changed": sorted(
+            page_id
+            for page_id in shared
+            if old[page_id].get("content_hash") != new[page_id].get("content_hash")
+        ),
         "added": sorted(set(new) - set(old)),
         "missing": sorted(set(old) - set(new)),
     }

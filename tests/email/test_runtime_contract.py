@@ -1,9 +1,9 @@
 import asyncio
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
 import os
-import sys
-from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+import sys
 from types import SimpleNamespace
 
 import pytest
@@ -17,17 +17,34 @@ for p in (SRC, PLUGIN, UPSTREAM):
     if str(p) not in sys.path:
         sys.path.insert(0, str(p))
 
-import tools
+import tools  # noqa: E402 -- imports follow plugin path bootstrap
 
 if str(SRC / "tools") not in tools.__path__:
     tools.__path__.insert(0, str(SRC / "tools"))
 
-from caller import DM_REDIRECT_TEXT, DmOnlyError
-from delivery import PrivateDelivery
-from gateway.config import GatewayConfig, Platform
-from gateway.platforms.base import MessageEvent, SendResult
-from gateway.session import SessionSource, SessionStore, build_session_key
-from gmail_tools import PersonalGmailTools
+from caller import (  # noqa: E402 -- imports follow plugin path bootstrap
+    DM_REDIRECT_TEXT,
+    DmOnlyError,
+)
+from delivery import (  # noqa: E402 -- plugin path bootstrap above
+    PrivateDelivery,
+)
+from gateway.config import (  # noqa: E402 -- imports follow plugin path bootstrap
+    GatewayConfig,
+    Platform,
+)
+from gateway.platforms.base import (  # noqa: E402 -- imports follow plugin path bootstrap
+    MessageEvent,
+    SendResult,
+)
+from gateway.session import (  # noqa: E402 -- imports follow plugin path bootstrap
+    SessionSource,
+    SessionStore,
+    build_session_key,
+)
+from gmail_tools import (  # noqa: E402 -- plugin path bootstrap above
+    PersonalGmailTools,
+)
 
 
 class ProbeSessionStore:

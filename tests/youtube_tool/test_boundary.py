@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from pathlib import Path
 from types import SimpleNamespace
+
 import pytest
 
-from tools.youtube.contracts import VideoPrivacyStatus
 from tools.youtube.policy import load_youtube_policy
 from tools.youtube.service import YouTubeService
 from tools.youtube.store import YouTubeStore
@@ -23,7 +23,12 @@ def service(tmp_path: Path) -> YouTubeService:
     def mock_token_resolver(principal_id: str):
         return {"mock_mode": True}
 
-    return YouTubeService(policy=policy, store=store, youtube_client=client, token_resolver=mock_token_resolver)
+    return YouTubeService(
+        policy=policy,
+        store=store,
+        youtube_client=client,
+        token_resolver=mock_token_resolver,
+    )
 
 
 def test_empty_title_raises(service: YouTubeService) -> None:

@@ -1,5 +1,4 @@
 from argparse import ArgumentParser
-import os
 from pathlib import Path
 import subprocess
 import sys
@@ -17,8 +16,16 @@ def layer_1() -> None:
         COMPOSIO_DIR / "mail_tools.py",
         COMPOSIO_DIR / "calendar_tools.py",
         COMPOSIO_DIR / "commands.py",
-        ROOT / "docs" / "superpowers" / "specs" / "2026-09-03-composio-integration-design.md",
-        ROOT / "docs" / "superpowers" / "plans" / "2026-09-03-composio-integration-plan.md",
+        ROOT
+        / "docs"
+        / "superpowers"
+        / "specs"
+        / "2026-09-03-composio-integration-design.md",
+        ROOT
+        / "docs"
+        / "superpowers"
+        / "plans"
+        / "2026-09-03-composio-integration-plan.md",
     )
     missing = [str(p.relative_to(ROOT)) for p in required_files if not p.is_file()]
     assert not missing, f"Missing required Composio files: {missing}"
@@ -27,11 +34,30 @@ def layer_1() -> None:
     sys.path.insert(0, str(ROOT))
     sys.path.insert(0, str(SRC))
 
-    from src.tools.composio.client import format_user_id, get_composio_client
-    from src.tools.composio.auth import initiate_google_connection, check_connection_status, disconnect_user
-    from src.tools.composio.mail_tools import composio_mail_search, composio_mail_send, composio_mail_create_draft
-    from src.tools.composio.calendar_tools import composio_calendar_list_events, composio_calendar_create_event, composio_calendar_find_free_slots
-    from src.tools.composio.commands import handle_connect_google, handle_google_status, handle_disconnect_google
+    from src.tools.composio.auth import (  # noqa: PLC0415 -- layer 1 imports follow explicit source path bootstrap
+        check_connection_status,
+        disconnect_user,
+        initiate_google_connection,
+    )
+    from src.tools.composio.calendar_tools import (  # noqa: PLC0415 -- layer 1 imports follow explicit source path bootstrap
+        composio_calendar_create_event,
+        composio_calendar_find_free_slots,
+        composio_calendar_list_events,
+    )
+    from src.tools.composio.client import (  # noqa: PLC0415 -- layer 1 imports follow explicit source path bootstrap
+        format_user_id,
+        get_composio_client,
+    )
+    from src.tools.composio.commands import (  # noqa: PLC0415 -- layer 1 imports follow explicit source path bootstrap
+        handle_connect_google,
+        handle_disconnect_google,
+        handle_google_status,
+    )
+    from src.tools.composio.mail_tools import (  # noqa: PLC0415 -- layer 1 imports follow explicit source path bootstrap
+        composio_mail_create_draft,
+        composio_mail_search,
+        composio_mail_send,
+    )
 
     assert callable(format_user_id)
     assert callable(get_composio_client)

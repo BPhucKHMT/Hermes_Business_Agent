@@ -4,32 +4,41 @@ Tests the full pipeline without high-level mocks, intercepting only at the
 HTTP urllib transport boundary to guarantee that all internal payload
 serialization (including body_bytes) executes with 100% fidelity.
 """
+
 import io
 import json
 from pathlib import Path
-import tempfile
-from typing import Any, Dict
-from unittest.mock import MagicMock, patch
-import urllib.request
-import pytest
 import sys
+import tempfile
+from typing import Any
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT / "src/.hermes/plugins/calendar-connector"))
-import urllib.request
-import pytest
-from tools.calendar.contracts import EventDraftStatus
-from tools.calendar.google_calendar import GoogleCalendarClient
-from tools.calendar.policy import CalendarPolicy, load_calendar_policy
-from tools.calendar.service import CalendarService
-from tools.calendar.store import CalendarStore
-
 # Plugin imports
-from calendar_client import CalendarConnectorClient
-from calendar_plugin_tools import (
-    handle_calendar_create_draft_event,
+from calendar_client import (  # noqa: E402 -- imports follow plugin path bootstrap
+    CalendarConnectorClient,
+)
+from calendar_plugin_tools import (  # noqa: E402 -- imports follow plugin path bootstrap
     handle_calendar_confirm_event,
+    handle_calendar_create_draft_event,
+)
+
+from tools.calendar.contracts import (  # noqa: E402 -- imports follow source path bootstrap
+    EventDraftStatus,
+)
+from tools.calendar.google_calendar import (  # noqa: E402 -- source path bootstrap above
+    GoogleCalendarClient,
+)
+from tools.calendar.policy import (  # noqa: E402 -- source path bootstrap above
+    load_calendar_policy,
+)
+from tools.calendar.service import (  # noqa: E402 -- source path bootstrap above
+    CalendarService,
+)
+from tools.calendar.store import (  # noqa: E402 -- source path bootstrap above
+    CalendarStore,
 )
 
 
@@ -70,7 +79,9 @@ def test_calendar_e2e_draft_and_confirm_flow():
     """Execute end-to-end flow matching the user's exact draft event."""
     with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmpdir:
         db_path = Path(tmpdir) / "calendar.sqlite3"
-        policy_path = Path(__file__).resolve().parents[1] / "src/config/calendar_policy.json"
+        policy_path = (
+            Path(__file__).resolve().parents[1] / "src/config/calendar_policy.json"
+        )
         policy = load_calendar_policy(policy_path)
         store = CalendarStore(db_path)
 
@@ -78,7 +89,7 @@ def test_calendar_e2e_draft_and_confirm_flow():
         google_client = GoogleCalendarClient()
 
         # Token resolver returning a live-like OAuth token (mock_mode is False!)
-        def fake_token_resolver(principal_id: str) -> Dict[str, Any]:
+        def fake_token_resolver(principal_id: str) -> dict[str, Any]:
             return {
                 "access_token": "ya29.a0ARrdaM_test_live_token",
                 "refresh_token": "1//04_test_refresh_token",
@@ -145,7 +156,7 @@ def test_calendar_e2e_draft_and_confirm_flow():
                 registry=registry,
                 task_id="task-001",
                 session_id="session-001",
-                )
+            )
 
             confirm_res = json.loads(confirm_res_raw)
             assert confirm_res["ok"] is True
@@ -156,7 +167,10 @@ def test_calendar_e2e_draft_and_confirm_flow():
         # 3. Step 3: Verify the raw HTTP request details that were sent
         assert len(captured_requests) == 2
         assert captured_requests[1].get_method() == "GET"
-        assert "calendars/primary/events/google_event_id_xyz789" in captured_requests[1].get_full_url()
+        assert (
+            "calendars/primary/events/google_event_id_xyz789"
+            in captured_requests[1].get_full_url()
+        )
         req = captured_requests[0]
         assert req.get_method() == "POST"
         assert "calendars/primary/events" in req.get_full_url()
@@ -167,7 +181,10 @@ def test_calendar_e2e_draft_and_confirm_flow():
         sent_body = json.loads(req.data.decode("utf-8"))
         assert sent_body["summary"] == "Project web"
         assert sent_body["location"] == "THREE O’CLOCK – Phạm Ngọc Thạch"
-        assert sent_body["description"] == "46–48 Phạm Ngọc Thạch, Phường Xuân Hòa, TP. Hồ Chí Minh"
+        assert (
+            sent_body["description"]
+            == "46–48 Phạm Ngọc Thạch, Phường Xuân Hòa, TP. Hồ Chí Minh"
+        )
         assert sent_body["start"]["dateTime"] == "2026-09-04T13:00:00+07:00"
         assert sent_body["end"]["dateTime"] == "2026-09-04T15:00:00+07:00"
 

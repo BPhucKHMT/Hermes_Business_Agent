@@ -1,22 +1,27 @@
 from unittest.mock import MagicMock, patch
+
 import pytest
+
 from tools.composio.calendar_tools import (
-    composio_calendar_list_events,
     composio_calendar_create_event,
+    composio_calendar_delete_event,
     composio_calendar_find_free_slots,
     composio_calendar_get_event,
+    composio_calendar_list_events,
     composio_calendar_patch_event,
-    composio_calendar_delete_event,
 )
 
 
 @pytest.fixture
 def mock_composio():
-    with patch("tools.composio.calendar_tools.check_connection_status", return_value=True), \
-         patch("tools.composio.calendar_tools.get_composio_client") as mock_get_client, \
-         patch("tools.composio.calendar_tools.resolve_account_target") as mock_resolve, \
-         patch("tools.composio.calendar_tools.get_user_emails") as mock_get_emails:
-
+    with (
+        patch(
+            "tools.composio.calendar_tools.check_connection_status", return_value=True
+        ),
+        patch("tools.composio.calendar_tools.get_composio_client") as mock_get_client,
+        patch("tools.composio.calendar_tools.resolve_account_target") as mock_resolve,
+        patch("tools.composio.calendar_tools.get_user_emails") as mock_get_emails,
+    ):
         mock_get_emails.return_value = {
             "ca_acc1": "nguyenlam.baophuc@gmail.com",
             "ca_acc2": "baophuc1204vn@gmail.com",
@@ -36,7 +41,9 @@ def mock_composio():
 
 def test_calendar_list_events_with_target_account(mock_composio):
     mock_composio["resolve"].return_value = ("ca_acc2", "baophuc1204vn@gmail.com")
-    mock_composio["session"].execute.return_value = MagicMock(data={"summary": "baophuc1204vn@gmail.com", "items": []})
+    mock_composio["session"].execute.return_value = MagicMock(
+        data={"summary": "baophuc1204vn@gmail.com", "items": []}
+    )
 
     res = composio_calendar_list_events(
         telegram_user_id=7275339077,
@@ -50,7 +57,9 @@ def test_calendar_list_events_with_target_account(mock_composio):
 
     assert res["status"] == "success"
     assert res["active_account"] == "baophuc1204vn@gmail.com"
-    mock_composio["client"].create.assert_called_with(user_id="telegram_7275339077", multi_account={"enable": True})
+    mock_composio["client"].create.assert_called_with(
+        user_id="telegram_7275339077", multi_account={"enable": True}
+    )
     mock_composio["resolve"].assert_called_with(7275339077, "baophuc1204vn@gmail.com")
 
     # Verify session.execute received account='ca_acc2'
@@ -64,7 +73,9 @@ def test_calendar_list_events_with_target_account(mock_composio):
 
 def test_calendar_list_events_default_account_when_omitted(mock_composio):
     mock_composio["resolve"].return_value = ("ca_acc1", "nguyenlam.baophuc@gmail.com")
-    mock_composio["session"].execute.return_value = MagicMock(data={"summary": "nguyenlam.baophuc@gmail.com", "items": []})
+    mock_composio["session"].execute.return_value = MagicMock(
+        data={"summary": "nguyenlam.baophuc@gmail.com", "items": []}
+    )
 
     res = composio_calendar_list_events(
         telegram_user_id=7275339077,
@@ -80,7 +91,9 @@ def test_calendar_list_events_default_account_when_omitted(mock_composio):
 
 def test_calendar_create_event_with_target_account(mock_composio):
     mock_composio["resolve"].return_value = ("ca_acc2", "baophuc1204vn@gmail.com")
-    mock_composio["session"].execute.return_value = MagicMock(data={"id": "evt_123", "status": "confirmed"})
+    mock_composio["session"].execute.return_value = MagicMock(
+        data={"id": "evt_123", "status": "confirmed"}
+    )
 
     res = composio_calendar_create_event(
         telegram_user_id=7275339077,
@@ -96,7 +109,9 @@ def test_calendar_create_event_with_target_account(mock_composio):
 
     assert res["status"] == "success"
     assert res["active_account"] == "baophuc1204vn@gmail.com"
-    mock_composio["client"].create.assert_called_with(user_id="telegram_7275339077", multi_account={"enable": True})
+    mock_composio["client"].create.assert_called_with(
+        user_id="telegram_7275339077", multi_account={"enable": True}
+    )
     call_kwargs = mock_composio["session"].execute.call_args.kwargs
     assert call_kwargs.get("account") == "ca_acc2"
     assert call_kwargs["arguments"]["summary"] == "Team Meeting"
@@ -117,12 +132,18 @@ def test_calendar_find_free_slots_with_target_account(mock_composio):
 
     assert res["status"] == "success"
     assert res["active_account"] == "baophuc1204vn@gmail.com"
-    mock_composio["client"].create.assert_called_with(user_id="telegram_7275339077", multi_account={"enable": True})
+    mock_composio["client"].create.assert_called_with(
+        user_id="telegram_7275339077", multi_account={"enable": True}
+    )
     call_kwargs = mock_composio["session"].execute.call_args.kwargs
     assert call_kwargs.get("account") == "ca_acc2"
+
+
 def test_calendar_get_event_success(mock_composio):
     mock_composio["resolve"].return_value = ("ca_acc2", "baophuc1204vn@gmail.com")
-    mock_composio["session"].execute.return_value = MagicMock(data={"id": "evt_999", "summary": "One-on-One"})
+    mock_composio["session"].execute.return_value = MagicMock(
+        data={"id": "evt_999", "summary": "One-on-One"}
+    )
 
     res = composio_calendar_get_event(
         telegram_user_id=7275339077,
@@ -140,7 +161,9 @@ def test_calendar_get_event_success(mock_composio):
 
 def test_calendar_patch_event_reschedule(mock_composio):
     mock_composio["resolve"].return_value = ("ca_acc2", "baophuc1204vn@gmail.com")
-    mock_composio["session"].execute.return_value = MagicMock(data={"id": "evt_999", "summary": "Project web (Rescheduled)"})
+    mock_composio["session"].execute.return_value = MagicMock(
+        data={"id": "evt_999", "summary": "Project web (Rescheduled)"}
+    )
 
     res = composio_calendar_patch_event(
         telegram_user_id=7275339077,
@@ -162,7 +185,9 @@ def test_calendar_patch_event_reschedule(mock_composio):
 
 def test_calendar_delete_event_success(mock_composio):
     mock_composio["resolve"].return_value = ("ca_acc2", "baophuc1204vn@gmail.com")
-    mock_composio["session"].execute.return_value = MagicMock(data={"status": "success"})
+    mock_composio["session"].execute.return_value = MagicMock(
+        data={"status": "success"}
+    )
 
     res = composio_calendar_delete_event(
         telegram_user_id=7275339077,

@@ -1,9 +1,9 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
+
 import pytest
 
-from tools.calendar.policy import CalendarPolicy, WorkingHours, load_calendar_policy
-
+from tools.calendar.policy import load_calendar_policy
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -24,8 +24,8 @@ def test_validate_event_time_window_success() -> None:
     policy_path = ROOT / "src" / "config" / "calendar_policy.json"
     policy = load_calendar_policy(policy_path)
 
-    start = datetime(2026, 9, 1, 10, 0, tzinfo=timezone.utc)
-    end = datetime(2026, 9, 1, 11, 0, tzinfo=timezone.utc)
+    start = datetime(2026, 9, 1, 10, 0, tzinfo=UTC)
+    end = datetime(2026, 9, 1, 11, 0, tzinfo=UTC)
     policy.validate_event_time_window(start, end)
 
 
@@ -33,8 +33,8 @@ def test_validate_event_time_window_end_before_start() -> None:
     policy_path = ROOT / "src" / "config" / "calendar_policy.json"
     policy = load_calendar_policy(policy_path)
 
-    start = datetime(2026, 9, 1, 11, 0, tzinfo=timezone.utc)
-    end = datetime(2026, 9, 1, 10, 0, tzinfo=timezone.utc)
+    start = datetime(2026, 9, 1, 11, 0, tzinfo=UTC)
+    end = datetime(2026, 9, 1, 10, 0, tzinfo=UTC)
     with pytest.raises(ValueError, match="end_time_must_be_after_start_time"):
         policy.validate_event_time_window(start, end)
 
@@ -43,8 +43,8 @@ def test_validate_event_time_window_too_short() -> None:
     policy_path = ROOT / "src" / "config" / "calendar_policy.json"
     policy = load_calendar_policy(policy_path)
 
-    start = datetime(2026, 9, 1, 10, 0, tzinfo=timezone.utc)
-    end = datetime(2026, 9, 1, 10, 5, tzinfo=timezone.utc)
+    start = datetime(2026, 9, 1, 10, 0, tzinfo=UTC)
+    end = datetime(2026, 9, 1, 10, 5, tzinfo=UTC)
     with pytest.raises(ValueError, match="event_duration_too_short"):
         policy.validate_event_time_window(start, end)
 
@@ -53,8 +53,8 @@ def test_validate_event_time_window_too_long() -> None:
     policy_path = ROOT / "src" / "config" / "calendar_policy.json"
     policy = load_calendar_policy(policy_path)
 
-    start = datetime(2026, 9, 1, 8, 0, tzinfo=timezone.utc)
-    end = datetime(2026, 9, 1, 18, 0, tzinfo=timezone.utc)
+    start = datetime(2026, 9, 1, 8, 0, tzinfo=UTC)
+    end = datetime(2026, 9, 1, 18, 0, tzinfo=UTC)
     with pytest.raises(ValueError, match="event_duration_too_long"):
         policy.validate_event_time_window(start, end)
 
@@ -63,7 +63,7 @@ def test_validate_lookahead() -> None:
     policy_path = ROOT / "src" / "config" / "calendar_policy.json"
     policy = load_calendar_policy(policy_path)
 
-    now = datetime(2026, 8, 31, 12, 0, tzinfo=timezone.utc)
+    now = datetime(2026, 8, 31, 12, 0, tzinfo=UTC)
     valid_future = now + timedelta(days=10)
     policy.validate_lookahead(valid_future, now=now)
 

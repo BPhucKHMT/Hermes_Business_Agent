@@ -9,9 +9,15 @@ SRC = ROOT / "src"
 
 
 def layer_1() -> None:
-    assert not (SRC / "tools/progress").exists(), "Custom progress tool directory must be removed"
-    assert not (SRC / "config/progress_policy.json").exists(), "Obsolete progress_policy.json must be removed"
-    assert not (SRC / "config/progress_targets").exists(), "Obsolete progress_targets directory must be removed"
+    assert not (SRC / "tools/progress").exists(), (
+        "Custom progress tool directory must be removed"
+    )
+    assert not (SRC / "config/progress_policy.json").exists(), (
+        "Obsolete progress_policy.json must be removed"
+    )
+    assert not (SRC / "config/progress_targets").exists(), (
+        "Obsolete progress_targets directory must be removed"
+    )
 
     skill_file = SRC / "skills/progress-report/SKILL.md"
     assert skill_file.is_file(), "progress-report/SKILL.md must exist"
@@ -71,17 +77,16 @@ def layer_1() -> None:
     assert progress_feature["state"] in {"active", "passing"}
     assert "native Hermes Kanban" in progress_feature["behavior"]
     assert "registered business document" in progress_feature["behavior"]
-    assert "docs/superpowers/specs/2026-08-22-progress-native-redesign.md" in (
-        progress_feature["verification"]["layer_3"]
+    assert (
+        "docs/superpowers/specs/2026-08-22-progress-native-redesign.md"
+        in (progress_feature["verification"]["layer_3"])
     )
 
     print("progress layer 1: pass")
 
 
 def layer_2() -> None:
-    skill_text = (SRC / "skills/progress-report/SKILL.md").read_text(
-        encoding="utf-8"
-    )
+    skill_text = (SRC / "skills/progress-report/SKILL.md").read_text(encoding="utf-8")
     ordered_steps = (
         "Resolve owners and capture current evidence.",
         "Write requested business artifact domains in deterministic role order.",

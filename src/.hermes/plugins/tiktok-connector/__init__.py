@@ -10,7 +10,6 @@ _PLUGIN_DIR = Path(__file__).resolve().parent
 if str(_PLUGIN_DIR) not in sys.path:
     sys.path.insert(0, str(_PLUGIN_DIR))
 
-import os
 
 for candidate in (
     Path(os.environ.get("HERMES_PROJECT_SRC", "")),
@@ -39,23 +38,28 @@ for candidate in (
 
             # Auto-bridge virtualenv site-packages so Hermes gateway inherits project dependencies
             import site
+
             venv_dir = candidate / ".venv"
             if venv_dir.is_dir():
-                for sp in list(venv_dir.glob("lib/python*/site-packages")) + [venv_dir / "Lib" / "site-packages"]:
+                for sp in list(venv_dir.glob("lib/python*/site-packages")) + [
+                    venv_dir / "Lib" / "site-packages"
+                ]:
                     if sp.is_dir():
                         site.addsitedir(str(sp.resolve()))
             break
-    except Exception:
+    except Exception:  # noqa: BLE001 -- probe candidate dirs, keep searching
         continue
-from tiktok_client_plugin import get_default_client
-from tiktok_guard import TikTokToolsGuard
-from tiktok_plugin_tools import (
+from tiktok_client_plugin import (  # noqa: E402 -- needs bootstrapped sys.path
+    get_default_client,
+)
+from tiktok_guard import TikTokToolsGuard  # noqa: E402 -- needs bootstrapped sys.path
+from tiktok_plugin_tools import (  # noqa: E402 -- needs bootstrapped sys.path
     handle_tiktok_create_draft_post,
     handle_tiktok_creator_info,
     handle_tiktok_post_status,
     handle_tiktok_publish_video,
 )
-from tiktok_schemas import (
+from tiktok_schemas import (  # noqa: E402 -- needs bootstrapped sys.path
     TIKTOK_CREATE_DRAFT_POST_SCHEMA,
     TIKTOK_CREATOR_INFO_SCHEMA,
     TIKTOK_POST_STATUS_SCHEMA,
@@ -79,7 +83,9 @@ def register(ctx: Any) -> TikTokToolsGuard:
         name="tiktok_create_draft_post",
         toolset="tiktok_connector",
         schema=TIKTOK_CREATE_DRAFT_POST_SCHEMA,
-        handler=partial(handle_tiktok_create_draft_post, client=client, registry=registry),
+        handler=partial(
+            handle_tiktok_create_draft_post, client=client, registry=registry
+        ),
         description="Stage a new TikTok video post draft with caption and privacy settings (Tier 2).",
     )
     ctx.register_tool(

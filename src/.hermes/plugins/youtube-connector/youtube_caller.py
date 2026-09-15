@@ -6,11 +6,10 @@ import importlib.util
 import os
 from pathlib import Path
 from threading import Lock
-from typing import Any, Optional
+from typing import Any
 from uuid import UUID
 
 from gateway.session import build_session_key
-
 
 DM_REDIRECT_TEXT = "Mở chat riêng với Hermes để quản lý YouTube Channel cá nhân."
 
@@ -25,7 +24,7 @@ class CallerContext:
     platform: str
     user_id: str | UUID
     chat_id: str
-    thread_id: Optional[str]
+    thread_id: str | None
     chat_type: str
     profile: str
     session_key: str
@@ -43,13 +42,17 @@ def _candidate_src_dirs() -> list[Path]:
             candidates.append(parent_candidate)
     for env_file in (
         Path.home() / ".hermes" / ".env",
-        Path(os.environ.get("LOCALAPPDATA", "")) / "hermes" / ".env" if os.name == "nt" else None,
+        Path(os.environ.get("LOCALAPPDATA", "")) / "hermes" / ".env"
+        if os.name == "nt"
+        else None,
     ):
         if env_file and env_file.is_file():
             try:
                 for line in env_file.read_text(encoding="utf-8").splitlines():
                     if line.strip().startswith("HERMES_PROJECT_SRC="):
-                        val = line.strip().split("=", 1)[1].strip().strip('"').strip("'")
+                        val = (
+                            line.strip().split("=", 1)[1].strip().strip('"').strip("'")
+                        )
                         if val and (Path(val) / "tools").is_dir():
                             candidates.append(Path(val))
             except OSError:
@@ -67,7 +70,9 @@ except (ImportError, ModuleNotFoundError):
     for _cand in _candidate_src_dirs():
         _target = _cand / "tools" / "composio" / "local_owner.py"
         if _target.is_file():
-            _spec = importlib.util.spec_from_file_location("_local_owner_dyn", str(_target))
+            _spec = importlib.util.spec_from_file_location(
+                "_local_owner_dyn", str(_target)
+            )
             if _spec and _spec.loader:
                 _mod = importlib.util.module_from_spec(_spec)
                 _spec.loader.exec_module(_mod)
@@ -75,8 +80,9 @@ except (ImportError, ModuleNotFoundError):
                 if _load_local_owner is not None:
                     break
 
+
 class CallerContextRegistry:
-    def __init__(self, session_store: Optional[Any] = None) -> None:
+    def __init__(self, session_store: Any | None = None) -> None:
         self._session_store = session_store
         self._by_session_key: dict[str, CallerContext] = {}
         self._session_key_by_session_id: dict[str, str] = {}
@@ -149,7 +155,9 @@ class CallerContextRegistry:
             platform=platform,
             user_id=str(source.user_id),
             chat_id=str(source.chat_id),
-            thread_id=str(source.thread_id) if getattr(source, "thread_id", None) else None,
+            thread_id=str(source.thread_id)
+            if getattr(source, "thread_id", None)
+            else None,
             chat_type="dm",
             profile=profile or "default",
             session_key=effective_key,
@@ -163,7 +171,9 @@ class CallerContextRegistry:
         self._current_caller.set(caller)
         return caller
 
-    def resolve_dm_tool(self, *, task_id: str = "", session_id: str = "") -> CallerContext:
+    def resolve_dm_tool(
+        self, *, task_id: str = "", session_id: str = ""
+    ) -> CallerContext:
         if self._current_redirect.get():
             raise DmOnlyError(DM_REDIRECT_TEXT)
 
@@ -177,7 +187,7 @@ class CallerContextRegistry:
         if not runtime_id:
             raise LookupError("runtime identifier required to resolve caller")
 
-        session_key: Optional[str] = None
+        session_key: str | None = None
         with self._lock:
             session_key = self._session_key_by_session_id.get(runtime_id)
 

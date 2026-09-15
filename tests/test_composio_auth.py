@@ -1,12 +1,12 @@
-import pytest
 from unittest.mock import MagicMock, patch
 
-from src.tools.composio.client import format_user_id, get_composio_client
+import pytest
+
 from src.tools.composio.auth import (
-    initiate_google_connection,
     check_connection_status,
-    disconnect_user,
+    initiate_google_connection,
 )
+from src.tools.composio.client import format_user_id, get_composio_client
 
 
 def test_format_user_id():
@@ -20,9 +20,11 @@ def test_format_user_id():
 
 def test_client_missing_api_key(monkeypatch):
     monkeypatch.delenv("COMPOSIO_API_KEY", raising=False)
-    with patch("os.path.isfile", return_value=False):
-        with pytest.raises(RuntimeError, match="COMPOSIO_API_KEY"):
-            get_composio_client(force_refresh=True)
+    with (
+        patch("os.path.isfile", return_value=False),
+        pytest.raises(RuntimeError, match="COMPOSIO_API_KEY"),
+    ):
+        get_composio_client(force_refresh=True)
 
 
 def test_client_with_api_key(monkeypatch):
@@ -47,7 +49,9 @@ def test_initiate_google_connection(monkeypatch):
     with patch("src.tools.composio.auth.get_composio_client", return_value=mock_client):
         url = initiate_google_connection(7275339077, toolkit="gmail")
         assert url == "https://connect.composio.dev/auth/test_auth_link"
-        mock_client.create.assert_called_once_with(user_id="telegram_7275339077", multi_account={"enable": True})
+        mock_client.create.assert_called_once_with(
+            user_id="telegram_7275339077", multi_account={"enable": True}
+        )
         mock_session.authorize.assert_called_once_with("gmail")
 
 

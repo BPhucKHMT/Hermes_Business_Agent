@@ -2,21 +2,31 @@ from __future__ import annotations
 
 from argparse import ArgumentParser
 from dataclasses import asdict
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 import json
 from pathlib import Path
-from types import SimpleNamespace
 import sys
+from types import SimpleNamespace
 
 _SRC = Path(__file__).resolve().parents[2]
 if str(_SRC) not in sys.path:
     sys.path.insert(0, str(_SRC))
 
-from tools.calendar.google_calendar import GoogleCalendarClient
-from tools.calendar.policy import load_calendar_policy
-from tools.calendar.service import CalendarService
-from tools.calendar.store import CalendarStore
-from tools.composio.local_owner import load_local_owner
+from tools.calendar.google_calendar import (  # noqa: E402 -- direct CLI source path bootstrap
+    GoogleCalendarClient,
+)
+from tools.calendar.policy import (  # noqa: E402 -- direct CLI source path bootstrap
+    load_calendar_policy,
+)
+from tools.calendar.service import (  # noqa: E402 -- direct CLI source path bootstrap
+    CalendarService,
+)
+from tools.calendar.store import (  # noqa: E402 -- direct CLI source path bootstrap
+    CalendarStore,
+)
+from tools.composio.local_owner import (  # noqa: E402 -- direct CLI source path bootstrap
+    load_local_owner,
+)
 
 
 def build_service() -> CalendarService:
@@ -55,7 +65,7 @@ def main() -> None:
 
     free_p = sub.add_parser("free")
     _add_principal_argument(free_p)
-    free_p.add_argument("--date", default=datetime.now(timezone.utc).strftime("%Y-%m-%d"))
+    free_p.add_argument("--date", default=datetime.now(UTC).strftime("%Y-%m-%d"))
     free_p.add_argument("--duration", type=int, default=30)
     free_p.add_argument("--account-email", default=None)
     free_p.add_argument("--timezone", dest="timezone_str", default=None)
@@ -83,9 +93,7 @@ def main() -> None:
         print(json.dumps(svc.status(caller), ensure_ascii=False, indent=2))
     elif args.cmd == "list":
         events = [
-            asdict(
-                event
-            )
+            asdict(event)
             for event in svc.list_events(
                 caller,
                 limit=args.limit,

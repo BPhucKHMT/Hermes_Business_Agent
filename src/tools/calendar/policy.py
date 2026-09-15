@@ -1,10 +1,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 import json
 from pathlib import Path
-from typing import Any, Dict
 
 
 @dataclass(frozen=True)
@@ -24,24 +23,34 @@ class CalendarPolicy:
     max_list_results: int
     scopes: tuple[str, ...]
 
-    def validate_event_time_window(self, start_time: datetime, end_time: datetime) -> None:
+    def validate_event_time_window(
+        self, start_time: datetime, end_time: datetime
+    ) -> None:
         if end_time <= start_time:
             raise ValueError("end_time_must_be_after_start_time")
         duration_minutes = (end_time - start_time).total_seconds() / 60.0
         if duration_minutes < self.min_event_duration_minutes:
-            raise ValueError(f"event_duration_too_short_minimum_{self.min_event_duration_minutes}_minutes")
+            raise ValueError(
+                f"event_duration_too_short_minimum_{self.min_event_duration_minutes}_minutes"
+            )
         if duration_minutes > self.max_event_duration_minutes:
-            raise ValueError(f"event_duration_too_long_maximum_{self.max_event_duration_minutes}_minutes")
+            raise ValueError(
+                f"event_duration_too_long_maximum_{self.max_event_duration_minutes}_minutes"
+            )
 
-    def validate_lookahead(self, start_time: datetime, now: datetime | None = None) -> None:
-        current = now or datetime.now(timezone.utc)
+    def validate_lookahead(
+        self, start_time: datetime, now: datetime | None = None
+    ) -> None:
+        current = now or datetime.now(UTC)
         if start_time.tzinfo is None:
-            start_time = start_time.replace(tzinfo=timezone.utc)
+            start_time = start_time.replace(tzinfo=UTC)
         if current.tzinfo is None:
-            current = current.replace(tzinfo=timezone.utc)
+            current = current.replace(tzinfo=UTC)
         max_future = current + timedelta(days=self.max_lookahead_days)
         if start_time > max_future:
-            raise ValueError(f"lookahead_window_exceeded_maximum_{self.max_lookahead_days}_days")
+            raise ValueError(
+                f"lookahead_window_exceeded_maximum_{self.max_lookahead_days}_days"
+            )
 
 
 def load_calendar_policy(path: Path | str) -> CalendarPolicy:
@@ -54,7 +63,9 @@ def load_calendar_policy(path: Path | str) -> CalendarPolicy:
     return CalendarPolicy(
         schema_version=int(data["schema_version"]),
         default_timezone=str(data.get("default_timezone", "Asia/Ho_Chi_Minh")),
-        working_hours=WorkingHours(start=str(wh.get("start", "09:00")), end=str(wh.get("end", "18:00"))),
+        working_hours=WorkingHours(
+            start=str(wh.get("start", "09:00")), end=str(wh.get("end", "18:00"))
+        ),
         max_lookahead_days=int(data.get("max_lookahead_days", 30)),
         max_event_duration_minutes=int(data.get("max_event_duration_minutes", 480)),
         min_event_duration_minutes=int(data.get("min_event_duration_minutes", 15)),

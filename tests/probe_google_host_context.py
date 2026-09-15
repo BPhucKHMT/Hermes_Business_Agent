@@ -53,15 +53,23 @@ def main():
             if name.startswith("HERMES_SESSION_"):
                 os.environ.pop(name)
 
-        from gateway.session_context import get_session_env
-        from hermes_cli.plugins import (
+        from gateway.session_context import (  # noqa: PLC0415 -- imports follow hermes-root path and isolated HOME bootstrap
+            get_session_env,
+        )
+        from hermes_cli.plugins import (  # noqa: PLC0415 -- imports follow hermes-root path and isolated HOME bootstrap
             PluginContext,
             PluginManifest,
             get_plugin_manager,
         )
-        from hermes_constants import get_hermes_home
-        from tui_gateway import server
-        from tui_gateway.transport import current_transport
+        from hermes_constants import (  # noqa: PLC0415 -- imports follow hermes-root path and isolated HOME bootstrap
+            get_hermes_home,
+        )
+        from tui_gateway import (  # noqa: PLC0415 -- imports follow hermes-root path and isolated HOME bootstrap
+            server,
+        )
+        from tui_gateway.transport import (  # noqa: PLC0415 -- imports follow hermes-root path and isolated HOME bootstrap
+            current_transport,
+        )
 
         manager = get_plugin_manager()
         # The probe owns the only plugin; discovery is covered independently.
@@ -71,15 +79,17 @@ def main():
 
         def sample_context(raw_args):
             del raw_args
-            return json.dumps({
-                "session_id": get_session_env("HERMES_SESSION_ID"),
-                "session_key": get_session_env("HERMES_SESSION_KEY"),
-                "source": get_session_env("HERMES_SESSION_SOURCE"),
-                "user_id": get_session_env("HERMES_SESSION_USER_ID"),
-                "profile": context.profile_name,
-                "home_is_launch_home": Path(get_hermes_home()) == home,
-                "same_transport": current_transport() is transport,
-            })
+            return json.dumps(
+                {
+                    "session_id": get_session_env("HERMES_SESSION_ID"),
+                    "session_key": get_session_env("HERMES_SESSION_KEY"),
+                    "source": get_session_env("HERMES_SESSION_SOURCE"),
+                    "user_id": get_session_env("HERMES_SESSION_USER_ID"),
+                    "profile": context.profile_name,
+                    "home_is_launch_home": Path(get_hermes_home()) == home,
+                    "same_transport": current_transport() is transport,
+                }
+            )
 
         registration = context.register_command("h017-context-probe", sample_context)
         rows = []
@@ -101,23 +111,28 @@ def main():
                     ("slash.exec", {"command": "/h017-context-probe"}),
                 ):
                     rid = f"{profile}-{method}"
-                    response = server.dispatch({
-                        "jsonrpc": "2.0",
-                        "id": rid,
-                        "method": method,
-                        "params": {"session_id": sid, **command},
-                    }, transport=transport)
+                    response = server.dispatch(
+                        {
+                            "jsonrpc": "2.0",
+                            "id": rid,
+                            "method": method,
+                            "params": {"session_id": sid, **command},
+                        },
+                        transport=transport,
+                    )
                     if response is None:
                         response = transport.messages.get(timeout=30)
                     if "error" in response:
                         raise RuntimeError(json.dumps(response["error"]))
                     observed = json.loads(response["result"]["output"])
-                    rows.append({
-                        "method": method,
-                        "requested_profile": profile,
-                        "requested_session": sid,
-                        "observed": observed,
-                    })
+                    rows.append(
+                        {
+                            "method": method,
+                            "requested_profile": profile,
+                            "requested_session": sid,
+                            "observed": observed,
+                        }
+                    )
         finally:
             if registration is not None:
                 registration.dispose()
@@ -125,16 +140,21 @@ def main():
             server._pool.shutdown(wait=True)
 
         missing = [
-            row for row in rows
+            row
+            for row in rows
             if row["observed"]["session_id"] != row["requested_session"]
             or row["observed"]["profile"] != row["requested_profile"]
             or not row["observed"]["user_id"]
         ]
-        json.dump({
-            "status": "HOST_CONTEXT_UNAVAILABLE" if missing else "context_present",
-            "rows": rows,
-            "note": "Context presence alone does not prove authenticated-owner provenance.",
-        }, output, indent=2)
+        json.dump(
+            {
+                "status": "HOST_CONTEXT_UNAVAILABLE" if missing else "context_present",
+                "rows": rows,
+                "note": "Context presence alone does not prove authenticated-owner provenance.",
+            },
+            output,
+            indent=2,
+        )
         output.write("\n")
         return 2 if missing else 0
 

@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -45,14 +45,20 @@ def test_different_accounts_do_not_share_calendar_draft(tmp_path):
         token_resolver=lambda principal: {"access_token": "synthetic"},
     )
     caller = SimpleNamespace(principal_id="local:owner:audit")
-    start = datetime.now(timezone.utc) + timedelta(days=1)
+    start = datetime.now(UTC) + timedelta(days=1)
     end = start + timedelta(minutes=30)
     first = service.create_draft_event(
-        caller, "Audit", start.isoformat(), end.isoformat(),
+        caller,
+        "Audit",
+        start.isoformat(),
+        end.isoformat(),
         account_email="alpha@example.invalid",
     )
     second = service.create_draft_event(
-        caller, "Audit", start.isoformat(), end.isoformat(),
+        caller,
+        "Audit",
+        start.isoformat(),
+        end.isoformat(),
         account_email="bravo@example.invalid",
     )
     assert first.draft_id != second.draft_id

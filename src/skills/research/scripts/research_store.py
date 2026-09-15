@@ -8,7 +8,7 @@ import re
 import shutil
 import tempfile
 import time
-from typing import Any, Optional
+from typing import Any
 import unicodedata
 from urllib.parse import urlparse, urlsplit
 
@@ -20,8 +20,14 @@ logger = logging.getLogger(__name__)
 
 
 def safe_id(value: str) -> str:
-    if not isinstance(value, str) or not _ID_RE.fullmatch(value) or value in {".", ".."}:
-        raise ValueError("invalid id: use lowercase ASCII letters, digits, dot, underscore, or hyphen")
+    if (
+        not isinstance(value, str)
+        or not _ID_RE.fullmatch(value)
+        or value in {".", ".."}
+    ):
+        raise ValueError(
+            "invalid id: use lowercase ASCII letters, digits, dot, underscore, or hyphen"
+        )
     return value
 
 
@@ -37,7 +43,11 @@ def _required_text(data: dict, key: str) -> str:
 
 
 def normalize_text(value: str) -> bytes:
-    text = unicodedata.normalize("NFC", str(value or "")).replace("\r\n", "\n").replace("\r", "\n")
+    text = (
+        unicodedata.normalize("NFC", str(value or ""))
+        .replace("\r\n", "\n")
+        .replace("\r", "\n")
+    )
     return "\n".join(line.rstrip() for line in text.split("\n")).encode("utf-8")
 
 
@@ -82,7 +92,14 @@ def validate_dossier(data: dict) -> None:
     mode = data.get("mode")
     if mode not in _MODES:
         raise ValueError("invalid mode")
-    for key in ("question", "scope", "created_at", "updated_at", "executive_answer", "method"):
+    for key in (
+        "question",
+        "scope",
+        "created_at",
+        "updated_at",
+        "executive_answer",
+        "method",
+    ):
         _required_text(data, key)
     if mode == "watch" and not isinstance(data.get("watch_intent"), dict):
         raise ValueError("watch mode requires watch_intent")
@@ -90,7 +107,11 @@ def validate_dossier(data: dict) -> None:
     sources = data.get("sources")
     evidence = data.get("evidence")
     claims = data.get("claims")
-    if not isinstance(sources, list) or not isinstance(evidence, list) or not isinstance(claims, list):
+    if (
+        not isinstance(sources, list)
+        or not isinstance(evidence, list)
+        or not isinstance(claims, list)
+    ):
         raise ValueError("sources, evidence, and claims must be lists")
 
     source_ids = _unique_ids(sources, "source")
@@ -144,7 +165,9 @@ def validate_dossier(data: dict) -> None:
             computed = fingerprint(canonical_bytes)
 
         if computed != expected_fp:
-            raise ValueError(f"evidence fingerprint mismatch: expected {expected_fp}, computed {computed}")
+            raise ValueError(
+                f"evidence fingerprint mismatch: expected {expected_fp}, computed {computed}"
+            )
 
     for claim in claims:
         if claim.get("type") not in _CLAIM_TYPES:
@@ -157,7 +180,10 @@ def validate_dossier(data: dict) -> None:
         missing = (set(ev_ids) | set(counter_ids)) - evidence_ids
         if missing:
             raise ValueError(f"missing evidence references: {sorted(missing)}")
-        if claim["type"] in {"fact", "source-assertion", "recommendation"} and not ev_ids:
+        if (
+            claim["type"] in {"fact", "source-assertion", "recommendation"}
+            and not ev_ids
+        ):
             raise ValueError("material claim needs missing evidence")
 
         if claim["type"] == "fact":
@@ -165,7 +191,9 @@ def validate_dossier(data: dict) -> None:
                 matching_ev = next(e for e in evidence if e["id"] == e_id)
                 src = source_map[matching_ev["source_id"]]
                 if src.get("classification") == "candidate":
-                    raise ValueError("factual claim cannot cite candidate source evidence")
+                    raise ValueError(
+                        "factual claim cannot cite candidate source evidence"
+                    )
 
 
 def _atomic_json(path: Path, data: dict) -> Path:
@@ -188,16 +216,22 @@ def write_temporary(workspace: Path, session_id: str, dossier: dict) -> Path:
     session_id = safe_id(session_id)
     data = dict(dossier, session_id=session_id, mode="temporary")
     validate_dossier(data)
-    return _atomic_json(runtime_root(workspace) / "temporary" / session_id / "dossier.json", data)
+    return _atomic_json(
+        runtime_root(workspace) / "temporary" / session_id / "dossier.json", data
+    )
 
 
-def save_dossier(workspace: Path, dossier_id: str, dossier: dict, mode: str = "save") -> Path:
+def save_dossier(
+    workspace: Path, dossier_id: str, dossier: dict, mode: str = "save"
+) -> Path:
     dossier_id = safe_id(dossier_id)
     if mode not in {"save", "track", "watch"}:
         raise ValueError("durable mode must be save, track, or watch")
     data = dict(dossier, dossier_id=dossier_id, mode=mode)
     validate_dossier(data)
-    return _atomic_json(runtime_root(workspace) / "saved" / dossier_id / "dossier.json", data)
+    return _atomic_json(
+        runtime_root(workspace) / "saved" / dossier_id / "dossier.json", data
+    )
 
 
 def load_dossier(workspace: Path, dossier_id: str) -> dict:
@@ -216,7 +250,9 @@ def delete_dossier(workspace: Path, dossier_id: str) -> None:
     shutil.rmtree(path)
 
 
-def cleanup_temporary(workspace: Path, ttl_seconds: int, now: Optional[float] = None) -> list:
+def cleanup_temporary(
+    workspace: Path, ttl_seconds: int, now: float | None = None
+) -> list:
     if ttl_seconds < 0:
         raise ValueError("ttl_seconds must be non-negative")
     root = runtime_root(workspace) / "temporary"
@@ -248,14 +284,26 @@ def archive_legacy_dossiers(workspace: Path) -> list:
                             shutil.move(str(path), str(target))
                             archived.append(path.name)
                     except (json.JSONDecodeError, OSError) as exc:
-                        logger.debug("Skipping unreadable legacy dossier at %s: %s", path, exc)
+                        logger.debug(
+                            "Skipping unreadable legacy dossier at %s: %s", path, exc
+                        )
     return archived
+
 
 def main() -> None:
     parser = ArgumentParser()
     parser.add_argument(
         "command",
-        choices=("temporary", "save", "track", "watch", "load", "delete", "cleanup", "migrate-v1"),
+        choices=(
+            "temporary",
+            "save",
+            "track",
+            "watch",
+            "load",
+            "delete",
+            "cleanup",
+            "migrate-v1",
+        ),
     )
     parser.add_argument("--workspace", type=Path, default=Path.cwd())
     parser.add_argument("--id")
@@ -277,9 +325,16 @@ def main() -> None:
                 raise ValueError("--input is required")
             data = json.loads(args.input.read_text(encoding="utf-8"))
             if args.command == "temporary":
-                path = write_temporary(args.workspace, args.id or data.get("session_id", ""), data)
+                path = write_temporary(
+                    args.workspace, args.id or data.get("session_id", ""), data
+                )
             else:
-                path = save_dossier(args.workspace, args.id or data.get("dossier_id", ""), data, args.command)
+                path = save_dossier(
+                    args.workspace,
+                    args.id or data.get("dossier_id", ""),
+                    data,
+                    args.command,
+                )
             result = {"path": str(path.resolve())}
         print(json.dumps(result, ensure_ascii=False))
     except (ValueError, FileNotFoundError, json.JSONDecodeError) as exc:

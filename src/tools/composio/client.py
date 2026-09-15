@@ -7,11 +7,11 @@ import importlib
 import logging
 import os
 import re
-from typing import Any, Optional, Union
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
-_client_instance: Optional[Any] = None
+_client_instance: Any | None = None
 _FAILURE_STATUSES = frozenset(
     {
         "error",
@@ -61,7 +61,9 @@ class ComposioExecutionError(RuntimeError):
         self.unavailable_tool = unavailable_tool
 
 
-def format_user_id(user_identifier: Union[int, str, None], platform: str = "telegram") -> str:
+def format_user_id(
+    user_identifier: int | str | None, platform: str = "telegram"
+) -> str:
     """Format a Hermes identifier as a stable Composio entity ID."""
     if user_identifier is None:
         raise ValueError("user_identifier cannot be None")
@@ -119,12 +121,10 @@ def _is_present(value: Any) -> bool:
         return bool(value.strip())
     if isinstance(value, (Mapping, list, tuple, set)):
         return bool(value)
-    if value.__class__.__module__.startswith("unittest.mock"):
-        return False
-    return True
+    return not value.__class__.__module__.startswith("unittest.mock")
 
 
-def _error_text(value: Any) -> Optional[str]:
+def _error_text(value: Any) -> str | None:
     if not _is_present(value):
         return None
     if isinstance(value, BaseException):
@@ -159,7 +159,7 @@ def _error_text(value: Any) -> Optional[str]:
     return str(value)
 
 
-def _payload_error(payload: Any) -> Optional[str]:
+def _payload_error(payload: Any) -> str | None:
     if not isinstance(payload, Mapping):
         return None
 
@@ -182,7 +182,7 @@ def _payload_error(payload: Any) -> Optional[str]:
     return None
 
 
-def get_response_error(result: Any) -> Optional[str]:
+def get_response_error(result: Any) -> str | None:
     """Extract SDK and nested provider failure envelopes before success handling."""
     if isinstance(result, Mapping):
         return _payload_error(result)
@@ -202,11 +202,17 @@ def is_unavailable_tool_error(error: Any) -> bool:
     class_name = re.sub(r"(?<!^)(?=[A-Z])", " ", error.__class__.__name__).casefold()
     text = _error_text(error) or ""
     lowered = re.sub(r"[\s:/]+", " ", f"{class_name} {text}".casefold())
-    if any(marker.replace("_", " ").replace("-", " ") in lowered for marker in _UNAVAILABLE_TOOL_MARKERS):
+    if any(
+        marker.replace("_", " ").replace("-", " ") in lowered
+        for marker in _UNAVAILABLE_TOOL_MARKERS
+    ):
         return True
     return bool(
         "tool" in lowered
-        and any(phrase in lowered for phrase in ("not found", "does not exist", "unavailable", "unsupported"))
+        and any(
+            phrase in lowered
+            for phrase in ("not found", "does not exist", "unavailable", "unsupported")
+        )
     )
 
 
@@ -214,7 +220,7 @@ def execute_composio_tool(
     session: Any,
     tool_slug: str,
     *,
-    fallback_slug: Optional[str] = None,
+    fallback_slug: str | None = None,
     **kwargs: Any,
 ) -> Any:
     """Execute a tool and retry a second slug only after a proven slug miss."""
@@ -252,15 +258,23 @@ def get_composio_client(force_refresh: bool = False) -> Any:
     if not api_key:
         env_locations = [
             os.path.expanduser("~/.hermes/.env"),
-            os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), ".env"),
+            os.path.join(
+                os.path.dirname(os.path.dirname(os.path.dirname(__file__))), ".env"
+            ),
         ]
         for env_path in env_locations:
             if os.path.isfile(env_path):
                 try:
-                    with open(env_path, "r", encoding="utf-8") as env_file:
+                    with open(env_path, encoding="utf-8") as env_file:
                         for line in env_file:
                             if line.strip().startswith("COMPOSIO_API_KEY="):
-                                candidate = line.strip().split("=", 1)[1].strip().strip('"').strip("'")
+                                candidate = (
+                                    line.strip()
+                                    .split("=", 1)[1]
+                                    .strip()
+                                    .strip('"')
+                                    .strip("'")
+                                )
                                 if candidate:
                                     api_key = candidate
                                     break

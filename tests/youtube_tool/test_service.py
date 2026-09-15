@@ -1,8 +1,9 @@
 from pathlib import Path
 from types import SimpleNamespace
+
 import pytest
 
-from tools.youtube.contracts import VideoDraftStatus, VideoPrivacyStatus
+from tools.youtube.contracts import VideoDraftStatus
 from tools.youtube.policy import load_youtube_policy
 from tools.youtube.service import YouTubeService
 from tools.youtube.store import YouTubeStore

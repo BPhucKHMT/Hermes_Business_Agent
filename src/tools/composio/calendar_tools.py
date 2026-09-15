@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Union
+from datetime import UTC, datetime
+from typing import Any
 
 from .auth import check_connection_status, get_user_emails, resolve_account_target
 from .client import (
@@ -13,7 +13,6 @@ from .client import (
     get_response_data,
 )
 
-
 _NOT_CONNECTED = {
     "status": "error",
     "error_code": "NOT_CONNECTED",
@@ -21,7 +20,7 @@ _NOT_CONNECTED = {
 }
 
 
-def _normalize_event_data(result: Any) -> Dict[str, Any]:
+def _normalize_event_data(result: Any) -> dict[str, Any]:
     """Extract the provider event payload from an SDK response."""
     raw = get_response_data(result)
     if not isinstance(raw, dict):
@@ -35,7 +34,7 @@ def _normalize_event_data(result: Any) -> Dict[str, Any]:
     return raw
 
 
-def _is_calendar_connected(principal_id: Union[int, str]) -> bool:
+def _is_calendar_connected(principal_id: int | str) -> bool:
     return any(
         check_connection_status(principal_id, app=app)
         for app in ("googlesuper", "googlecalendar", "gmail")
@@ -43,8 +42,8 @@ def _is_calendar_connected(principal_id: Union[int, str]) -> bool:
 
 
 def _context(
-    principal_id: Union[int, str], account_email: Optional[str]
-) -> tuple[Any, Optional[str], Optional[str], list[str]]:
+    principal_id: int | str, account_email: str | None
+) -> tuple[Any, str | None, str | None, list[str]]:
     """Resolve account before creating a provider session."""
     account_id, resolved_email = resolve_account_target(principal_id, account_email)
     client = get_composio_client()
@@ -60,10 +59,10 @@ def _execute(
     session: Any,
     slug: str,
     fallback_slug: str,
-    arguments: Dict[str, Any],
-    account_id: Optional[str],
+    arguments: dict[str, Any],
+    account_id: str | None,
 ) -> Any:
-    kwargs: Dict[str, Any] = {"arguments": arguments}
+    kwargs: dict[str, Any] = {"arguments": arguments}
     if account_id:
         kwargs["account"] = account_id
     return execute_composio_tool(
@@ -74,19 +73,19 @@ def _execute(
     )
 
 
-def _error(message: str, *, code: str = "PROVIDER_ERROR") -> Dict[str, Any]:
+def _error(message: str, *, code: str = "PROVIDER_ERROR") -> dict[str, Any]:
     return {"status": "error", "error_code": code, "message": message}
 
 
 def composio_calendar_list_events(
-    telegram_user_id: Union[int, str],
+    telegram_user_id: int | str,
     calendar_id: str = "primary",
-    account_email: Optional[str] = None,
-    time_min: Optional[str] = None,
-    time_max: Optional[str] = None,
-    query: Optional[str] = None,
+    account_email: str | None = None,
+    time_min: str | None = None,
+    time_max: str | None = None,
+    query: str | None = None,
     limit: int = 20,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """List or search events in a caller's selected Google Calendar."""
     if not _is_calendar_connected(telegram_user_id):
         return dict(_NOT_CONNECTED)
@@ -94,7 +93,7 @@ def composio_calendar_list_events(
         session, account_id, resolved_email, all_emails = _context(
             telegram_user_id, account_email
         )
-        args: Dict[str, Any] = {
+        args: dict[str, Any] = {
             "calendar_id": calendar_id,
             "calendarId": calendar_id,
             "maxResults": limit,
@@ -103,7 +102,7 @@ def composio_calendar_list_events(
         }
         effective_time_min = time_min
         if not effective_time_min and not query:
-            effective_time_min = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+            effective_time_min = datetime.now(UTC).isoformat().replace("+00:00", "Z")
 
         if effective_time_min:
             args["timeMin"] = effective_time_min
@@ -128,28 +127,30 @@ def composio_calendar_list_events(
         }
     except ValueError as exc:
         return _error(str(exc), code="INVALID_ACCOUNT_TARGET")
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 -- tool boundary maps provider failure to error payload
         return _error(f"Lỗi khi đọc lịch trình: {exc}")
 
 
 def composio_calendar_create_event(
-    telegram_user_id: Union[int, str],
+    telegram_user_id: int | str,
     summary: str,
     start_datetime: str,
     duration_minutes: int = 30,
-    end_datetime: Optional[str] = None,
+    end_datetime: str | None = None,
     description: str = "",
     location: str = "",
-    attendees: Optional[List[str]] = None,
+    attendees: list[str] | None = None,
     calendar_id: str = "primary",
-    account_email: Optional[str] = None,
-) -> Dict[str, Any]:
+    account_email: str | None = None,
+) -> dict[str, Any]:
     """Create a Google Calendar event and return its genuine provider ID."""
     if not _is_calendar_connected(telegram_user_id):
         return dict(_NOT_CONNECTED)
     try:
-        session, account_id, resolved_email, _ = _context(telegram_user_id, account_email)
-        args: Dict[str, Any] = {
+        session, account_id, resolved_email, _ = _context(
+            telegram_user_id, account_email
+        )
+        args: dict[str, Any] = {
             "calendar_id": calendar_id,
             "summary": summary,
             "start_datetime": start_datetime,
@@ -182,26 +183,28 @@ def composio_calendar_create_event(
         }
     except ValueError as exc:
         return _error(str(exc), code="INVALID_ACCOUNT_TARGET")
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 -- tool boundary maps provider failure to error payload
         return _error(f"Lỗi khi tạo lịch hẹn: {exc}")
 
 
 def composio_calendar_find_free_slots(
-    telegram_user_id: Union[int, str],
+    telegram_user_id: int | str,
     date_str: str,
     duration_minutes: int = 30,
     calendar_id: str = "primary",
-    account_email: Optional[str] = None,
-    timezone_str: Optional[str] = None,
-    working_hours_start: Optional[str] = None,
-    working_hours_end: Optional[str] = None,
-) -> Dict[str, Any]:
+    account_email: str | None = None,
+    timezone_str: str | None = None,
+    working_hours_start: str | None = None,
+    working_hours_end: str | None = None,
+) -> dict[str, Any]:
     """Find free slots using the provider's duration and calendar constraints."""
     if not _is_calendar_connected(telegram_user_id):
         return dict(_NOT_CONNECTED)
     try:
-        session, account_id, resolved_email, _ = _context(telegram_user_id, account_email)
-        args: Dict[str, Any] = {
+        session, account_id, resolved_email, _ = _context(
+            telegram_user_id, account_email
+        )
+        args: dict[str, Any] = {
             "date": date_str,
             "start_date": date_str,
             "calendar_id": calendar_id,
@@ -228,21 +231,23 @@ def composio_calendar_find_free_slots(
         }
     except ValueError as exc:
         return _error(str(exc), code="INVALID_ACCOUNT_TARGET")
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 -- tool boundary maps provider failure to error payload
         return _error(f"Lỗi khi tìm khoảng thời gian trống: {exc}")
 
 
 def composio_calendar_get_event(
-    telegram_user_id: Union[int, str],
+    telegram_user_id: int | str,
     event_id: str,
     calendar_id: str = "primary",
-    account_email: Optional[str] = None,
-) -> Dict[str, Any]:
+    account_email: str | None = None,
+) -> dict[str, Any]:
     """Retrieve one event from the caller's selected Google Calendar."""
     if not _is_calendar_connected(telegram_user_id):
         return dict(_NOT_CONNECTED)
     try:
-        session, account_id, resolved_email, _ = _context(telegram_user_id, account_email)
+        session, account_id, resolved_email, _ = _context(
+            telegram_user_id, account_email
+        )
         result = _execute(
             session,
             "GOOGLESUPER_EVENTS_GET",
@@ -257,29 +262,31 @@ def composio_calendar_get_event(
         }
     except ValueError as exc:
         return _error(str(exc), code="INVALID_ACCOUNT_TARGET")
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 -- tool boundary maps provider failure to error payload
         return _error(f"Lỗi khi lấy thông tin sự kiện: {exc}")
 
 
 def composio_calendar_patch_event(
-    telegram_user_id: Union[int, str],
+    telegram_user_id: int | str,
     event_id: str,
     calendar_id: str = "primary",
-    account_email: Optional[str] = None,
-    start_time: Optional[str] = None,
-    end_time: Optional[str] = None,
-    summary: Optional[str] = None,
-    description: Optional[str] = None,
-    location: Optional[str] = None,
-    attendees: Optional[List[str]] = None,
-    timezone_str: Optional[str] = None,
-) -> Dict[str, Any]:
+    account_email: str | None = None,
+    start_time: str | None = None,
+    end_time: str | None = None,
+    summary: str | None = None,
+    description: str | None = None,
+    location: str | None = None,
+    attendees: list[str] | None = None,
+    timezone_str: str | None = None,
+) -> dict[str, Any]:
     """Patch fields on an existing Google Calendar event."""
     if not _is_calendar_connected(telegram_user_id):
         return dict(_NOT_CONNECTED)
     try:
-        session, account_id, resolved_email, _ = _context(telegram_user_id, account_email)
-        args: Dict[str, Any] = {"event_id": event_id, "calendar_id": calendar_id}
+        session, account_id, resolved_email, _ = _context(
+            telegram_user_id, account_email
+        )
+        args: dict[str, Any] = {"event_id": event_id, "calendar_id": calendar_id}
         optional_values = {
             "start_time": start_time,
             "end_time": end_time,
@@ -289,7 +296,9 @@ def composio_calendar_patch_event(
             "attendees": attendees,
             "timezone": timezone_str,
         }
-        args.update({key: value for key, value in optional_values.items() if value is not None})
+        args.update(
+            {key: value for key, value in optional_values.items() if value is not None}
+        )
         result = _execute(
             session,
             "GOOGLESUPER_PATCH_EVENT",
@@ -304,21 +313,23 @@ def composio_calendar_patch_event(
         }
     except ValueError as exc:
         return _error(str(exc), code="INVALID_ACCOUNT_TARGET")
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 -- tool boundary maps provider failure to error payload
         return _error(f"Lỗi khi dời/sửa lịch: {exc}")
 
 
 def composio_calendar_delete_event(
-    telegram_user_id: Union[int, str],
+    telegram_user_id: int | str,
     event_id: str,
     calendar_id: str = "primary",
-    account_email: Optional[str] = None,
-) -> Dict[str, Any]:
+    account_email: str | None = None,
+) -> dict[str, Any]:
     """Delete an event from the caller's selected Google Calendar."""
     if not _is_calendar_connected(telegram_user_id):
         return dict(_NOT_CONNECTED)
     try:
-        session, account_id, resolved_email, _ = _context(telegram_user_id, account_email)
+        session, account_id, resolved_email, _ = _context(
+            telegram_user_id, account_email
+        )
         result = _execute(
             session,
             "GOOGLESUPER_DELETE_EVENT",
@@ -333,5 +344,5 @@ def composio_calendar_delete_event(
         }
     except ValueError as exc:
         return _error(str(exc), code="INVALID_ACCOUNT_TARGET")
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 -- tool boundary maps provider failure to error payload
         return _error(f"Lỗi khi hủy/xóa lịch: {exc}")

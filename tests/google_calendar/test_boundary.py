@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from pathlib import Path
 from types import SimpleNamespace
+
 import pytest
 
-from tools.calendar.contracts import EventDraftStatus
 from tools.calendar.google_calendar import GoogleCalendarClient
 from tools.calendar.policy import load_calendar_policy
 from tools.calendar.service import CalendarService
@@ -33,7 +33,12 @@ def service(tmp_path: Path) -> CalendarService:
     def mock_token_resolver(principal_id: str):
         return {"mock_mode": True, "mock_events": mock_events}
 
-    return CalendarService(policy=policy, store=store, google_client=client, token_resolver=mock_token_resolver)
+    return CalendarService(
+        policy=policy,
+        store=store,
+        google_client=client,
+        token_resolver=mock_token_resolver,
+    )
 
 
 def test_empty_summary_raises(service: CalendarService) -> None:

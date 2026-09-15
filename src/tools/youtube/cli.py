@@ -11,10 +11,16 @@ _SRC = Path(__file__).resolve().parents[2]
 if str(_SRC) not in sys.path:
     sys.path.insert(0, str(_SRC))
 
-from tools.youtube.policy import load_youtube_policy
-from tools.youtube.service import YouTubeService
-from tools.youtube.store import YouTubeStore
-from tools.youtube.youtube_client import YouTubeClient
+from tools.youtube.policy import (  # noqa: E402 -- direct CLI source path bootstrap
+    load_youtube_policy,
+)
+from tools.youtube.service import (  # noqa: E402 -- direct CLI source path bootstrap
+    YouTubeService,
+)
+from tools.youtube.store import YouTubeStore  # noqa: E402 -- direct CLI path bootstrap
+from tools.youtube.youtube_client import (  # noqa: E402 -- direct CLI source path bootstrap
+    YouTubeClient,
+)
 
 
 def build_service() -> YouTubeService:
@@ -58,7 +64,13 @@ def main() -> None:
         videos = [asdict(v) for v in svc.list_videos(caller, limit=args.limit)]
         print(json.dumps(videos, ensure_ascii=False, indent=2))
     elif args.cmd == "draft":
-        d = svc.create_draft_video(caller, args.title, args.video_file, description=args.description, privacy_status=args.privacy)
+        d = svc.create_draft_video(
+            caller,
+            args.title,
+            args.video_file,
+            description=args.description,
+            privacy_status=args.privacy,
+        )
         print(json.dumps(asdict(d), ensure_ascii=False, indent=2))
     elif args.cmd == "upload":
         v = svc.upload_draft_video(caller, args.draft_id)

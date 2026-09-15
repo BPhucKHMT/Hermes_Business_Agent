@@ -1,8 +1,9 @@
 from pathlib import Path
+
 import pytest
 
 from tools.tiktok.contracts import TikTokPrivacyLevel
-from tools.tiktok.policy import TikTokPolicy, load_tiktok_policy
+from tools.tiktok.policy import load_tiktok_policy
 
 ROOT = Path(__file__).resolve().parents[2]
 

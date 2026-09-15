@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 import os
 from pathlib import Path
 import subprocess
@@ -58,7 +58,9 @@ def test_timeout_is_not_retried_as_slug_fallback() -> None:
     assert session.calls == 1
 
 
-def test_ambiguous_account_target_is_rejected_before_provider_session(monkeypatch) -> None:
+def test_ambiguous_account_target_is_rejected_before_provider_session(
+    monkeypatch,
+) -> None:
     monkeypatch.setattr(
         "tools.composio.auth.get_user_emails",
         lambda principal: {
@@ -91,7 +93,7 @@ def _service(tmp_path: Path, token_data: dict) -> CalendarService:
 
 def _draft(service: CalendarService, account: str):
     caller = SimpleNamespace(principal_id="local:owner:test")
-    start = datetime.now(timezone.utc) + timedelta(days=1)
+    start = datetime.now(UTC) + timedelta(days=1)
     end = start + timedelta(minutes=30)
     return caller, service.create_draft_event(
         caller,
@@ -102,7 +104,9 @@ def _draft(service: CalendarService, account: str):
     )
 
 
-def test_failed_readback_retains_provider_id_without_committing(monkeypatch, tmp_path: Path) -> None:
+def test_failed_readback_retains_provider_id_without_committing(
+    monkeypatch, tmp_path: Path
+) -> None:
     monkeypatch.setattr(
         "tools.composio.auth.get_user_emails",
         lambda principal: {"account-a": "alpha@example.invalid"},
@@ -146,7 +150,9 @@ def test_failed_readback_retains_provider_id_without_committing(monkeypatch, tmp
     assert readback_calls == 1
 
 
-def test_replay_of_committed_draft_reads_existing_event(monkeypatch, tmp_path: Path) -> None:
+def test_replay_of_committed_draft_reads_existing_event(
+    monkeypatch, tmp_path: Path
+) -> None:
     monkeypatch.setattr(
         "tools.composio.auth.get_user_emails",
         lambda principal: {"account-a": "alpha@example.invalid"},

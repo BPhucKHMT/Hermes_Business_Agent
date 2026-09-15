@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 from pathlib import Path
@@ -73,7 +74,9 @@ def ensure_local_owner(root: Path) -> str:
     except FileExistsError:
         existing = load_local_owner(owner_path)
         if existing is None:
-            raise LookupError(f"local owner binding disappeared: {owner_path}")
+            raise LookupError(
+                f"local owner binding disappeared: {owner_path}"
+            ) from None
         return existing
     try:
         with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
@@ -81,9 +84,7 @@ def ensure_local_owner(root: Path) -> str:
             stream.flush()
             os.fsync(stream.fileno())
     except Exception:
-        try:
+        with contextlib.suppress(OSError):
             owner_path.unlink()
-        except OSError:
-            pass
         raise
     return owner_id

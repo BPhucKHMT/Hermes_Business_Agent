@@ -1,14 +1,15 @@
 """Lightweight, assert-based verification for langfuse-observer plugin.
 Follows Ponytail: no bloated fixtures, direct asserts on essential invariants.
 """
+
 from __future__ import annotations
 
-import json
-import os
-import sys
-from pathlib import Path
-from unittest.mock import MagicMock
 import importlib.util
+import json
+from pathlib import Path
+import sys
+from unittest.mock import MagicMock
+
 ROOT = Path(__file__).resolve().parents[2]
 PLUGIN_PATH = ROOT / "src/.hermes/plugins/langfuse-observer/__init__.py"
 
@@ -16,6 +17,7 @@ spec = importlib.util.spec_from_file_location("langfuse_observer", PLUGIN_PATH)
 observer = importlib.util.module_from_spec(spec)
 sys.modules["langfuse_observer"] = observer
 spec.loader.exec_module(observer)
+
 
 def test_status():
     st = observer.get_status()
@@ -37,7 +39,7 @@ def test_tool_error_detection():
     # Detect nested tool failure JSON
     failing_result = {
         "status": "error",
-        "error": {"type": "GoogleCalendarError", "message": "token expired"}
+        "error": {"type": "GoogleCalendarError", "message": "token expired"},
     }
     err = observer._nested_tool_error(failing_result)
     assert err is not None
@@ -60,8 +62,16 @@ def test_session_grouping_and_isolation():
     observer._STATE_LOCK = MagicMock()
     observer._STATE_LOCK.__enter__.return_value = None
 
-    kw_a = {"session_id": "session_A", "turn_id": "turn_1", "request_messages": [{"role": "user", "content": "hi"}]}
-    kw_b = {"session_id": "session_B", "turn_id": "turn_1", "request_messages": [{"role": "user", "content": "hello"}]}
+    kw_a = {
+        "session_id": "session_A",
+        "turn_id": "turn_1",
+        "request_messages": [{"role": "user", "content": "hi"}],
+    }
+    kw_b = {
+        "session_id": "session_B",
+        "turn_id": "turn_1",
+        "request_messages": [{"role": "user", "content": "hello"}],
+    }
 
     st_a = observer._ensure_state(kw_a, mock_client)
     st_b = observer._ensure_state(kw_b, mock_client)
@@ -77,8 +87,10 @@ def test_registration_hooks():
     class DummyCtx:
         def __init__(self):
             self.hooks = {}
+
         def register_hook(self, name, cb):
             self.hooks[name] = cb
+
         def has_plugin(self, name):
             return False
 

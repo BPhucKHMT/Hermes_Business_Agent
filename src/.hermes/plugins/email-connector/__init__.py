@@ -5,8 +5,8 @@ from __future__ import annotations
 from functools import partial
 import logging
 import os
-import sys
 from pathlib import Path
+import sys
 from typing import Any
 
 _PLUGIN_DIR = Path(__file__).resolve().parent
@@ -47,14 +47,6 @@ try:
         handle_share_mailbox,
     )
     from .gmail_tools import PersonalGmailTools
-    from .schemas import (
-        EMAIL_CONNECTION_STATUS_SCHEMA,
-        EMAIL_CREATE_DRAFT_SCHEMA,
-        EMAIL_GET_THREAD_SCHEMA,
-        EMAIL_REPLY_SCHEMA,
-        EMAIL_SEARCH_SCHEMA,
-        EMAIL_SEND_SCHEMA,
-    )
     from .plugin_tools import (
         handle_email_connection_status,
         handle_email_create_draft,
@@ -62,6 +54,14 @@ try:
         handle_email_reply,
         handle_email_search,
         handle_email_send,
+    )
+    from .schemas import (
+        EMAIL_CONNECTION_STATUS_SCHEMA,
+        EMAIL_CREATE_DRAFT_SCHEMA,
+        EMAIL_GET_THREAD_SCHEMA,
+        EMAIL_REPLY_SCHEMA,
+        EMAIL_SEARCH_SCHEMA,
+        EMAIL_SEND_SCHEMA,
     )
 except (ImportError, ValueError, KeyError):
     from client import get_default_client
@@ -73,14 +73,6 @@ except (ImportError, ValueError, KeyError):
         handle_share_mailbox,
     )
     from gmail_tools import PersonalGmailTools
-    from schemas import (
-        EMAIL_CONNECTION_STATUS_SCHEMA,
-        EMAIL_CREATE_DRAFT_SCHEMA,
-        EMAIL_GET_THREAD_SCHEMA,
-        EMAIL_REPLY_SCHEMA,
-        EMAIL_SEARCH_SCHEMA,
-        EMAIL_SEND_SCHEMA,
-    )
     from plugin_tools import (
         handle_email_connection_status,
         handle_email_create_draft,
@@ -88,6 +80,14 @@ except (ImportError, ValueError, KeyError):
         handle_email_reply,
         handle_email_search,
         handle_email_send,
+    )
+    from schemas import (
+        EMAIL_CONNECTION_STATUS_SCHEMA,
+        EMAIL_CREATE_DRAFT_SCHEMA,
+        EMAIL_GET_THREAD_SCHEMA,
+        EMAIL_REPLY_SCHEMA,
+        EMAIL_SEARCH_SCHEMA,
+        EMAIL_SEND_SCHEMA,
     )
 
 logger = logging.getLogger(__name__)

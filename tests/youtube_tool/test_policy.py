@@ -1,8 +1,9 @@
 from pathlib import Path
+
 import pytest
 
 from tools.youtube.contracts import VideoPrivacyStatus
-from tools.youtube.policy import YouTubePolicy, load_youtube_policy
+from tools.youtube.policy import load_youtube_policy
 
 ROOT = Path(__file__).resolve().parents[2]
 

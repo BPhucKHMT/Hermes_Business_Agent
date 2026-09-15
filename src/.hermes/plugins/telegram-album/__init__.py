@@ -1,5 +1,6 @@
 import asyncio
 from collections import defaultdict
+import contextlib
 
 from plugins.platforms.telegram import adapter as upstream
 
@@ -36,10 +37,10 @@ class ReliableTelegramAdapter(upstream.TelegramAdapter):
             await asyncio.sleep(self.MEDIA_GROUP_WAIT_SECONDS)
             done = self._media_group_downloads_done.get(media_group_id)
             if done is not None:
-                try:
-                    await asyncio.wait_for(done.wait(), self.MAX_MEDIA_GROUP_WAIT_SECONDS)
-                except asyncio.TimeoutError:
-                    pass
+                with contextlib.suppress(asyncio.TimeoutError):
+                    await asyncio.wait_for(
+                        done.wait(), self.MAX_MEDIA_GROUP_WAIT_SECONDS
+                    )
             event = self._media_group_events.pop(media_group_id, None)
             if event is not None and not self._should_drop_delayed_delivery():
                 await self.handle_message(event)
@@ -56,7 +57,7 @@ def _build_adapter(config):
     adapter = ReliableTelegramAdapter(config)
     try:
         adapter._notifications_mode = upstream._resolve_notifications_mode()
-    except Exception:
+    except Exception:  # noqa: BLE001 -- keep safe default when upstream detection changes
         adapter._notifications_mode = "important"
     return adapter
 

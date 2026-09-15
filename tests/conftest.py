@@ -1,6 +1,6 @@
 import os
-import sys
 from pathlib import Path
+import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src"
@@ -13,6 +13,7 @@ for p in (SRC, PLUGIN, UPSTREAM):
 
 try:
     import tools
+
     if hasattr(tools, "__path__") and str(SRC / "tools") not in tools.__path__:
         tools.__path__.insert(0, str(SRC / "tools"))
 except ImportError:

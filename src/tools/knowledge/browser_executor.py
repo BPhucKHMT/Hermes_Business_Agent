@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import socket
 from pathlib import Path
+import socket
 
 from artifact_capture import (
     BrowserArtifact,
@@ -19,16 +19,28 @@ from web import validate_public_target
 
 
 class WebGLSafeBrowserManager(BrowserManager):
-    _INCOMPATIBLE_FLAGS = {"--disable-gpu", "--disable-gpu-compositing", "--disable-software-rasterizer"}
+    _INCOMPATIBLE_FLAGS = {
+        "--disable-gpu",
+        "--disable-gpu-compositing",
+        "--disable-software-rasterizer",
+    }
 
     def _build_browser_args(self) -> dict:
         result = super()._build_browser_args()
-        result["args"] = [arg for arg in result["args"] if arg not in self._INCOMPATIBLE_FLAGS]
+        result["args"] = [
+            arg for arg in result["args"] if arg not in self._INCOMPATIBLE_FLAGS
+        ]
         return result
 
 
 class Crawl4AISession:
-    def __init__(self, session: dict, artifact_dir: Path, resolver=None, allow_private: bool = False):
+    def __init__(
+        self,
+        session: dict,
+        artifact_dir: Path,
+        resolver=None,
+        allow_private: bool = False,
+    ):
         if allow_private:
             raise ValueError("private browser targets are unsupported")
         self.session, self.artifact_dir, self.resolver = session, artifact_dir, resolver
@@ -38,12 +50,16 @@ class Crawl4AISession:
 
         browser_config = BrowserConfig(browser_type="chromium", headless=True)
         strategy = AsyncPlaywrightCrawlerStrategy(browser_config=browser_config)
-        strategy.browser_manager = WebGLSafeBrowserManager(browser_config=browser_config, logger=strategy.logger)
+        strategy.browser_manager = WebGLSafeBrowserManager(
+            browser_config=browser_config, logger=strategy.logger
+        )
         self.disclosures = []
 
         async def capture_disclosures(page, context, config, **kwargs):
             pairs = []
-            controls = page.locator('button[type="button"][aria-controls][aria-expanded]')
+            controls = page.locator(
+                'button[type="button"][aria-controls][aria-expanded]'
+            )
             for index in range(await controls.count()):
                 control = controls.nth(index)
                 if await control.is_disabled():
@@ -75,7 +91,9 @@ class Crawl4AISession:
         if self.crawler is not None:
             await self.crawler.close()
 
-    async def capture(self, url: str, event_id: str, parent_event_id: str | None = None) -> BrowserArtifact:
+    async def capture(
+        self, url: str, event_id: str, parent_event_id: str | None = None
+    ) -> BrowserArtifact:
 
         require_screenshot = parent_event_id is None
         config = CrawlerRunConfig(
@@ -85,13 +103,19 @@ class Crawl4AISession:
             exclude_external_images=True,
             process_iframes=False,
             remove_overlay_elements=True,
-            markdown_generator=DefaultMarkdownGenerator(content_filter=PruningContentFilter()),
+            markdown_generator=DefaultMarkdownGenerator(
+                content_filter=PruningContentFilter()
+            ),
         )
         self.disclosures = []
         result = await self.crawler.arun(url=url, config=config)
         raw_html = str(_field(result, "html", "") or _field(result, "cleaned_html", ""))
         resolver = self.resolver
-        validate = (lambda value: validate_public_target(value, resolver)) if resolver else validate_public_target
+        validate = (
+            (lambda value: validate_public_target(value, resolver))
+            if resolver
+            else validate_public_target
+        )
 
         assets = []
         remaining = self.session["policy"]["crawl_budget"]["content_asset_bytes"]
@@ -109,9 +133,19 @@ class Crawl4AISession:
             seen.add(image["source_url"])
             checked = validate(image["source_url"])
             item = (
-                download_asset(dict(image, source_url=checked), self.artifact_dir, resolver, remaining)
+                download_asset(
+                    dict(image, source_url=checked),
+                    self.artifact_dir,
+                    resolver,
+                    remaining,
+                )
                 if resolver
-                else download_asset(dict(image, source_url=checked), self.artifact_dir, socket.getaddrinfo, remaining)
+                else download_asset(
+                    dict(image, source_url=checked),
+                    self.artifact_dir,
+                    socket.getaddrinfo,
+                    remaining,
+                )
             )
             assets.append(item)
             remaining -= item["byte_count"]

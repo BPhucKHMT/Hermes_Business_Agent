@@ -1,22 +1,19 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from enum import Enum
 import hashlib
 import json
-from typing import Any, Optional
-from uuid import uuid4
 
 
-class TikTokPrivacyLevel(str, Enum):
+class TikTokPrivacyLevel(str, Enum):  # noqa: UP042 -- preserve legacy Enum string behavior
     PUBLIC_TO_EVERYONE = "PUBLIC_TO_EVERYONE"
     MUTUAL_FOLLOW_FRIENDS = "MUTUAL_FOLLOW_FRIENDS"
     SELF_ONLY = "SELF_ONLY"
     FOLLOWER_OF_CREATOR = "FOLLOWER_OF_CREATOR"
 
 
-class TikTokPostDraftStatus(str, Enum):
+class TikTokPostDraftStatus(str, Enum):  # noqa: UP042 -- preserve legacy Enum string behavior
     DRAFT = "draft"
     APPROVED = "approved"
     SUBMITTED = "submitted"
@@ -24,7 +21,7 @@ class TikTokPostDraftStatus(str, Enum):
     FAILED = "failed"
 
 
-class TikTokPublishStatus(str, Enum):
+class TikTokPublishStatus(str, Enum):  # noqa: UP042 -- preserve legacy Enum string behavior
     PROCESSING_DOWNLOAD = "PROCESSING_DOWNLOAD"
     PROCESSING_UPLOAD = "PROCESSING_UPLOAD"
     SUCCESS = "SUCCESS"
@@ -60,16 +57,16 @@ class TikTokPostDraft:
     brand_content_toggle: bool
     created_at: str
     status: TikTokPostDraftStatus = TikTokPostDraftStatus.DRAFT
-    publish_id: Optional[str] = None
-    published_post_id: Optional[str] = None
+    publish_id: str | None = None
+    published_post_id: str | None = None
 
 
 @dataclass(frozen=True)
 class TikTokPostResult:
     publish_id: str
     status: TikTokPublishStatus
-    post_id: Optional[str] = None
-    fail_reason: Optional[str] = None
+    post_id: str | None = None
+    fail_reason: str | None = None
 
 
 def compute_tiktok_draft_idempotency_key(
@@ -84,5 +81,7 @@ def compute_tiktok_draft_idempotency_key(
         "privacy_level": privacy_level.strip(),
         "video_file_path": video_file_path.strip(),
     }
-    encoded = json.dumps(payload, ensure_ascii=False, separators=(",", ":"), sort_keys=True).encode("utf-8")
+    encoded = json.dumps(
+        payload, ensure_ascii=False, separators=(",", ":"), sort_keys=True
+    ).encode("utf-8")
     return hashlib.sha256(encoded).hexdigest()

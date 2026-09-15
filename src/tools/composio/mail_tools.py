@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional, Union
+from typing import Any
 
 from .auth import (
     _toolkit_slug,
@@ -25,8 +25,8 @@ _NOT_CONNECTED = {
 
 
 def _context(
-    principal_id: Union[int, str], account_email: Optional[str]
-) -> tuple[Any, Optional[str], Optional[str], list[str]]:
+    principal_id: int | str, account_email: str | None
+) -> tuple[Any, str | None, str | None, list[str]]:
     """Resolve an explicit target before opening a provider session."""
     account_id, resolved_email = resolve_account_target(principal_id, account_email)
     client = get_composio_client()
@@ -41,10 +41,10 @@ def _context(
 def _execute(
     session: Any,
     tool_slug: str,
-    arguments: Dict[str, Any],
-    account_id: Optional[str],
+    arguments: dict[str, Any],
+    account_id: str | None,
 ) -> Any:
-    kwargs: Dict[str, Any] = {"arguments": arguments}
+    kwargs: dict[str, Any] = {"arguments": arguments}
     if account_id:
         kwargs["account"] = account_id
         if tool_slug.startswith("GMAIL_"):
@@ -56,22 +56,22 @@ def _execute(
     return execute_composio_tool(session, tool_slug, **kwargs)
 
 
-def _error(message: str, *, code: str = "PROVIDER_ERROR") -> Dict[str, Any]:
+def _error(message: str, *, code: str = "PROVIDER_ERROR") -> dict[str, Any]:
     return {"status": "error", "error_code": code, "message": message}
 
 
 def _mailbox_context(
-    principal_id: Union[int, str], account_email: Optional[str]
-) -> tuple[Any, Optional[str], Optional[str], list[str]]:
+    principal_id: int | str, account_email: str | None
+) -> tuple[Any, str | None, str | None, list[str]]:
     return _context(principal_id, account_email)
 
 
 def composio_mail_search(
-    telegram_user_id: Union[int, str],
+    telegram_user_id: int | str,
     query: str = "label:inbox",
     max_results: int = 5,
-    account_email: Optional[str] = None,
-) -> Dict[str, Any]:
+    account_email: str | None = None,
+) -> dict[str, Any]:
     """Search Gmail messages for the caller's selected mailbox."""
     try:
         if not check_connection_status(telegram_user_id, app="gmail"):
@@ -93,15 +93,15 @@ def composio_mail_search(
         }
     except ValueError as exc:
         return _error(str(exc), code="INVALID_ACCOUNT_TARGET")
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 -- tool boundary maps provider failure to error payload
         return _error(f"Lỗi khi tìm kiếm email: {exc}")
 
 
 def composio_mail_get_thread(
-    telegram_user_id: Union[int, str],
+    telegram_user_id: int | str,
     thread_id: str,
-    account_email: Optional[str] = None,
-) -> Dict[str, Any]:
+    account_email: str | None = None,
+) -> dict[str, Any]:
     """Retrieve a Gmail thread from the caller's selected mailbox."""
     try:
         if not check_connection_status(telegram_user_id, app="gmail"):
@@ -123,17 +123,17 @@ def composio_mail_get_thread(
         }
     except ValueError as exc:
         return _error(str(exc), code="INVALID_ACCOUNT_TARGET")
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 -- tool boundary maps provider failure to error payload
         return _error(f"Lỗi khi đọc chuỗi email: {exc}")
 
 
 def composio_mail_send(
-    telegram_user_id: Union[int, str],
+    telegram_user_id: int | str,
     recipient: str,
     subject: str,
     body: str,
-    account_email: Optional[str] = None,
-) -> Dict[str, Any]:
+    account_email: str | None = None,
+) -> dict[str, Any]:
     """Send a Gmail message from the caller's selected mailbox."""
     try:
         if not check_connection_status(telegram_user_id, app="gmail"):
@@ -155,17 +155,17 @@ def composio_mail_send(
         }
     except ValueError as exc:
         return _error(str(exc), code="INVALID_ACCOUNT_TARGET")
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 -- tool boundary maps provider failure to error payload
         return _error(f"Lỗi khi gửi email: {exc}")
 
 
 def composio_mail_create_draft(
-    telegram_user_id: Union[int, str],
+    telegram_user_id: int | str,
     recipient: str,
     subject: str,
     body: str,
-    account_email: Optional[str] = None,
-) -> Dict[str, Any]:
+    account_email: str | None = None,
+) -> dict[str, Any]:
     """Create a Gmail draft in the caller's selected mailbox."""
     try:
         if not check_connection_status(telegram_user_id, app="gmail"):
@@ -187,16 +187,16 @@ def composio_mail_create_draft(
         }
     except ValueError as exc:
         return _error(str(exc), code="INVALID_ACCOUNT_TARGET")
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 -- tool boundary maps provider failure to error payload
         return _error(f"Lỗi khi tạo bản nháp email: {exc}")
 
 
 def composio_mail_reply(
-    telegram_user_id: Union[int, str],
+    telegram_user_id: int | str,
     thread_id: str,
     body: str,
-    account_email: Optional[str] = None,
-) -> Dict[str, Any]:
+    account_email: str | None = None,
+) -> dict[str, Any]:
     """Reply to a Gmail thread from the caller's selected mailbox."""
     try:
         if not check_connection_status(telegram_user_id, app="gmail"):
@@ -218,5 +218,5 @@ def composio_mail_reply(
         }
     except ValueError as exc:
         return _error(str(exc), code="INVALID_ACCOUNT_TARGET")
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 -- tool boundary maps provider failure to error payload
         return _error(f"Lỗi khi trả lời email: {exc}")

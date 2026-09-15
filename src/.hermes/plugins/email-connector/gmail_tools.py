@@ -1,5 +1,6 @@
-from caller import CallerContextRegistry, DmOnlyError
+import contextlib
 
+from caller import CallerContextRegistry, DmOnlyError
 
 PERSONAL_GMAIL_TOOL_NAMES = frozenset(
     (
@@ -30,10 +31,8 @@ class PersonalGmailTools:
         del kwargs
         if session_store is not None:
             self.registry.set_session_store(session_store)
-        try:
+        with contextlib.suppress(DmOnlyError):
             self.registry.capture(event)
-        except DmOnlyError:
-            pass
         return None
 
     def pre_tool_call(

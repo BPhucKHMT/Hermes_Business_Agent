@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import json
-import sys
 from pathlib import Path
+import sys
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -13,15 +13,12 @@ for p in (SRC, PLUGIN):
     if str(p) not in sys.path:
         sys.path.insert(0, str(p))
 
-from plugin_tools import (
+from plugin_tools import (  # noqa: E402 -- imports follow plugin path bootstrap
     handle_email_connection_status,
-    handle_email_create_draft,
-    handle_email_get_thread,
-    handle_email_reply,
     handle_email_search,
     handle_email_send,
 )
-from schemas import (
+from schemas import (  # noqa: E402 -- imports follow plugin path bootstrap
     EMAIL_CONNECTION_STATUS_SCHEMA,
     EMAIL_CREATE_DRAFT_SCHEMA,
     EMAIL_GET_THREAD_SCHEMA,
@@ -60,9 +57,19 @@ def test_handle_email_search_tool():
     registry = FakeRegistry(caller)
     client = object()
 
-    with patch("tools.composio.auth.check_connection_status", return_value=True), \
-         patch("tools.composio.mail_tools.composio_mail_search", return_value={"status": "success", "data": {"messages": [{"subject": "Hợp đồng"}]}}):
-        raw = handle_email_search({"query": "Hợp đồng"}, client=client, registry=registry)
+    with (
+        patch("tools.composio.auth.check_connection_status", return_value=True),
+        patch(
+            "tools.composio.mail_tools.composio_mail_search",
+            return_value={
+                "status": "success",
+                "data": {"messages": [{"subject": "Hợp đồng"}]},
+            },
+        ),
+    ):
+        raw = handle_email_search(
+            {"query": "Hợp đồng"}, client=client, registry=registry
+        )
         data = json.loads(raw)
         assert data.get("ok") is True
         assert "result" in data
@@ -72,8 +79,13 @@ def test_handle_email_send_tool():
     caller = FakeCaller(7275339077)
     registry = FakeRegistry(caller)
     client = object()
-    with patch("tools.composio.auth.check_connection_status", return_value=True), \
-         patch("tools.composio.mail_tools.composio_mail_send", return_value={"status": "success", "data": {"message_id": "sent_123"}}):
+    with (
+        patch("tools.composio.auth.check_connection_status", return_value=True),
+        patch(
+            "tools.composio.mail_tools.composio_mail_send",
+            return_value={"status": "success", "data": {"message_id": "sent_123"}},
+        ),
+    ):
         raw = handle_email_send(
             {"recipient": "partner@example.com", "subject": "Test", "body": "Hello"},
             client=client,
@@ -89,7 +101,10 @@ def test_handle_email_connection_status_tool():
     registry = FakeRegistry(caller)
     client = object()
 
-    with patch("tools.composio.auth.list_user_connections", return_value=[{"id": "conn_1", "email": "test@gmail.com", "status": "ACTIVE"}]):
+    with patch(
+        "tools.composio.auth.list_user_connections",
+        return_value=[{"id": "conn_1", "email": "test@gmail.com", "status": "ACTIVE"}],
+    ):
         raw = handle_email_connection_status({}, client=client, registry=registry)
         data = json.loads(raw)
         assert data.get("ok") is True

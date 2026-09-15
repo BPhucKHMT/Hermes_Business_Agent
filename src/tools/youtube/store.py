@@ -1,15 +1,13 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 import json
 from pathlib import Path
 import sqlite3
-from typing import Any, Dict, List, Optional
+from typing import Any
 from uuid import uuid4
 
 from tools.youtube.contracts import (
-    ChannelInfo,
     VideoDraft,
     VideoDraftStatus,
     VideoPrivacyStatus,
@@ -72,8 +70,10 @@ class YouTubeStore:
                 """
             )
 
-    def upsert_connection(self, principal_id: str, channel_id: str, channel_title: str) -> None:
-        now = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    def upsert_connection(
+        self, principal_id: str, channel_id: str, channel_title: str
+    ) -> None:
+        now = datetime.now(UTC).isoformat().replace("+00:00", "Z")
         conn_id = f"yt-conn-{uuid4().hex[:16]}"
         with self._connect() as conn:
             conn.execute(
@@ -87,22 +87,37 @@ class YouTubeStore:
                     status = excluded.status,
                     updated_at = excluded.updated_at
                 """,
-                (conn_id, principal_id, channel_id, channel_title, "connected", now, now),
+                (
+                    conn_id,
+                    principal_id,
+                    channel_id,
+                    channel_title,
+                    "connected",
+                    now,
+                    now,
+                ),
             )
 
-    def get_connection(self, principal_id: str) -> Optional[Dict[str, Any]]:
+    def get_connection(self, principal_id: str) -> dict[str, Any] | None:
         with self._connect() as conn:
             row = conn.execute(
-                "SELECT * FROM youtube_connections WHERE principal_id = ?;", (principal_id,)
+                "SELECT * FROM youtube_connections WHERE principal_id = ?;",
+                (principal_id,),
             ).fetchone()
             if not row:
                 return None
             return dict(row)
 
     def create_or_get_draft(self, draft: VideoDraft) -> VideoDraft:
-        now = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
-        status_str = draft.status.value if hasattr(draft.status, "value") else str(draft.status)
-        priv_str = draft.privacy_status.value if hasattr(draft.privacy_status, "value") else str(draft.privacy_status)
+        now = datetime.now(UTC).isoformat().replace("+00:00", "Z")
+        status_str = (
+            draft.status.value if hasattr(draft.status, "value") else str(draft.status)
+        )
+        priv_str = (
+            draft.privacy_status.value
+            if hasattr(draft.privacy_status, "value")
+            else str(draft.privacy_status)
+        )
         tags_json = json.dumps(list(draft.tags), ensure_ascii=False)
 
         with self._connect() as conn:
@@ -131,15 +146,18 @@ class YouTubeStore:
                 ),
             )
             row = conn.execute(
-                "SELECT * FROM video_drafts WHERE idempotency_key = ?;", (draft.idempotency_key,)
+                "SELECT * FROM video_drafts WHERE idempotency_key = ?;",
+                (draft.idempotency_key,),
             ).fetchone()
             if not row:
                 raise RuntimeError("failed_to_persist_video_draft")
             return self._row_to_draft(row)
 
-    def get_draft(self, draft_id: str) -> Optional[VideoDraft]:
+    def get_draft(self, draft_id: str) -> VideoDraft | None:
         with self._connect() as conn:
-            row = conn.execute("SELECT * FROM video_drafts WHERE draft_id = ?;", (draft_id,)).fetchone()
+            row = conn.execute(
+                "SELECT * FROM video_drafts WHERE draft_id = ?;", (draft_id,)
+            ).fetchone()
             if not row:
                 return None
             return self._row_to_draft(row)
@@ -149,10 +167,10 @@ class YouTubeStore:
         draft_id: str,
         from_status: VideoDraftStatus,
         to_status: VideoDraftStatus,
-        uploaded_video_id: Optional[str] = None,
-        video_url: Optional[str] = None,
+        uploaded_video_id: str | None = None,
+        video_url: str | None = None,
     ) -> VideoDraft:
-        now = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+        now = datetime.now(UTC).isoformat().replace("+00:00", "Z")
         with self._connect() as conn:
             cursor = conn.execute(
                 """
@@ -171,14 +189,18 @@ class YouTubeStore:
                 ),
             )
             if cursor.rowcount != 1:
-                raise ValueError(f"invalid_video_draft_transition_from_{from_status.value}_to_{to_status.value}")
+                raise ValueError(
+                    f"invalid_video_draft_transition_from_{from_status.value}_to_{to_status.value}"
+                )
         res = self.get_draft(draft_id)
         if res is None:
             raise RuntimeError("draft_missing_after_update")
         return res
 
-    def record_audit(self, principal_id: str, action: str, target_id: str, details: Dict[str, Any]) -> None:
-        now = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    def record_audit(
+        self, principal_id: str, action: str, target_id: str, details: dict[str, Any]
+    ) -> None:
+        now = datetime.now(UTC).isoformat().replace("+00:00", "Z")
         audit_id = f"aud-yt-{uuid4().hex[:16]}"
         with self._connect() as conn:
             conn.execute(
@@ -186,7 +208,14 @@ class YouTubeStore:
                 INSERT INTO youtube_audit (audit_id, timestamp, principal_id, action, target_id, details_json)
                 VALUES (?, ?, ?, ?, ?, ?);
                 """,
-                (audit_id, now, principal_id, action, target_id, json.dumps(details, ensure_ascii=False)),
+                (
+                    audit_id,
+                    now,
+                    principal_id,
+                    action,
+                    target_id,
+                    json.dumps(details, ensure_ascii=False),
+                ),
             )
 
     def _row_to_draft(self, row: sqlite3.Row) -> VideoDraft:

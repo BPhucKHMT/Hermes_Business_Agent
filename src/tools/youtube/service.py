@@ -1,26 +1,25 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import asdict
-from datetime import datetime, timezone
-from pathlib import Path
+from datetime import UTC, datetime
 import logging
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any
 from uuid import uuid4
 
-logger = logging.getLogger(__name__)
+from tools.composio.auth import list_user_connections
 from tools.youtube.contracts import (
-    ChannelInfo,
     VideoDraft,
     VideoDraftStatus,
     VideoPrivacyStatus,
-    VideoVerification,
     YouTubeVideo,
     compute_video_draft_idempotency_key,
 )
-from tools.composio.auth import list_user_connections
-from tools.youtube.policy import YouTubePolicy, load_youtube_policy
+from tools.youtube.policy import YouTubePolicy
 from tools.youtube.store import YouTubeStore
 from tools.youtube.youtube_client import YouTubeClient
+
+logger = logging.getLogger(__name__)
 
 
 class YouTubeService:
@@ -29,14 +28,14 @@ class YouTubeService:
         policy: YouTubePolicy,
         store: YouTubeStore,
         youtube_client: YouTubeClient,
-        token_resolver: Optional[Callable[[str], Dict[str, Any]]] = None,
+        token_resolver: Callable[[str], dict[str, Any]] | None = None,
     ) -> None:
         self.policy = policy
         self.store = store
         self.youtube_client = youtube_client
         self.token_resolver = token_resolver or self._default_token_resolver
 
-    def _default_token_resolver(self, principal_id: str) -> Dict[str, Any]:
+    def _default_token_resolver(self, principal_id: str) -> dict[str, Any]:
         conn = self.store.get_connection(principal_id)
         if not conn:
             return {"mock_mode": True}
@@ -49,11 +48,11 @@ class YouTubeService:
                         "account_email": c.get("email"),
                         "mock_mode": False,
                     }
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 -- provider probe falls back to mock mode
             logger.debug("Failed to resolve composio token for youtube: %s", exc)
         return {"access_token": "mock_yt_token", "mock_mode": True}
 
-    def get_channel_status(self, caller: Any) -> Dict[str, Any]:
+    def get_channel_status(self, caller: Any) -> dict[str, Any]:
         token_data = self.token_resolver(caller.principal_id)
         info = self.youtube_client.get_channel_info(token_data)
         self.store.upsert_connection(caller.principal_id, info.channel_id, info.title)
@@ -65,7 +64,7 @@ class YouTubeService:
         )
         return {"ok": True, "result": asdict(info)}
 
-    def list_videos(self, caller: Any, limit: int = 10) -> List[YouTubeVideo]:
+    def list_videos(self, caller: Any, limit: int = 10) -> list[YouTubeVideo]:
         token_data = self.token_resolver(caller.principal_id)
         limit = min(max(1, limit), 50)
         videos = self.youtube_client.list_channel_videos(token_data, max_results=limit)
@@ -89,7 +88,9 @@ class YouTubeService:
         channel_id: str = "mine",
     ) -> VideoDraft:
         priv_enum = VideoPrivacyStatus(privacy_status.lower())
-        self.policy.validate_metadata(title=title, description=description, tags=tags, privacy_status=priv_enum)
+        self.policy.validate_metadata(
+            title=title, description=description, tags=tags, privacy_status=priv_enum
+        )
         self.policy.validate_video_file(video_file_path, skip_existence_check=True)
 
         idempotency_key = compute_video_draft_idempotency_key(
@@ -110,7 +111,7 @@ class YouTubeService:
             privacy_status=priv_enum,
             video_file_path=video_file_path.strip(),
             thumbnail_file_path=thumbnail_file_path.strip(),
-            created_at=datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+            created_at=datetime.now(UTC).isoformat().replace("+00:00", "Z"),
             status=VideoDraftStatus.DRAFT,
         )
 
@@ -131,12 +132,16 @@ class YouTubeService:
             raise PermissionError("principal_not_authorized_for_video_draft")
         if draft.status == VideoDraftStatus.UPLOADED and draft.uploaded_video_id:
             token_data = self.token_resolver(caller.principal_id)
-            return self.youtube_client._mock_item_to_video({"id": draft.uploaded_video_id, "title": draft.title})
+            return self.youtube_client._mock_item_to_video(
+                {"id": draft.uploaded_video_id, "title": draft.title}
+            )
         if draft.status != VideoDraftStatus.DRAFT:
             raise ValueError(f"cannot_upload_draft_in_status_{draft.status.value}")
 
         token_data = self.token_resolver(caller.principal_id)
-        uploaded_video = self.youtube_client.upload_video(token_data=token_data, draft=draft)
+        uploaded_video = self.youtube_client.upload_video(
+            token_data=token_data, draft=draft
+        )
 
         self.store.transition_draft_status(
             draft_id=draft_id,
@@ -164,7 +169,9 @@ class YouTubeService:
         privacy_status: str = "unlisted",
     ) -> YouTubeVideo:
         priv_enum = VideoPrivacyStatus(privacy_status.lower())
-        self.policy.validate_metadata(title=title, description=description, tags=tags, privacy_status=priv_enum)
+        self.policy.validate_metadata(
+            title=title, description=description, tags=tags, privacy_status=priv_enum
+        )
         token_data = self.token_resolver(caller.principal_id)
 
         updated = self.youtube_client.update_video_metadata(

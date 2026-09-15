@@ -1,23 +1,29 @@
 from __future__ import annotations
 
 import json
-from typing import Any, Dict
+from typing import Any
 
 from youtube_caller import CallerContextRegistry, DmOnlyError
 
 
-def _json(data: Dict[str, Any]) -> str:
+def _json(data: dict[str, Any]) -> str:
     return json.dumps(data, ensure_ascii=False)
 
 
 def _error(code: str, message: str = "") -> str:
-    err: Dict[str, Any] = {"code": code}
+    err: dict[str, Any] = {"code": code}
     if message:
         err["message"] = message
         lower = message.lower()
-        if any(term in lower for term in ("missing_access_token", "invalid_grant", "401", "unauthorized")):
-            err["hint"] = "Tài khoản YouTube/Google chưa được kết nối hoặc token đã hết hạn. Hãy dùng lệnh /connect_google để kết nối lại."
+        if any(
+            term in lower
+            for term in ("missing_access_token", "invalid_grant", "401", "unauthorized")
+        ):
+            err["hint"] = (
+                "Tài khoản YouTube/Google chưa được kết nối hoặc token đã hết hạn. Hãy dùng lệnh /connect_google để kết nối lại."
+            )
     return _json({"ok": False, "error": err})
+
 
 def _resolve_caller(
     registry: CallerContextRegistry | Any,
@@ -36,7 +42,7 @@ def _caller_error(exc: Exception) -> str:
 
 
 def handle_youtube_channel_status(
-    params: Dict[str, Any],
+    params: dict[str, Any],
     *,
     client: Any = None,
     registry: Any = None,
@@ -53,12 +59,12 @@ def handle_youtube_channel_status(
         return _json(res)
     except (DmOnlyError, LookupError) as exc:
         return _caller_error(exc)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 -- tool/gateway boundary maps to error payload
         return _error("youtube_status_failed", str(exc))
 
 
 def handle_youtube_list_videos(
-    params: Dict[str, Any],
+    params: dict[str, Any],
     *,
     client: Any = None,
     registry: Any = None,
@@ -75,12 +81,12 @@ def handle_youtube_list_videos(
         return _json(res)
     except (DmOnlyError, LookupError) as exc:
         return _caller_error(exc)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 -- tool/gateway boundary maps to error payload
         return _error("youtube_list_videos_failed", str(exc))
 
 
 def handle_youtube_create_draft_video(
-    params: Dict[str, Any],
+    params: dict[str, Any],
     *,
     client: Any = None,
     registry: Any = None,
@@ -110,12 +116,12 @@ def handle_youtube_create_draft_video(
         return _json(res)
     except (DmOnlyError, LookupError) as exc:
         return _caller_error(exc)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 -- tool/gateway boundary maps to error payload
         return _error("create_draft_video_failed", str(exc))
 
 
 def handle_youtube_upload_video(
-    params: Dict[str, Any],
+    params: dict[str, Any],
     *,
     client: Any = None,
     registry: Any = None,
@@ -135,12 +141,12 @@ def handle_youtube_upload_video(
         return _json(res)
     except (DmOnlyError, LookupError) as exc:
         return _caller_error(exc)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 -- tool/gateway boundary maps to error payload
         return _error("upload_video_failed", str(exc))
 
 
 def handle_youtube_update_video_metadata(
-    params: Dict[str, Any],
+    params: dict[str, Any],
     *,
     client: Any = None,
     registry: Any = None,
@@ -169,5 +175,5 @@ def handle_youtube_update_video_metadata(
         return _json(res)
     except (DmOnlyError, LookupError) as exc:
         return _caller_error(exc)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 -- tool/gateway boundary maps to error payload
         return _error("update_metadata_failed", str(exc))

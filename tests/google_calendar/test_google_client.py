@@ -1,4 +1,6 @@
-from tools.calendar.contracts import CalendarEvent, EventDraft, EventDraftStatus
+import pytest
+
+from tools.calendar.contracts import EventDraft
 from tools.calendar.google_calendar import GoogleCalendarClient
 
 
@@ -48,9 +50,10 @@ def test_google_calendar_client_create_event_requires_token() -> None:
         attendees=("vendor@example.com",),
         created_at="2026-08-31T12:00:00Z",
     )
-    import pytest
+
     with pytest.raises(ValueError, match="missing_access_token"):
         client.create_event({}, "primary", draft)
+
 
 def test_google_calendar_client_create_event_http() -> None:
     class FakeHttp:

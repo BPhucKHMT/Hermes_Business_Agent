@@ -1,18 +1,20 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import asdict, is_dataclass
 import importlib.util
 import logging
 import os
 from pathlib import Path
-from threading import Lock
 import sys
-from typing import Any, Callable, Dict, Optional
+from threading import Lock
+from typing import Any
 
 try:
     from tools.calendar.cli import build_service as _build_service_fn
 except (ImportError, ModuleNotFoundError):
     _build_service_fn = None
+
 
 def _candidate_src_dirs() -> list[Path]:
     candidates: list[Path] = []
@@ -26,13 +28,17 @@ def _candidate_src_dirs() -> list[Path]:
             candidates.append(parent_candidate)
     for env_file in (
         Path.home() / ".hermes" / ".env",
-        Path(os.environ.get("LOCALAPPDATA", "")) / "hermes" / ".env" if os.name == "nt" else None,
+        Path(os.environ.get("LOCALAPPDATA", "")) / "hermes" / ".env"
+        if os.name == "nt"
+        else None,
     ):
         if env_file and env_file.is_file():
             try:
                 for line in env_file.read_text(encoding="utf-8").splitlines():
                     if line.strip().startswith("HERMES_PROJECT_SRC="):
-                        val = line.strip().split("=", 1)[1].strip().strip('"').strip("'")
+                        val = (
+                            line.strip().split("=", 1)[1].strip().strip('"').strip("'")
+                        )
                         if val and (Path(val) / "tools").is_dir():
                             candidates.append(Path(val))
             except OSError:
@@ -53,7 +59,9 @@ except (ImportError, ModuleNotFoundError):
             _src_dir = str(_cand.resolve())
             if _src_dir not in sys.path:
                 sys.path.insert(0, _src_dir)
-            _spec = importlib.util.spec_from_file_location("tools.composio.bridge", str(_target))
+            _spec = importlib.util.spec_from_file_location(
+                "tools.composio.bridge", str(_target)
+            )
             if _spec and _spec.loader:
                 _mod = importlib.util.module_from_spec(_spec)
                 sys.modules["tools.composio.bridge"] = _mod
@@ -61,8 +69,6 @@ except (ImportError, ModuleNotFoundError):
                 _composio_bridge = _mod
                 break
 logger = logging.getLogger(__name__)
-
-
 
 
 class CalendarConnectorClient:
@@ -93,22 +99,24 @@ class CalendarConnectorClient:
     def _call_google(
         operation: str,
         principal_id: str,
-        params: Optional[Dict[str, Any]] = None,
+        params: dict[str, Any] | None = None,
     ) -> Any:
         bridge = sys.modules.get("tools.composio.bridge") or _composio_bridge
         if bridge is None or not hasattr(bridge, "call_google"):
-            raise RuntimeError("call_google bridge unavailable; run python src/setup_local.py --local")
+            raise RuntimeError(
+                "call_google bridge unavailable; run python src/setup_local.py --local"
+            )
         return bridge.call_google(operation, principal_id, params)
 
     def list_events(
         self,
         caller: Any,
-        time_min: Optional[str] = None,
-        time_max: Optional[str] = None,
+        time_min: str | None = None,
+        time_max: str | None = None,
         limit: int = 20,
         calendar_id: str = "primary",
-        account_email: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        account_email: str | None = None,
+    ) -> dict[str, Any]:
         if self._service_factory is not None:
             events = self.service.list_events(
                 caller=caller,
@@ -142,8 +150,8 @@ class CalendarConnectorClient:
         date_str: str,
         duration_minutes: int = 30,
         calendar_id: str = "primary",
-        account_email: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        account_email: str | None = None,
+    ) -> dict[str, Any]:
         if self._service_factory is not None:
             slots = self.service.find_free_slots(
                 caller=caller,
@@ -185,8 +193,8 @@ class CalendarConnectorClient:
         description: str = "",
         attendees: tuple[str, ...] = (),
         calendar_id: str = "primary",
-        account_email: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        account_email: str | None = None,
+    ) -> dict[str, Any]:
         if self._service_factory is not None:
             draft = self.service.create_draft_event(
                 caller=caller,
@@ -235,7 +243,7 @@ class CalendarConnectorClient:
             },
         }
 
-    def confirm_event(self, caller: Any, draft_id: str) -> Dict[str, Any]:
+    def confirm_event(self, caller: Any, draft_id: str) -> dict[str, Any]:
         if self._service_factory is not None:
             event = self.service.confirm_event(caller=caller, draft_id=draft_id)
             if is_dataclass(event):
@@ -253,14 +261,14 @@ class CalendarConnectorClient:
             raise RuntimeError("calendar_confirm_event_invalid_result")
         return {"ok": True, "result": {"event": event, "confirmed": True}}
 
-    def status(self, caller: Any) -> Dict[str, Any]:
+    def status(self, caller: Any) -> dict[str, Any]:
         principal_id = self._principal(caller)
         status = self._call_google("calendar.status", principal_id)
         if not isinstance(status, dict):
             raise RuntimeError("calendar_status_invalid_result")
         return status
 
-    def start_oauth(self, caller: Any) -> Dict[str, Any]:
+    def start_oauth(self, caller: Any) -> dict[str, Any]:
         principal_id = self._principal(caller)
         try:
             url = self._call_google(
@@ -277,21 +285,33 @@ class CalendarConnectorClient:
                     "request_id": f"composio-{principal_id}",
                 },
             }
-        except Exception as exc:
-            return {"ok": False, "error": {"code": "oauth_start_failed", "message": str(exc)}}
+        except Exception as exc:  # noqa: BLE001 -- tool/gateway boundary maps to error payload
+            return {
+                "ok": False,
+                "error": {"code": "oauth_start_failed", "message": str(exc)},
+            }
 
-    def disconnect(self, caller: Any) -> Dict[str, Any]:
+    def disconnect(self, caller: Any) -> dict[str, Any]:
         principal_id = self._principal(caller)
         try:
-            self._call_google("disconnect_user", principal_id, {"app": "googlecalendar"})
-        except Exception as exc:
-            logger.warning("Failed to revoke Composio connection for principal %s: %s", principal_id, exc)
+            self._call_google(
+                "disconnect_user", principal_id, {"app": "googlecalendar"}
+            )
+        except Exception as exc:  # noqa: BLE001 -- tool/gateway boundary maps to error payload
+            logger.warning(
+                "Failed to revoke Composio connection for principal %s: %s",
+                principal_id,
+                exc,
+            )
         with self.service.store._connect() as conn:
-            conn.execute("DELETE FROM calendar_connections WHERE principal_id = ?;", (principal_id,))
+            conn.execute(
+                "DELETE FROM calendar_connections WHERE principal_id = ?;",
+                (principal_id,),
+            )
         return {"ok": True, "result": {"disconnected": True}}
 
 
-_default_client: Optional[CalendarConnectorClient] = None
+_default_client: CalendarConnectorClient | None = None
 _default_lock = Lock()
 
 

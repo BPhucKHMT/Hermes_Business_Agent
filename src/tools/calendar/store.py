@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 import json
 import logging
 from pathlib import Path
 import sqlite3
-from typing import Any, Dict, Optional
+from typing import Any
 from uuid import uuid4
 
 from tools.calendar.contracts import (
@@ -80,9 +80,13 @@ class CalendarStore:
                     logger.debug("ALTER TABLE event_drafts notice: %s", exc)
 
     def upsert_connection(self, conn_record: CalendarConnection) -> CalendarConnection:
-        now = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+        now = datetime.now(UTC).isoformat().replace("+00:00", "Z")
         created_at = conn_record.created_at or now
-        status_str = conn_record.status.value if hasattr(conn_record.status, "value") else str(conn_record.status)
+        status_str = (
+            conn_record.status.value
+            if hasattr(conn_record.status, "value")
+            else str(conn_record.status)
+        )
         with self._connect() as conn:
             conn.execute(
                 """
@@ -109,10 +113,13 @@ class CalendarStore:
             )
         return self.get_connection_by_principal(conn_record.principal_id)  # type: ignore
 
-    def get_connection_by_principal(self, principal_id: str) -> Optional[CalendarConnection]:
+    def get_connection_by_principal(
+        self, principal_id: str
+    ) -> CalendarConnection | None:
         with self._connect() as conn:
             row = conn.execute(
-                "SELECT * FROM calendar_connections WHERE principal_id = ?;", (principal_id,)
+                "SELECT * FROM calendar_connections WHERE principal_id = ?;",
+                (principal_id,),
             ).fetchone()
             if not row:
                 return None
@@ -128,8 +135,10 @@ class CalendarStore:
             )
 
     def create_or_get_draft(self, draft: EventDraft) -> EventDraft:
-        now = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
-        status_str = draft.status.value if hasattr(draft.status, "value") else str(draft.status)
+        now = datetime.now(UTC).isoformat().replace("+00:00", "Z")
+        status_str = (
+            draft.status.value if hasattr(draft.status, "value") else str(draft.status)
+        )
         attendees_json = json.dumps(list(draft.attendees), ensure_ascii=False)
         with self._connect() as conn:
             conn.execute(
@@ -157,13 +166,14 @@ class CalendarStore:
                 ),
             )
             row = conn.execute(
-                "SELECT * FROM event_drafts WHERE idempotency_key = ?;", (draft.idempotency_key,)
+                "SELECT * FROM event_drafts WHERE idempotency_key = ?;",
+                (draft.idempotency_key,),
             ).fetchone()
             if not row:
                 raise RuntimeError("failed_to_persist_draft")
             return self._row_to_draft(row)
 
-    def get_draft(self, draft_id: str) -> Optional[EventDraft]:
+    def get_draft(self, draft_id: str) -> EventDraft | None:
         with self._connect() as conn:
             row = conn.execute(
                 "SELECT * FROM event_drafts WHERE draft_id = ?;", (draft_id,)
@@ -171,12 +181,13 @@ class CalendarStore:
             if not row:
                 return None
             return self._row_to_draft(row)
+
     def bind_draft_account(self, draft_id: str, account_email: str) -> EventDraft:
         """Bind a legacy unqualified draft without changing an existing target."""
         normalized = account_email.strip().casefold()
         if not normalized:
             raise ValueError("account_email_required")
-        now = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+        now = datetime.now(UTC).isoformat().replace("+00:00", "Z")
         with self._connect() as conn:
             row = conn.execute(
                 "SELECT account_email FROM event_drafts WHERE draft_id = ?;",
@@ -207,7 +218,7 @@ class CalendarStore:
         normalized_id = str(event_id).strip()
         if not normalized_id:
             raise ValueError("event_id_required")
-        now = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+        now = datetime.now(UTC).isoformat().replace("+00:00", "Z")
         with self._connect() as conn:
             row = conn.execute(
                 "SELECT committed_event_id, status FROM event_drafts WHERE draft_id = ?;",
@@ -237,9 +248,9 @@ class CalendarStore:
         draft_id: str,
         from_status: EventDraftStatus,
         to_status: EventDraftStatus,
-        committed_event_id: Optional[str] = None,
+        committed_event_id: str | None = None,
     ) -> EventDraft:
-        now = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+        now = datetime.now(UTC).isoformat().replace("+00:00", "Z")
         with self._connect() as conn:
             cursor = conn.execute(
                 """
@@ -256,14 +267,18 @@ class CalendarStore:
                 ),
             )
             if cursor.rowcount != 1:
-                raise ValueError(f"invalid_draft_transition_from_{from_status.value}_to_{to_status.value}")
+                raise ValueError(
+                    f"invalid_draft_transition_from_{from_status.value}_to_{to_status.value}"
+                )
         res = self.get_draft(draft_id)
         if res is None:
             raise RuntimeError("draft_missing_after_update")
         return res
 
-    def record_audit(self, principal_id: str, action: str, target_id: str, details: Dict[str, Any]) -> None:
-        now = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    def record_audit(
+        self, principal_id: str, action: str, target_id: str, details: dict[str, Any]
+    ) -> None:
+        now = datetime.now(UTC).isoformat().replace("+00:00", "Z")
         audit_id = f"aud-{uuid4().hex[:16]}"
         with self._connect() as conn:
             conn.execute(
@@ -271,7 +286,14 @@ class CalendarStore:
                 INSERT INTO calendar_audit (audit_id, timestamp, principal_id, action, target_id, details_json)
                 VALUES (?, ?, ?, ?, ?, ?);
                 """,
-                (audit_id, now, principal_id, action, target_id, json.dumps(details, ensure_ascii=False)),
+                (
+                    audit_id,
+                    now,
+                    principal_id,
+                    action,
+                    target_id,
+                    json.dumps(details, ensure_ascii=False),
+                ),
             )
 
     def _row_to_draft(self, row: sqlite3.Row) -> EventDraft:

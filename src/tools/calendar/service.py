@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from collections.abc import Callable
+from datetime import UTC, datetime, timedelta, timezone
 import logging
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any
 from uuid import uuid4
 from zoneinfo import ZoneInfo
 
@@ -18,6 +19,7 @@ from tools.calendar.policy import CalendarPolicy
 from tools.calendar.store import CalendarStore
 import tools.composio.auth as composio_auth
 import tools.composio.calendar_tools as composio_calendar
+
 logger = logging.getLogger(__name__)
 
 
@@ -27,7 +29,7 @@ class CalendarService:
         policy: CalendarPolicy,
         store: CalendarStore,
         google_client: GoogleCalendarClient,
-        token_resolver: Optional[Callable[[str], Dict[str, Any]]] = None,
+        token_resolver: Callable[[str], dict[str, Any]] | None = None,
     ) -> None:
         self.policy = policy
         self.store = store
@@ -42,7 +44,7 @@ class CalendarService:
         return principal_id.strip()
 
     @staticmethod
-    def _uses_composio(token_data: Dict[str, Any]) -> bool:
+    def _uses_composio(token_data: dict[str, Any]) -> bool:
         provider = str(token_data.get("provider", "")).casefold()
         access_token = token_data.get("access_token")
         return bool(
@@ -52,19 +54,22 @@ class CalendarService:
             or token_data.get("account_email")
             or (
                 isinstance(access_token, str)
-                and (access_token.startswith("ca_") or "composio" in access_token.casefold())
+                and (
+                    access_token.startswith("ca_")
+                    or "composio" in access_token.casefold()
+                )
             )
         )
 
     @staticmethod
-    def _normalize_account(account_email: Optional[str]) -> Optional[str]:
+    def _normalize_account(account_email: str | None) -> str | None:
         if account_email is None:
             return None
         normalized = account_email.strip().casefold()
         return normalized or None
 
     @staticmethod
-    def _normalize_payload(data: Any) -> Dict[str, Any]:
+    def _normalize_payload(data: Any) -> dict[str, Any]:
         if not isinstance(data, dict):
             return {}
         nested = data.get("response_data")
@@ -79,7 +84,7 @@ class CalendarService:
     @classmethod
     def _event_from_payload(
         cls,
-        data: Dict[str, Any],
+        data: dict[str, Any],
         calendar_id: str,
         *,
         require_id: bool = True,
@@ -111,7 +116,9 @@ class CalendarService:
         )
         return CalendarEvent(
             event_id=event_id,
-            calendar_id=str(payload.get("calendarId") or payload.get("calendar_id") or calendar_id),
+            calendar_id=str(
+                payload.get("calendarId") or payload.get("calendar_id") or calendar_id
+            ),
             summary=str(payload.get("summary", "")),
             description=str(payload.get("description", "")),
             location=str(payload.get("location", "")),
@@ -121,7 +128,9 @@ class CalendarService:
             status=str(payload.get("status", "confirmed")),
             attendees=attendee_emails,
             is_all_day=bool(
-                isinstance(start, dict) and start.get("date") and not start.get("dateTime")
+                isinstance(start, dict)
+                and start.get("date")
+                and not start.get("dateTime")
             ),
         )
 
@@ -135,10 +144,10 @@ class CalendarService:
         except ValueError:
             return expected.strip() == observed.strip()
         if expected_dt.tzinfo is None:
-            expected_dt = expected_dt.replace(tzinfo=timezone.utc)
+            expected_dt = expected_dt.replace(tzinfo=UTC)
         if observed_dt.tzinfo is None:
-            observed_dt = observed_dt.replace(tzinfo=timezone.utc)
-        return expected_dt.astimezone(timezone.utc) == observed_dt.astimezone(timezone.utc)
+            observed_dt = observed_dt.replace(tzinfo=UTC)
+        return expected_dt.astimezone(UTC) == observed_dt.astimezone(UTC)
 
     @classmethod
     def _validate_event(
@@ -156,7 +165,7 @@ class CalendarService:
         if not cls._same_time(draft.end_time, event.end_time):
             raise RuntimeError("provider_end_time_mismatch")
 
-    def _default_token_resolver(self, principal_id: str) -> Dict[str, Any]:
+    def _default_token_resolver(self, principal_id: str) -> dict[str, Any]:
         try:
             connections = composio_auth.list_user_connections(principal_id)
             for connection in connections:
@@ -164,10 +173,14 @@ class CalendarService:
                     return {
                         "provider": "composio",
                         "account_id": connection.get("id"),
-                        "account_email": self._normalize_account(connection.get("email")),
+                        "account_email": self._normalize_account(
+                            connection.get("email")
+                        ),
                     }
-        except Exception as exc:
-            logger.debug("Failed resolving Composio connections for %s: %s", principal_id, exc)
+        except Exception as exc:  # noqa: BLE001 -- provider probe falls back to local store
+            logger.debug(
+                "Failed resolving Composio connections for %s: %s", principal_id, exc
+            )
 
         connection = self.store.get_connection_by_principal(principal_id)
         if connection:
@@ -190,7 +203,7 @@ class CalendarService:
         return account_email
 
     @staticmethod
-    def _composio_error(response: Dict[str, Any], fallback: str) -> str:
+    def _composio_error(response: dict[str, Any], fallback: str) -> str:
         message = response.get("message") or response.get("error") or fallback
         return str(message)
 
@@ -208,7 +221,9 @@ class CalendarService:
             account_email=account_email,
         )
         if response.get("status") != "success":
-            raise RuntimeError(self._composio_error(response, "provider_event_readback_failed"))
+            raise RuntimeError(
+                self._composio_error(response, "provider_event_readback_failed")
+            )
         active_account = self._normalize_account(response.get("active_account"))
         if active_account and active_account != account_email:
             raise RuntimeError("provider_account_mismatch")
@@ -218,7 +233,7 @@ class CalendarService:
 
     def _readback_google(
         self,
-        token_data: Dict[str, Any],
+        token_data: dict[str, Any],
         draft: EventDraft,
         event_id: str,
     ) -> CalendarEvent:
@@ -229,21 +244,21 @@ class CalendarService:
     def list_events(
         self,
         caller: Any,
-        time_min: Optional[str] = None,
-        time_max: Optional[str] = None,
+        time_min: str | None = None,
+        time_max: str | None = None,
         limit: int = 20,
         calendar_id: str = "primary",
-        account_email: Optional[str] = None,
-    ) -> List[CalendarEvent]:
+        account_email: str | None = None,
+    ) -> list[CalendarEvent]:
         principal_id = self._principal(caller)
         token_data = self.token_resolver(principal_id)
         limit = min(max(1, limit), self.policy.max_list_results)
         if not time_min:
-            time_min = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+            time_min = datetime.now(UTC).isoformat().replace("+00:00", "Z")
 
-        selected_account = self._normalize_account(account_email) or self._normalize_account(
-            token_data.get("account_email")
-        )
+        selected_account = self._normalize_account(
+            account_email
+        ) or self._normalize_account(token_data.get("account_email"))
         if self._uses_composio(token_data):
             response = composio_calendar.composio_calendar_list_events(
                 principal_id,
@@ -254,10 +269,15 @@ class CalendarService:
                 limit=limit,
             )
             if response.get("status") != "success":
-                raise RuntimeError(self._composio_error(response, "composio_list_events_failed"))
+                raise RuntimeError(
+                    self._composio_error(response, "composio_list_events_failed")
+                )
             data = self._normalize_payload(response.get("data", {}))
             items = data.get("items", []) if isinstance(data, dict) else []
-            events = [self._event_from_payload(item, calendar_id, require_id=False) for item in items]
+            events = [
+                self._event_from_payload(item, calendar_id, require_id=False)
+                for item in items
+            ]
         else:
             events = self.google_client.list_events(
                 token_data=token_data,
@@ -281,11 +301,11 @@ class CalendarService:
         date_str: str,
         duration_minutes: int = 30,
         calendar_id: str = "primary",
-        account_email: Optional[str] = None,
-        timezone_str: Optional[str] = None,
-        working_hours_start: Optional[str] = None,
-        working_hours_end: Optional[str] = None,
-    ) -> List[FreeSlot]:
+        account_email: str | None = None,
+        timezone_str: str | None = None,
+        working_hours_start: str | None = None,
+        working_hours_end: str | None = None,
+    ) -> list[FreeSlot]:
         target_date = datetime.strptime(date_str, "%Y-%m-%d").date()
         if duration_minutes <= 0:
             raise ValueError("duration_minutes_must_be_positive")
@@ -296,13 +316,13 @@ class CalendarService:
 
         try:
             tz = ZoneInfo(timezone_str or self.policy.default_timezone)
-        except Exception:
+        except Exception:  # noqa: BLE001 -- unknown tz falls back to ICT
             tz = timezone(timedelta(hours=7))
 
         day_start_local = datetime.combine(target_date, wh_start_t, tzinfo=tz)
         day_end_local = datetime.combine(target_date, wh_end_t, tzinfo=tz)
-        day_start = day_start_local.astimezone(timezone.utc)
-        day_end = day_end_local.astimezone(timezone.utc)
+        day_start = day_start_local.astimezone(UTC)
+        day_end = day_end_local.astimezone(UTC)
         events = self.list_events(
             caller=caller,
             time_min=day_start.isoformat().replace("+00:00", "Z"),
@@ -317,8 +337,12 @@ class CalendarService:
             if event.is_all_day:
                 continue
             try:
-                event_start = datetime.fromisoformat(event.start_time.replace("Z", "+00:00"))
-                event_end = datetime.fromisoformat(event.end_time.replace("Z", "+00:00"))
+                event_start = datetime.fromisoformat(
+                    event.start_time.replace("Z", "+00:00")
+                )
+                event_end = datetime.fromisoformat(
+                    event.end_time.replace("Z", "+00:00")
+                )
                 event_start = max(event_start, day_start)
                 event_end = min(event_end, day_end)
                 if event_end > event_start:
@@ -334,7 +358,7 @@ class CalendarService:
             else:
                 merged_busy[-1] = (merged_busy[-1][0], max(merged_busy[-1][1], end))
 
-        free_slots: List[FreeSlot] = []
+        free_slots: list[FreeSlot] = []
         cursor = day_start
         for busy_start, busy_end in merged_busy:
             if busy_start > cursor:
@@ -346,7 +370,7 @@ class CalendarService:
 
     @staticmethod
     def _append_slot(
-        slots: List[FreeSlot],
+        slots: list[FreeSlot],
         start: datetime,
         end: datetime,
         requested_duration: int,
@@ -355,8 +379,8 @@ class CalendarService:
         if duration >= requested_duration:
             slots.append(
                 FreeSlot(
-                    start_time=start.astimezone(timezone.utc).isoformat().replace("+00:00", "Z"),
-                    end_time=end.astimezone(timezone.utc).isoformat().replace("+00:00", "Z"),
+                    start_time=start.astimezone(UTC).isoformat().replace("+00:00", "Z"),
+                    end_time=end.astimezone(UTC).isoformat().replace("+00:00", "Z"),
                     duration_minutes=duration,
                 )
             )
@@ -371,7 +395,7 @@ class CalendarService:
         description: str = "",
         attendees: tuple[str, ...] = (),
         calendar_id: str = "primary",
-        account_email: Optional[str] = None,
+        account_email: str | None = None,
     ) -> EventDraft:
         principal_id = self._principal(caller)
         if not summary.strip():
@@ -385,7 +409,9 @@ class CalendarService:
         normalized_account = self._normalize_account(account_email)
         token_data = self.token_resolver(principal_id)
         if self._uses_composio(token_data):
-            _, resolved_email = composio_auth.resolve_account_target(principal_id, account_email)
+            _, resolved_email = composio_auth.resolve_account_target(
+                principal_id, account_email
+            )
             normalized_account = self._normalize_account(resolved_email)
         idempotency_key = compute_draft_idempotency_key(
             principal_id=principal_id,
@@ -406,7 +432,7 @@ class CalendarService:
             start_time=start_time,
             end_time=end_time,
             attendees=attendees,
-            created_at=datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+            created_at=datetime.now(UTC).isoformat().replace("+00:00", "Z"),
             status=EventDraftStatus.DRAFT,
             account_email=normalized_account,
         )
@@ -456,7 +482,9 @@ class CalendarService:
                     principal_id, draft, account_email or "", draft.committed_event_id
                 )
             else:
-                event = self._readback_google(token_data, draft, draft.committed_event_id)
+                event = self._readback_google(
+                    token_data, draft, draft.committed_event_id
+                )
             self.store.transition_draft_status(
                 draft_id=draft_id,
                 from_status=EventDraftStatus.DRAFT,
@@ -478,7 +506,9 @@ class CalendarService:
                 account_email=account_email,
             )
             if response.get("status") != "success":
-                raise RuntimeError(self._composio_error(response, "composio_create_event_failed"))
+                raise RuntimeError(
+                    self._composio_error(response, "composio_create_event_failed")
+                )
             data = self._normalize_payload(response.get("data", {}))
             event_id = str(data.get("id") or data.get("event_id") or "").strip()
             if not event_id:
@@ -488,7 +518,9 @@ class CalendarService:
                 self.store.record_pending_event_id(draft_id, event_id)
                 raise RuntimeError("provider_account_mismatch")
             self.store.record_pending_event_id(draft_id, event_id)
-            event = self._readback_composio(principal_id, draft, account_email or "", event_id)
+            event = self._readback_composio(
+                principal_id, draft, account_email or "", event_id
+            )
         else:
             created = self.google_client.create_event(
                 token_data=token_data,
@@ -519,13 +551,13 @@ class CalendarService:
         caller: Any,
         event_id: str,
         calendar_id: str = "primary",
-        account_email: Optional[str] = None,
+        account_email: str | None = None,
     ) -> CalendarEvent:
         principal_id = self._principal(caller)
         token_data = self.token_resolver(principal_id)
-        selected_account = self._normalize_account(account_email) or self._normalize_account(
-            token_data.get("account_email")
-        )
+        selected_account = self._normalize_account(
+            account_email
+        ) or self._normalize_account(token_data.get("account_email"))
         if self._uses_composio(token_data):
             response = composio_calendar.composio_calendar_get_event(
                 principal_id,
@@ -534,7 +566,9 @@ class CalendarService:
                 account_email=selected_account,
             )
             if response.get("status") != "success":
-                raise RuntimeError(self._composio_error(response, "composio_get_event_failed"))
+                raise RuntimeError(
+                    self._composio_error(response, "composio_get_event_failed")
+                )
             return self._event_from_payload(response.get("data", {}), calendar_id)
 
         event = self.google_client.get_event(token_data, calendar_id, event_id)
@@ -551,13 +585,13 @@ class CalendarService:
         caller: Any,
         event_id: str,
         calendar_id: str = "primary",
-        account_email: Optional[str] = None,
+        account_email: str | None = None,
     ) -> bool:
         principal_id = self._principal(caller)
         token_data = self.token_resolver(principal_id)
-        selected_account = self._normalize_account(account_email) or self._normalize_account(
-            token_data.get("account_email")
-        )
+        selected_account = self._normalize_account(
+            account_email
+        ) or self._normalize_account(token_data.get("account_email"))
         if self._uses_composio(token_data):
             response = composio_calendar.composio_calendar_delete_event(
                 principal_id,
@@ -576,21 +610,23 @@ class CalendarService:
         )
         return deleted
 
-    def status(self, caller: Any) -> Dict[str, Any]:
+    def status(self, caller: Any) -> dict[str, Any]:
         principal_id = self._principal(caller)
         try:
             if any(
                 composio_auth.check_connection_status(principal_id, app=app)
                 for app in ("googlesuper", "googlecalendar", "gmail")
             ):
-                account_emails = list(dict.fromkeys(composio_auth.get_user_emails(principal_id).values()))
+                account_emails = list(
+                    dict.fromkeys(composio_auth.get_user_emails(principal_id).values())
+                )
                 return {
                     "ok": True,
                     "status": "connected",
                     "principal_id": principal_id,
                     "connected_accounts": account_emails,
                 }
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 -- provider probe falls back to local store
             logger.debug("Composio status lookup failed for %s: %s", principal_id, exc)
 
         connection = self.store.get_connection_by_principal(principal_id)

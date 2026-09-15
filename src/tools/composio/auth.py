@@ -6,7 +6,7 @@ import json
 import logging
 from pathlib import Path
 import re
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any
 
 from .client import (
     format_user_id,
@@ -32,10 +32,15 @@ def _toolkit_slug(item: Any) -> str:
 
 def _account_email_cache_path() -> Path:
     """Keep derived account metadata inside this deployed project."""
-    return Path(__file__).resolve().parents[2] / ".runtime" / "google" / "account-emails.json"
+    return (
+        Path(__file__).resolve().parents[2]
+        / ".runtime"
+        / "google"
+        / "account-emails.json"
+    )
 
 
-def _payload(response: Any) -> Dict[str, Any]:
+def _payload(response: Any) -> dict[str, Any]:
     if get_response_error(response):
         return {}
     data = get_response_data(response)
@@ -49,9 +54,9 @@ def _payload(response: Any) -> Dict[str, Any]:
 
 
 def initiate_google_connection(
-    telegram_user_id: Union[int, str],
+    telegram_user_id: int | str,
     toolkit: str = "googlesuper",
-    callback_url: Optional[str] = None,
+    callback_url: str | None = None,
 ) -> str:
     user_id = format_user_id(telegram_user_id)
     client = get_composio_client()
@@ -61,15 +66,19 @@ def initiate_google_connection(
     if app_name in ("google_calendar", "calendar"):
         app_name = "googlecalendar"
 
-    kwargs: Dict[str, Any] = {}
+    kwargs: dict[str, Any] = {}
     if callback_url:
         kwargs["callback_url"] = callback_url
     connection_request = session.authorize(app_name, **kwargs)
-    return getattr(connection_request, "redirect_url", getattr(connection_request, "redirectUrl", ""))
+    return getattr(
+        connection_request,
+        "redirect_url",
+        getattr(connection_request, "redirectUrl", ""),
+    )
 
 
 def check_connection_status(
-    telegram_user_id: Union[int, str],
+    telegram_user_id: int | str,
     app: str = "gmail",
 ) -> bool:
     """Check whether the caller has an ACTIVE account for an application."""
@@ -86,25 +95,30 @@ def check_connection_status(
         status = str(_item_value(item, "status", "") or "")
         slug = _toolkit_slug(item).lower()
         if status.upper() == "ACTIVE" and (
-            slug == "googlesuper" or not app_name or slug == app_name or app_name in slug
+            slug == "googlesuper"
+            or not app_name
+            or slug == app_name
+            or app_name in slug
         ):
             return True
     return False
 
 
-def _execute_account_probe(session: Any, tool_slug: str, **kwargs: Any) -> Dict[str, Any]:
+def _execute_account_probe(
+    session: Any, tool_slug: str, **kwargs: Any
+) -> dict[str, Any]:
     try:
         response = session.execute(tool_slug=tool_slug, **kwargs)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 -- probe failure means empty payload
         logger.debug("Account probe %s failed: %s", tool_slug, exc)
         return {}
     return _payload(response)
 
 
-def get_user_emails(telegram_user_id: Union[int, str]) -> Dict[str, str]:
+def get_user_emails(telegram_user_id: int | str) -> dict[str, str]:
     """Retrieve active Composio account IDs and their verified email addresses."""
     cache_path = _account_email_cache_path()
-    cache: Dict[str, str] = {}
+    cache: dict[str, str] = {}
     if cache_path.is_file():
         try:
             loaded = json.loads(cache_path.read_text(encoding="utf-8"))
@@ -115,7 +129,7 @@ def get_user_emails(telegram_user_id: Union[int, str]) -> Dict[str, str]:
 
     user_id = format_user_id(telegram_user_id)
     client = get_composio_client()
-    account_emails: Dict[str, str] = {}
+    account_emails: dict[str, str] = {}
 
     try:
         accounts = client.connected_accounts.list(user_ids=[user_id])
@@ -132,7 +146,7 @@ def get_user_emails(telegram_user_id: Union[int, str]) -> Dict[str, str]:
                 account_emails[account_id] = cache[account_id]
                 continue
 
-            email_found: Optional[str] = None
+            email_found: str | None = None
             session = client.create(
                 user_id=user_id,
                 toolkits=["googlesuper"],
@@ -176,11 +190,17 @@ def get_user_emails(telegram_user_id: Union[int, str]) -> Dict[str, str]:
         if cache_updated:
             try:
                 cache_path.parent.mkdir(parents=True, exist_ok=True)
-                cache_path.write_text(json.dumps(cache, ensure_ascii=False), encoding="utf-8")
+                cache_path.write_text(
+                    json.dumps(cache, ensure_ascii=False), encoding="utf-8"
+                )
             except OSError as exc:
-                logger.warning("Failed to write account email cache at %s: %s", cache_path, exc)
-    except Exception as exc:
-        logger.error("Failed to retrieve connected account emails for %s: %s", user_id, exc)
+                logger.warning(
+                    "Failed to write account email cache at %s: %s", cache_path, exc
+                )
+    except Exception as exc:  # noqa: BLE001 -- listing degrades to empty with a log line
+        logger.error(
+            "Failed to retrieve connected account emails for %s: %s", user_id, exc
+        )
     return account_emails
 
 
@@ -189,9 +209,9 @@ def _target_error(kind: str, target: str) -> ValueError:
 
 
 def resolve_account_target(
-    telegram_user_id: Union[int, str],
-    account_target: Optional[str] = None,
-) -> Tuple[Optional[str], Optional[str]]:
+    telegram_user_id: int | str,
+    account_target: str | None = None,
+) -> tuple[str | None, str | None]:
     """Resolve an optional account target without guessing explicit input."""
     account_emails = get_user_emails(telegram_user_id)
     target = str(account_target).strip() if account_target is not None else ""
@@ -204,7 +224,7 @@ def resolve_account_target(
 
     if target.isdigit():
         index = int(target) - 1
-        distinct_accounts: List[Tuple[str, str]] = []
+        distinct_accounts: list[tuple[str, str]] = []
         seen_emails: set[str] = set()
         for account_id, email in account_emails.items():
             normalized_email = email.casefold()
@@ -256,13 +276,13 @@ def resolve_account_target(
     raise _target_error("not_found", target)
 
 
-def get_user_email(telegram_user_id: Union[int, str]) -> Optional[str]:
+def get_user_email(telegram_user_id: int | str) -> str | None:
     """Retrieve the first active email address or ``None``."""
     emails = get_user_emails(telegram_user_id)
     return next(iter(emails.values()), None)
 
 
-def list_user_connections(telegram_user_id: Union[int, str]) -> list[dict]:
+def list_user_connections(telegram_user_id: int | str) -> list[dict]:
     """Retrieve active connection metadata for the caller."""
     user_id = format_user_id(telegram_user_id)
     client = get_composio_client()
@@ -291,22 +311,22 @@ def list_user_connections(telegram_user_id: Union[int, str]) -> list[dict]:
                     "email": account_emails.get(account_id, ""),
                 }
             )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 -- listing degrades to empty with a log line
         logger.error("Failed to list active connections for %s: %s", user_id, exc)
     return results
 
 
 def disconnect_user(
-    telegram_user_id: Union[int, str],
+    telegram_user_id: int | str,
     app: str = "gmail",
-    target_identifier: Optional[str] = None,
-) -> Tuple[bool, List[str]]:
+    target_identifier: str | None = None,
+) -> tuple[bool, list[str]]:
     """Revoke active accounts, optionally selecting one explicit target."""
     user_id = format_user_id(telegram_user_id)
     target = str(target_identifier).strip() if target_identifier is not None else ""
     account_emails = get_user_emails(telegram_user_id)
-    target_acc_id: Optional[str] = None
-    target_email: Optional[str] = None
+    target_acc_id: str | None = None
+    target_email: str | None = None
     if target and target.casefold() != "all":
         target_acc_id, target_email = resolve_account_target(telegram_user_id, target)
 
@@ -314,7 +334,7 @@ def disconnect_user(
     app_name = app.lower() if app else ""
     if app_name in ("google_calendar", "calendar"):
         app_name = "googlecalendar"
-    disconnected_emails: List[str] = []
+    disconnected_emails: list[str] = []
 
     try:
         accounts = client.connected_accounts.list(user_ids=[user_id])
@@ -325,9 +345,13 @@ def disconnect_user(
             if not item_id:
                 continue
             item_email = account_emails.get(item_id, "")
-            if target and target.casefold() != "all":
-                if item_id != target_acc_id and item_email.casefold() != (target_email or "").casefold():
-                    continue
+            if (
+                target
+                and target.casefold() != "all"
+                and item_id != target_acc_id
+                and item_email.casefold() != (target_email or "").casefold()
+            ):
+                continue
             slug = _toolkit_slug(item).lower()
             if app_name and slug != app_name and app_name not in slug:
                 continue
@@ -336,8 +360,10 @@ def disconnect_user(
                 deleted_ids.add(item_id)
                 if item_email and item_email not in disconnected_emails:
                     disconnected_emails.append(item_email)
-            except Exception as exc:
-                logger.warning("Failed to delete connected account %s: %s", item_id, exc)
+            except Exception as exc:  # noqa: BLE001 -- one failed revoke must not abort the batch
+                logger.warning(
+                    "Failed to delete connected account %s: %s", item_id, exc
+                )
 
         cache_path = _account_email_cache_path()
         if cache_path.is_file():
@@ -347,11 +373,17 @@ def disconnect_user(
                 else:
                     cache = json.loads(cache_path.read_text(encoding="utf-8"))
                     if isinstance(cache, dict):
-                        cache = {key: value for key, value in cache.items() if key not in deleted_ids}
-                        cache_path.write_text(json.dumps(cache, ensure_ascii=False), encoding="utf-8")
+                        cache = {
+                            key: value
+                            for key, value in cache.items()
+                            if key not in deleted_ids
+                        }
+                        cache_path.write_text(
+                            json.dumps(cache, ensure_ascii=False), encoding="utf-8"
+                        )
             except (OSError, ValueError, TypeError) as exc:
                 logger.warning("Failed to update email cache on disconnect: %s", exc)
         return True, disconnected_emails
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 -- disconnect degrades to False with a log line
         logger.error("Failed to disconnect user %s: %s", user_id, exc)
         return False, []

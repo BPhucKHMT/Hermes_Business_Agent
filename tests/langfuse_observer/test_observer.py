@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 import importlib.util
 import json
 import os
-import sys
 from pathlib import Path
-from typing import Any, Callable
+import sys
+from typing import Any
 
 import pytest
 
@@ -22,13 +23,24 @@ if upstream_env:
     upstream_path = Path(upstream_env)
     if upstream_path.is_dir() and str(upstream_path) not in sys.path:
         sys.path.insert(0, str(upstream_path))
-import httpx
+import httpx  # noqa: E402 -- imports follow optional upstream path bootstrap
+from langfuse import (  # noqa: E402 -- imports follow optional upstream path bootstrap
+    Langfuse as RealLangfuse,
+)
+from opentelemetry.exporter.otlp.proto.http.trace_exporter import (  # noqa: E402 -- imports follow optional upstream path bootstrap
+    OTLPSpanExporter,
+)
+from opentelemetry.sdk.trace import (  # noqa: E402 -- imports follow optional upstream path bootstrap
+    TracerProvider,
+)
+from opentelemetry.sdk.trace.export import (  # noqa: E402 -- imports follow optional upstream path bootstrap
+    SimpleSpanProcessor,
+    SpanExportResult,
+)
+from opentelemetry.sdk.trace.export.in_memory_span_exporter import (  # noqa: E402 -- imports follow optional upstream path bootstrap
+    InMemorySpanExporter,
+)
 
-from langfuse import Langfuse as RealLangfuse
-from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
-from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import SimpleSpanProcessor, SpanExportResult
-from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 
 class CallbackContext:
     """Small boundary fixture matching the host callback registry."""
@@ -155,14 +167,17 @@ def trace_roots(exporter: InMemorySpanExporter) -> list[Any]:
     return [
         span
         for span in exporter.get_finished_spans()
-        if "session.id" in span.attributes or "langfuse.trace.session.id" in span.attributes
+        if "session.id" in span.attributes
+        or "langfuse.trace.session.id" in span.attributes
     ]
 
 
 def root_for_session(roots: list[Any], session_id: str) -> Any:
     matches = []
     for root in roots:
-        meta_sess = str(root.attributes.get("langfuse.observation.metadata.session_id") or "")
+        meta_sess = str(
+            root.attributes.get("langfuse.observation.metadata.session_id") or ""
+        )
         attrs_text = repr(dict(root.attributes))
         if session_id in meta_sess or session_id in attrs_text:
             matches.append(root)
@@ -183,7 +198,9 @@ def configure_environment(
 
 
 @pytest.fixture
-def registered_observer(monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest):
+def registered_observer(
+    monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest
+):
     configure_environment(monkeypatch, request)
     monkeypatch.setattr(
         OTLPSpanExporter,
@@ -217,7 +234,7 @@ def registered_observer(monkeypatch: pytest.MonkeyPatch, request: pytest.Fixture
             )
             super().__init__(**options)
 
-    monkeypatch.setattr(observer, "_load_sdk_class", lambda: TestLangfuse, raising=False)
+    monkeypatch.setattr(observer, "_load_sdk", lambda: TestLangfuse)
     context = CallbackContext()
     registration = observer.register(context)
     yield observer, context, registration, exporter
@@ -233,14 +250,16 @@ def registered_observer(monkeypatch: pytest.MonkeyPatch, request: pytest.Fixture
 def inactive_observer(monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest):
     configure_environment(monkeypatch, request)
     observer = load_observer()
-    monkeypatch.setattr(observer, "_load_sdk_class", lambda: None, raising=False)
+    monkeypatch.setattr(observer, "_load_sdk", lambda: None)
     context = CallbackContext()
     registration = observer.register(context)
     return observer, context, registration, InMemorySpanExporter()
 
 
 @pytest.fixture
-def missing_key_observer(monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest):
+def missing_key_observer(
+    monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest
+):
     configure_environment(monkeypatch, request)
     monkeypatch.delenv("HERMES_LANGFUSE_SECRET_KEY", raising=False)
     observer = load_observer()
@@ -248,7 +267,10 @@ def missing_key_observer(monkeypatch: pytest.MonkeyPatch, request: pytest.Fixtur
     registration = observer.register(context)
     return observer, context, registration, InMemorySpanExporter()
 
-def test_register_exposes_standard_callbacks_and_safe_status(registered_observer) -> None:
+
+def test_register_exposes_standard_callbacks_and_safe_status(
+    registered_observer,
+) -> None:
     observer, context, registration, _ = registered_observer
 
     required_hooks = {
@@ -268,7 +290,9 @@ def test_register_exposes_standard_callbacks_and_safe_status(registered_observer
     assert "sk-lf-" not in json.dumps(status)
 
 
-def test_two_sessions_and_turns_keep_roots_and_outputs_separate(registered_observer) -> None:
+def test_two_sessions_and_turns_keep_roots_and_outputs_separate(
+    registered_observer,
+) -> None:
     _, context, _, exporter = registered_observer
 
     first = api_payload(
@@ -336,12 +360,16 @@ def test_retry_creates_distinct_generations_under_one_root(registered_observer) 
     generations = [span for span in spans if span_type(span) == "generation"]
     assert len(roots) == 1
     assert len(generations) == 2
-    assert {span.context.trace_id for span in generations} == {roots[0].context.trace_id}
+    assert {span.context.trace_id for span in generations} == {
+        roots[0].context.trace_id
+    }
     assert all(span.end_time is not None for span in spans)
     assert "retry-success" in span_text(roots[0])
 
 
-def test_terminal_tool_error_captures_transport_and_nested_provider_failure(registered_observer) -> None:
+def test_terminal_tool_error_captures_transport_and_nested_provider_failure(
+    registered_observer,
+) -> None:
     _, context, _, exporter = registered_observer
 
     base = api_payload(
@@ -413,9 +441,16 @@ def test_terminal_tool_error_captures_transport_and_nested_provider_failure(regi
         status="ok",
         duration_ms=11,
     )
-    emit(context, "on_session_finalize", session_id=base["session_id"], reason="completed")
+    emit(
+        context,
+        "on_session_finalize",
+        session_id=base["session_id"],
+        reason="completed",
+    )
 
-    tools = [span for span in exporter.get_finished_spans() if span_type(span) == "tool"]
+    tools = [
+        span for span in exporter.get_finished_spans() if span_type(span) == "tool"
+    ]
     assert len(tools) == 1
     tool = tools[0]
     assert tool.status.is_ok is False
@@ -432,7 +467,9 @@ def test_terminal_tool_error_captures_transport_and_nested_provider_failure(regi
     assert "provider rejected synthetic request" in span_text(tool)
 
 
-def test_full_capture_setting_cannot_bypass_canary_redaction(registered_observer, monkeypatch) -> None:
+def test_full_capture_setting_cannot_bypass_canary_redaction(
+    registered_observer, monkeypatch
+) -> None:
     observer, context, registration, exporter = registered_observer
     canary = "sk-test-canary-0123456789abcdef"
     monkeypatch.setenv("HERMES_LANGFUSE_CAPTURE", "full")
@@ -476,7 +513,9 @@ def test_full_capture_setting_cannot_bypass_canary_redaction(registered_observer
     assert any("error" in span_text(span) for span in exporter.get_finished_spans())
 
 
-def test_duplicate_exporter_detected_when_loaded_after_registration(registered_observer) -> None:
+def test_duplicate_exporter_detected_when_loaded_after_registration(
+    registered_observer,
+) -> None:
     observer, context, registration, exporter = registered_observer
     context.enabled_plugins.add("langfuse")
 
@@ -508,6 +547,8 @@ def test_missing_sdk_reports_clear_inactive_reason(inactive_observer) -> None:
     status = status_of(observer, registration)
     assert status["active"] is False
     assert "sdk" in status["inactive_reason"].lower()
+
+
 def test_missing_key_reports_clear_inactive_reason(missing_key_observer) -> None:
     observer, context, registration, exporter = missing_key_observer
 
@@ -524,7 +565,10 @@ def test_missing_key_reports_clear_inactive_reason(missing_key_observer) -> None
     assert "credential" in status["inactive_reason"].lower()
     assert exporter.get_finished_spans() == ()
 
-def test_session_finalize_closes_bounded_pending_state_once(registered_observer) -> None:
+
+def test_session_finalize_closes_bounded_pending_state_once(
+    registered_observer,
+) -> None:
     _, context, _, exporter = registered_observer
 
     sessions = [f"session-teardown-{index}" for index in range(8)]
@@ -544,13 +588,17 @@ def test_session_finalize_closes_bounded_pending_state_once(registered_observer)
                 assistant_message={
                     "role": "assistant",
                     "content": "",
-                    "tool_calls":[{"id": f"call-teardown-{index}", "name": "example_tool"}],
+                    "tool_calls": [
+                        {"id": f"call-teardown-{index}", "name": "example_tool"}
+                    ],
                 },
                 response={
                     "assistant_message": {
                         "role": "assistant",
                         "content": "",
-                        "tool_calls":[{"id": f"call-teardown-{index}", "name": "example_tool"}],
+                        "tool_calls": [
+                            {"id": f"call-teardown-{index}", "name": "example_tool"}
+                        ],
                     }
                 },
                 assistant_tool_call_count=1,
@@ -583,7 +631,9 @@ def test_session_finalize_closes_bounded_pending_state_once(registered_observer)
     assert exporter.get_finished_spans() == finished_before_repeat
 
 
-def test_real_langfuse_otel_exporter_receives_callback_spans_without_network(registered_observer) -> None:
+def test_real_langfuse_otel_exporter_receives_callback_spans_without_network(
+    registered_observer,
+) -> None:
     _, context, _, exporter = registered_observer
     payload = api_payload(
         session_id="session-otel",

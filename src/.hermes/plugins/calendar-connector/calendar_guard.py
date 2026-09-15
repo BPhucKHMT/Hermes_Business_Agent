@@ -1,11 +1,11 @@
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import json
 from typing import Any
 
 from calendar_caller import CallerContextRegistry, DmOnlyError
-
 
 CALENDAR_TOOL_NAMES = frozenset(
     {
@@ -43,10 +43,8 @@ class CalendarToolsGuard:
         del gateway, kwargs
         if session_store is not None:
             self.registry.set_session_store(session_store)
-        try:
+        with contextlib.suppress(DmOnlyError):
             self.registry.capture(event)
-        except DmOnlyError:
-            pass
 
     def _draft_for(self, draft_id: str) -> Any:
         if self._client is None:
@@ -84,14 +82,15 @@ class CalendarToolsGuard:
         draft_id = str((args or {}).get("draft_id", "")).strip()
         try:
             draft = self._draft_for(draft_id)
-        except Exception:
+        except Exception:  # noqa: BLE001 -- store failure must fail closed as a block
             return {"action": "block", "message": "calendar draft lookup unavailable"}
         if draft is None:
             return {"action": "block", "message": "calendar draft not found"}
         if str(getattr(draft, "principal_id", "")) != str(caller.principal_id):
-            return {"action": "block", "message": "calendar draft belongs to another caller"}
-        status_value = getattr(draft, "status", None)
-        status = getattr(status_value, "value", status_value)
+            return {
+                "action": "block",
+                "message": "calendar draft belongs to another caller",
+            }
         return {
             "action": "approve",
             "message": "Confirm this staged Google Calendar event.",
@@ -110,7 +109,9 @@ class CalendarToolsGuard:
         if tool_name not in CALENDAR_TOOL_NAMES:
             return None
         try:
-            caller = self.registry.resolve_dm_tool(task_id=task_id, session_id=session_id)
+            caller = self.registry.resolve_dm_tool(
+                task_id=task_id, session_id=session_id
+            )
         except DmOnlyError as error:
             return {"action": "block", "message": str(error)}
         except LookupError as error:

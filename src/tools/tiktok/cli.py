@@ -11,10 +11,16 @@ _SRC = Path(__file__).resolve().parents[2]
 if str(_SRC) not in sys.path:
     sys.path.insert(0, str(_SRC))
 
-from tools.tiktok.policy import load_tiktok_policy
-from tools.tiktok.service import TikTokService
-from tools.tiktok.store import TikTokStore
-from tools.tiktok.tiktok_client import TikTokClient
+from tools.tiktok.policy import (  # noqa: E402 -- direct CLI source path bootstrap
+    load_tiktok_policy,
+)
+from tools.tiktok.service import (  # noqa: E402 -- direct CLI source path bootstrap
+    TikTokService,
+)
+from tools.tiktok.store import TikTokStore  # noqa: E402 -- direct CLI path bootstrap
+from tools.tiktok.tiktok_client import (  # noqa: E402 -- direct CLI source path bootstrap
+    TikTokClient,
+)
 
 
 def build_service() -> TikTokService:
@@ -54,7 +60,9 @@ def main() -> None:
     if args.cmd == "creator":
         print(json.dumps(svc.get_creator_status(caller), ensure_ascii=False, indent=2))
     elif args.cmd == "draft":
-        d = svc.create_draft_post(caller, args.caption, args.video_file, privacy_level=args.privacy)
+        d = svc.create_draft_post(
+            caller, args.caption, args.video_file, privacy_level=args.privacy
+        )
         print(json.dumps(asdict(d), ensure_ascii=False, indent=2))
     elif args.cmd == "publish":
         res = svc.publish_draft_post(caller, args.draft_id)

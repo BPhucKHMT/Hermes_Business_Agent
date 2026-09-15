@@ -3,8 +3,10 @@ EMAIL_SEARCH_SCHEMA = {
     "description": (
         "Search accessible Gmail threads for the authenticated user using Gmail search "
         "syntax (e.g. 'from:supplier@example.com newer_than:7d' or 'in:inbox'). "
-        "If the user wants to check a specific connected email account (e.g. 'work@company.com' "
-        "or 'personal@gmail.com'), pass that address in 'account_email'."
+        "If the user names a connected account (full address or unique prefix), pass it "
+        "in 'account_email'. With exactly one connected mailbox, run the search "
+        "immediately without asking which account. Only ask which mailbox to use when "
+        "several accounts are connected and the user has not named one."
     ),
     "parameters": {
         "type": "object",
@@ -21,9 +23,11 @@ EMAIL_SEARCH_SCHEMA = {
             "account_email": {
                 "type": "string",
                 "description": (
-                    "Optional email address of the specific connected mailbox to search "
-                    "(e.g. 'work@company.com' or 'personal@gmail.com'). "
-                    "If omitted, searches the default connected mailbox."
+                    "Optional connected mailbox to search. Accepts a full address "
+                    "(e.g. 'work@company.com'), a unique local-part prefix such as "
+                    "'work', or a 1-based index from the connected list. "
+                    "If omitted, searches the default connected mailbox. Ambiguous "
+                    "or unknown prefixes fail closed; the tool never guesses."
                 ),
             },
         },
@@ -35,7 +39,8 @@ EMAIL_GET_THREAD_SCHEMA = {
     "name": "email_get_thread",
     "description": (
         "Retrieve full plain-text message contents of a specific Gmail thread ID "
-        "returned by email_search. Optionally specify account_email if known."
+        "returned by email_search. Optionally specify account_email if known; "
+        "with one connected mailbox, pass nothing and run immediately."
     ),
     "parameters": {
         "type": "object",
@@ -82,7 +87,10 @@ EMAIL_SEND_SCHEMA = {
             },
             "account_email": {
                 "type": "string",
-                "description": "Optional sender email address to send from when multiple accounts are connected.",
+                "description": (
+                    "Optional sender address when multiple accounts are connected; "
+                    "with one connected mailbox, omit it and send immediately."
+                ),
             },
         },
         "required": ["recipient", "subject", "body"],
@@ -109,7 +117,10 @@ EMAIL_CREATE_DRAFT_SCHEMA = {
             },
             "account_email": {
                 "type": "string",
-                "description": "Optional account email address to create the draft in.",
+                "description": (
+                    "Optional target account when multiple accounts are connected; "
+                    "with one connected mailbox, omit it and run immediately."
+                ),
             },
         },
         "required": ["recipient", "subject", "body"],
@@ -132,7 +143,10 @@ EMAIL_REPLY_SCHEMA = {
             },
             "account_email": {
                 "type": "string",
-                "description": "Optional account email address to reply from.",
+                "description": (
+                    "Optional sender address when multiple accounts are connected; "
+                    "with one connected mailbox, omit it and run immediately."
+                ),
             },
         },
         "required": ["thread_id", "body"],

@@ -79,8 +79,17 @@ def select_relevant_images(
         source = urljoin(page_url, item.pop("source_url"))
         label = " ".join((item["alt"] + " " + item["caption"]).lower().split())
         decorative = any(word in label for word in ("avatar", "icon", "logo", "sprite"))
-        meaningful = item.pop("in_figure") and bool(item["caption"]) or bool(item["alt"] and not decorative)
-        if meaningful and not decorative and item["width"] >= 100 and item["height"] >= 100:
+        meaningful = (
+            item.pop("in_figure")
+            and bool(item["caption"])
+            or bool(item["alt"] and not decorative)
+        )
+        if (
+            meaningful
+            and not decorative
+            and item["width"] >= 100
+            and item["height"] >= 100
+        ):
             selected.append({"source_url": source, **item})
     return selected
 

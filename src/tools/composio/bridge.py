@@ -11,17 +11,26 @@ ROOT = Path(__file__).resolve().parents[2]
 _inprocess_dispatch = None
 try:
     import composio  # noqa: F401
+
     from tools.composio.worker import dispatch as _inprocess_dispatch
 except (ImportError, ModuleNotFoundError):
     _inprocess_dispatch = None
+
 
 def call_google(operation: str, principal_id: str, params: dict | None = None):
     """Return the domain result; caller identity comes from the host guard."""
     if not principal_id or not principal_id.strip():
         raise ValueError("Google operation requires a bound caller")
-    if os.environ.get("HERMES_FORCE_GOOGLE_BRIDGE") != "1" and _inprocess_dispatch is not None:
+    if (
+        os.environ.get("HERMES_FORCE_GOOGLE_BRIDGE") != "1"
+        and _inprocess_dispatch is not None
+    ):
         return _inprocess_dispatch(
-            {"operation": operation, "principal_id": principal_id, "params": params or {}}
+            {
+                "operation": operation,
+                "principal_id": principal_id,
+                "params": params or {},
+            }
         )
     uv = shutil.which("uv")
     if not uv:
@@ -38,26 +47,52 @@ def call_google(operation: str, principal_id: str, params: dict | None = None):
     for name in ("PYTHONPATH", "PYTHONHOME", "VIRTUAL_ENV"):
         env.pop(name, None)
     env["PYTHONIOENCODING"] = "utf-8"
-    request = {"operation": operation, "principal_id": principal_id, "params": params or {}}
+    request = {
+        "operation": operation,
+        "principal_id": principal_id,
+        "params": params or {},
+    }
     try:
         completed = subprocess.run(
-            [uv, "run", "--project", str(ROOT), "--frozen", "--no-sync",
-             "python", "-m", "tools.composio.worker"],
-            input=json.dumps(request), capture_output=True, text=True,
-            encoding="utf-8", cwd=ROOT, env=env, timeout=90,
+            [
+                uv,
+                "run",
+                "--project",
+                str(ROOT),
+                "--frozen",
+                "--no-sync",
+                "python",
+                "-m",
+                "tools.composio.worker",
+            ],
+            input=json.dumps(request),
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            cwd=ROOT,
+            env=env,
+            timeout=90,
         )
     except subprocess.TimeoutExpired as exc:
-        raise RuntimeError("Google operation timed out; verify its outcome before retrying") from exc
+        raise RuntimeError(
+            "Google operation timed out; verify its outcome before retrying"
+        ) from exc
     try:
         response = json.loads(completed.stdout)
     except (ValueError, TypeError) as exc:
-        raise RuntimeError("Google project worker unavailable; run the project setup") from exc
+        raise RuntimeError(
+            "Google project worker unavailable; run the project setup"
+        ) from exc
     if not isinstance(response, dict) or "ok" not in response:
         raise RuntimeError("Google project worker returned an invalid response")
     if not response["ok"]:
         error = response.get("error", {})
-        error_type = {"ValueError": ValueError, "LookupError": LookupError,
-                      "KeyError": LookupError, "PermissionError": PermissionError}
+        error_type = {
+            "ValueError": ValueError,
+            "LookupError": LookupError,
+            "KeyError": LookupError,
+            "PermissionError": PermissionError,
+        }
         raise error_type.get(error.get("type"), RuntimeError)(
             error.get("message") or "Google operation failed"
         )

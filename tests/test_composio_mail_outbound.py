@@ -1,24 +1,23 @@
 import json
 from pathlib import Path
 import sys
-from unittest.mock import MagicMock, patch
-import pytest
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT / "src/.hermes/plugins/email-connector"))
 
-from plugin_tools import (
-    handle_email_send,
+from plugin_tools import (  # noqa: E402 -- imports follow plugin path bootstrap
     handle_email_create_draft,
+    handle_email_get_thread,
     handle_email_reply,
     handle_email_search,
-    handle_email_get_thread,
+    handle_email_send,
 )
-from schemas import (
-    EMAIL_SEND_SCHEMA,
+from schemas import (  # noqa: E402 -- imports follow plugin path bootstrap
     EMAIL_CREATE_DRAFT_SCHEMA,
     EMAIL_REPLY_SCHEMA,
+    EMAIL_SEND_SCHEMA,
 )
 
 
@@ -59,12 +58,22 @@ def test_handle_email_send_success():
     with patch("tools.composio.mail_tools.composio_mail_send") as mock_send:
         mock_send.return_value = {"status": "success", "data": {"id": "sent_123"}}
         res_raw = handle_email_send(
-            {"recipient": "partner@example.com", "subject": "Báo giá", "body": "Nội dung"},
+            {
+                "recipient": "partner@example.com",
+                "subject": "Báo giá",
+                "body": "Nội dung",
+            },
             registry=registry,
         )
         res = json.loads(res_raw)
         assert res["ok"] is True
-        mock_send.assert_called_once_with("7275339077", recipient="partner@example.com", subject="Báo giá", body="Nội dung", account_email=None)
+        mock_send.assert_called_once_with(
+            "7275339077",
+            recipient="partner@example.com",
+            subject="Báo giá",
+            body="Nội dung",
+            account_email=None,
+        )
 
 
 def test_handle_email_create_draft_success():
@@ -74,12 +83,22 @@ def test_handle_email_create_draft_success():
     with patch("tools.composio.mail_tools.composio_mail_create_draft") as mock_draft:
         mock_draft.return_value = {"status": "success", "data": {"id": "draft_456"}}
         res_raw = handle_email_create_draft(
-            {"recipient": "boss@example.com", "subject": "Dự thảo", "body": "Chi tiết dự thảo"},
+            {
+                "recipient": "boss@example.com",
+                "subject": "Dự thảo",
+                "body": "Chi tiết dự thảo",
+            },
             registry=registry,
         )
         res = json.loads(res_raw)
         assert res["ok"] is True
-        mock_draft.assert_called_once_with("7275339077", recipient="boss@example.com", subject="Dự thảo", body="Chi tiết dự thảo", account_email=None)
+        mock_draft.assert_called_once_with(
+            "7275339077",
+            recipient="boss@example.com",
+            subject="Dự thảo",
+            body="Chi tiết dự thảo",
+            account_email=None,
+        )
 
 
 def test_handle_email_reply_success():
@@ -94,14 +113,26 @@ def test_handle_email_reply_success():
         )
         res = json.loads(res_raw)
         assert res["ok"] is True
-        mock_reply.assert_called_once_with("7275339077", thread_id="thread_abc123", body="Đồng ý với điều khoản", account_email=None)
+        mock_reply.assert_called_once_with(
+            "7275339077",
+            thread_id="thread_abc123",
+            body="Đồng ý với điều khoản",
+            account_email=None,
+        )
+
+
 def test_handle_email_search_with_account_email():
     caller = FakeCaller()
     registry = FakeRegistry(caller)
 
-    with patch("tools.composio.auth.check_connection_status", return_value=True), \
-         patch("tools.composio.mail_tools.composio_mail_search") as mock_search:
-        mock_search.return_value = {"status": "success", "data": {"messages": [{"id": "m1"}]}}
+    with (
+        patch("tools.composio.auth.check_connection_status", return_value=True),
+        patch("tools.composio.mail_tools.composio_mail_search") as mock_search,
+    ):
+        mock_search.return_value = {
+            "status": "success",
+            "data": {"messages": [{"id": "m1"}]},
+        }
         res_raw = handle_email_search(
             {"query": "in:inbox", "account_email": "baophuc1204vn@gmail.com"},
             client=object(),
@@ -121,8 +152,10 @@ def test_handle_email_search_auto_detects_account_email():
     caller = FakeCaller()
     registry = FakeRegistry(caller)
 
-    with patch("tools.composio.auth.check_connection_status", return_value=True), \
-         patch("tools.composio.mail_tools.composio_mail_search") as mock_search:
+    with (
+        patch("tools.composio.auth.check_connection_status", return_value=True),
+        patch("tools.composio.mail_tools.composio_mail_search") as mock_search,
+    ):
         mock_search.return_value = {"status": "success", "data": {"messages": []}}
         res_raw = handle_email_search(
             {"query": "in:inbox to:nguyenlam.baophuc@gmail.com"},
@@ -143,9 +176,14 @@ def test_handle_email_get_thread_success():
     caller = FakeCaller()
     registry = FakeRegistry(caller)
 
-    with patch("tools.composio.auth.check_connection_status", return_value=True), \
-         patch("tools.composio.mail_tools.composio_mail_get_thread") as mock_th:
-        mock_th.return_value = {"status": "success", "data": {"threadId": "th_123", "messages": []}}
+    with (
+        patch("tools.composio.auth.check_connection_status", return_value=True),
+        patch("tools.composio.mail_tools.composio_mail_get_thread") as mock_th,
+    ):
+        mock_th.return_value = {
+            "status": "success",
+            "data": {"threadId": "th_123", "messages": []},
+        }
         res_raw = handle_email_get_thread(
             {"thread_id": "th_123", "account_email": "baophuc1204vn@gmail.com"},
             client=object(),

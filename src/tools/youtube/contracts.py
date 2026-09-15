@@ -1,21 +1,18 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from enum import Enum
 import hashlib
 import json
-from typing import Any, Optional
-from uuid import uuid4
 
 
-class VideoPrivacyStatus(str, Enum):
+class VideoPrivacyStatus(str, Enum):  # noqa: UP042 -- preserve legacy Enum string behavior
     PRIVATE = "private"
     UNLISTED = "unlisted"
     PUBLIC = "public"
 
 
-class VideoDraftStatus(str, Enum):
+class VideoDraftStatus(str, Enum):  # noqa: UP042 -- preserve legacy Enum string behavior
     DRAFT = "draft"
     APPROVED = "approved"
     UPLOADED = "uploaded"
@@ -51,8 +48,8 @@ class VideoDraft:
     thumbnail_file_path: str
     created_at: str
     status: VideoDraftStatus = VideoDraftStatus.DRAFT
-    uploaded_video_id: Optional[str] = None
-    video_url: Optional[str] = None
+    uploaded_video_id: str | None = None
+    video_url: str | None = None
 
 
 @dataclass(frozen=True)
@@ -86,5 +83,7 @@ def compute_video_draft_idempotency_key(
         "title": title.strip().lower(),
         "video_file_path": video_file_path.strip(),
     }
-    encoded = json.dumps(payload, ensure_ascii=False, separators=(",", ":"), sort_keys=True).encode("utf-8")
+    encoded = json.dumps(
+        payload, ensure_ascii=False, separators=(",", ":"), sort_keys=True
+    ).encode("utf-8")
     return hashlib.sha256(encoded).hexdigest()

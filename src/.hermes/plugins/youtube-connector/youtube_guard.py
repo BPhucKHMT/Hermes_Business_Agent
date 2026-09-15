@@ -1,9 +1,9 @@
 from __future__ import annotations
 
+import contextlib
 from typing import Any
 
 from youtube_caller import CallerContextRegistry, DmOnlyError
-
 
 YOUTUBE_TOOL_NAMES = frozenset(
     {
@@ -32,10 +32,8 @@ class YouTubeToolsGuard:
         del gateway, kwargs
         if session_store is not None:
             self.registry.set_session_store(session_store)
-        try:
+        with contextlib.suppress(DmOnlyError):
             self.registry.capture(event)
-        except DmOnlyError:
-            pass
 
     def pre_tool_call(
         self,

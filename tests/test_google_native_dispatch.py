@@ -11,13 +11,24 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT / "src/.hermes/plugins/email-connector"))
 sys.path.insert(0, str(ROOT / "src/.hermes/plugins/calendar-connector"))
-from caller import CallerContextRegistry as MailRegistry
-from calendar_caller import CallerContextRegistry as CalendarRegistry
-from calendar_commands import handle_connect_calendar
-from commands import handle_connect_gmail
-from plugin_tools import handle_email_search
-from calendar_guard import CalendarToolsGuard
-
+from calendar_caller import (  # noqa: E402 -- imports follow plugin path bootstrap
+    CallerContextRegistry as CalendarRegistry,
+)
+from calendar_commands import (  # noqa: E402 -- imports follow plugin path bootstrap
+    handle_connect_calendar,
+)
+from calendar_guard import (  # noqa: E402 -- imports follow plugin path bootstrap
+    CalendarToolsGuard,
+)
+from caller import (  # noqa: E402 -- imports follow plugin path bootstrap
+    CallerContextRegistry as MailRegistry,
+)
+from commands import (  # noqa: E402 -- imports follow plugin path bootstrap
+    handle_connect_gmail,
+)
+from plugin_tools import (  # noqa: E402 -- imports follow plugin path bootstrap
+    handle_email_search,
+)
 
 OWNER_ID = "12345678-1234-4234-8234-123456789abc"
 
@@ -124,7 +135,9 @@ def test_calendar_confirm_approval_is_owner_and_content_scoped(owner_file):
         attendees=("guest@example.invalid",),
         status="draft",
     )
-    store = SimpleNamespace(get_draft=lambda draft_id: draft if draft_id == "draft-1" else None)
+    store = SimpleNamespace(
+        get_draft=lambda draft_id: draft if draft_id == "draft-1" else None
+    )
     client = SimpleNamespace(service=SimpleNamespace(store=store))
     guard = CalendarToolsGuard(
         registry=CalendarRegistry(local_owner_path=owner_file),

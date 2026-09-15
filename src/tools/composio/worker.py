@@ -33,10 +33,18 @@ PROVIDER_OPERATIONS = {
     "composio_calendar_patch_event": "calendar_tools",
     "composio_calendar_delete_event": "calendar_tools",
 }
-CALENDAR_OPERATIONS = frozenset({
-    "create_draft_event", "confirm_event", "get_draft", "status",
-    "list_events", "find_free_slots", "get_event",
-})
+CALENDAR_OPERATIONS = frozenset(
+    {
+        "create_draft_event",
+        "confirm_event",
+        "get_draft",
+        "status",
+        "list_events",
+        "find_free_slots",
+        "get_event",
+    }
+)
+
 
 def normalize_result(value: Any) -> Any:
     """Normalize domain return values to JSON-safe structures."""
@@ -110,10 +118,14 @@ def main():
             result = dispatch(request)
         response = {"ok": True, "result": result}
         status = 0
-    except Exception as exc:
-        response = {"ok": False, "error": {
-            "type": type(exc).__name__, "message": str(exc),
-        }}
+    except Exception as exc:  # noqa: BLE001 -- worker boundary serializes failures as JSON
+        response = {
+            "ok": False,
+            "error": {
+                "type": type(exc).__name__,
+                "message": str(exc),
+            },
+        }
         status = 1
     print(json.dumps(response, ensure_ascii=False, default=json_value))
     return status

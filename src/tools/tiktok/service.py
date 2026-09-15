@@ -1,25 +1,24 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import asdict
-from datetime import datetime, timezone
-from pathlib import Path
+from datetime import UTC, datetime
 import logging
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any
 from uuid import uuid4
 
-logger = logging.getLogger(__name__)
 from tools.tiktok.contracts import (
-    TikTokCreatorInfo,
     TikTokPostDraft,
     TikTokPostDraftStatus,
     TikTokPostResult,
     TikTokPrivacyLevel,
-    TikTokPublishStatus,
     compute_tiktok_draft_idempotency_key,
 )
-from tools.tiktok.policy import TikTokPolicy, load_tiktok_policy
+from tools.tiktok.policy import TikTokPolicy
 from tools.tiktok.store import TikTokStore
 from tools.tiktok.tiktok_client import TikTokClient
+
+logger = logging.getLogger(__name__)
 
 
 class TikTokService:
@@ -28,28 +27,36 @@ class TikTokService:
         policy: TikTokPolicy,
         store: TikTokStore,
         tiktok_client: TikTokClient,
-        token_resolver: Optional[Callable[[str], Dict[str, Any]]] = None,
+        token_resolver: Callable[[str], dict[str, Any]] | None = None,
     ) -> None:
         self.policy = policy
         self.store = store
         self.tiktok_client = tiktok_client
         self.token_resolver = token_resolver or self._default_token_resolver
 
-    def _default_token_resolver(self, principal_id: str) -> Dict[str, Any]:
+    def _default_token_resolver(self, principal_id: str) -> dict[str, Any]:
         conn = self.store.get_connection(principal_id)
         if not conn:
             return {"mock_mode": True}
         return {"access_token": "mock_tt_token", "mock_mode": True}
 
-    def get_creator_status(self, caller: Any) -> Dict[str, Any]:
+    def get_creator_status(self, caller: Any) -> dict[str, Any]:
         token_data = self.token_resolver(caller.principal_id)
         info = self.tiktok_client.get_creator_info(token_data)
-        self.store.upsert_connection(caller.principal_id, info.open_id, info.creator_nickname, info.creator_username)
+        self.store.upsert_connection(
+            caller.principal_id,
+            info.open_id,
+            info.creator_nickname,
+            info.creator_username,
+        )
         self.store.record_audit(
             principal_id=caller.principal_id,
             action="get_creator_status",
             target_id=info.open_id,
-            details={"username": info.creator_username, "nickname": info.creator_nickname},
+            details={
+                "username": info.creator_username,
+                "nickname": info.creator_nickname,
+            },
         )
         return {"ok": True, "result": asdict(info)}
 
@@ -88,7 +95,7 @@ class TikTokService:
             disable_duet=disable_duet,
             disable_stitch=disable_stitch,
             brand_content_toggle=brand_content_toggle,
-            created_at=datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+            created_at=datetime.now(UTC).isoformat().replace("+00:00", "Z"),
             status=TikTokPostDraftStatus.DRAFT,
         )
 
@@ -101,7 +108,7 @@ class TikTokService:
         )
         return persisted
 
-    def publish_draft_post(self, caller: Any, draft_id: str) -> Dict[str, Any]:
+    def publish_draft_post(self, caller: Any, draft_id: str) -> dict[str, Any]:
         draft = self.store.get_draft(draft_id)
         if not draft:
             raise KeyError("tiktok_draft_not_found")
@@ -113,7 +120,9 @@ class TikTokService:
             raise ValueError(f"cannot_publish_draft_in_status_{draft.status.value}")
 
         token_data = self.token_resolver(caller.principal_id)
-        publish_id = self.tiktok_client.init_video_publish(token_data=token_data, draft=draft)
+        publish_id = self.tiktok_client.init_video_publish(
+            token_data=token_data, draft=draft
+        )
 
         self.store.transition_draft_status(
             draft_id=draft_id,
@@ -132,7 +141,9 @@ class TikTokService:
 
     def get_post_status(self, caller: Any, publish_id: str) -> TikTokPostResult:
         token_data = self.token_resolver(caller.principal_id)
-        result = self.tiktok_client.fetch_publish_status(token_data=token_data, publish_id=publish_id)
+        result = self.tiktok_client.fetch_publish_status(
+            token_data=token_data, publish_id=publish_id
+        )
         self.store.record_audit(
             principal_id=caller.principal_id,
             action="get_post_status",

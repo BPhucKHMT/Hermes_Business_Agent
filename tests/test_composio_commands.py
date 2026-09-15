@@ -1,22 +1,27 @@
-import pytest
 from unittest.mock import patch
 
 from src.tools.composio.commands import (
     handle_connect_google,
-    handle_google_status,
     handle_disconnect_google,
+    handle_google_status,
 )
 
 
 def test_handle_connect_google():
-    with patch("src.tools.composio.commands.initiate_google_connection", return_value="https://connect.composio.dev/link_123"):
+    with patch(
+        "src.tools.composio.commands.initiate_google_connection",
+        return_value="https://connect.composio.dev/link_123",
+    ):
         msg = handle_connect_google(7275339077)
         assert "https://connect.composio.dev/link_123" in msg
         assert "Google" in msg or "Gmail" in msg
 
 
 def test_handle_google_status_connected():
-    with patch("src.tools.composio.commands.list_user_connections", return_value=[{"id": "ca_1", "toolkit": "gmail", "status": "ACTIVE"}]):
+    with patch(
+        "src.tools.composio.commands.list_user_connections",
+        return_value=[{"id": "ca_1", "toolkit": "gmail", "status": "ACTIVE"}],
+    ):
         msg = handle_google_status(7275339077)
         assert "đã kết nối" in msg.lower() or "active" in msg.lower()
 
@@ -27,13 +32,33 @@ def test_handle_google_status_disconnected():
         assert "chưa kết nối" in msg.lower() or "not connected" in msg.lower()
         assert "/connect-google" in msg
 
+
 def test_handle_disconnect_google():
-    with patch("src.tools.composio.commands.list_user_connections", return_value=[{"id": "ca_1", "email": "test@gmail.com"}]), \
-         patch("src.tools.composio.commands.disconnect_user", return_value=(True, ["test@gmail.com"])):
+    with (
+        patch(
+            "src.tools.composio.commands.list_user_connections",
+            return_value=[{"id": "ca_1", "email": "test@gmail.com"}],
+        ),
+        patch(
+            "src.tools.composio.commands.disconnect_user",
+            return_value=(True, ["test@gmail.com"]),
+        ),
+    ):
         msg = handle_disconnect_google(7275339077, target="all")
-        assert "hủy kết nối" in msg.lower() or "ngắt kết nối" in msg.lower() or "thành công" in msg.lower()
+        assert (
+            "hủy kết nối" in msg.lower()
+            or "ngắt kết nối" in msg.lower()
+            or "thành công" in msg.lower()
+        )
+
 
 def test_handle_disconnect_google_menu_multiple_accounts():
-    with patch("src.tools.composio.commands.list_user_connections", return_value=[{"id": "ca_1", "email": "a@gmail.com"}, {"id": "ca_2", "email": "b@gmail.com"}]):
+    with patch(
+        "src.tools.composio.commands.list_user_connections",
+        return_value=[
+            {"id": "ca_1", "email": "a@gmail.com"},
+            {"id": "ca_2", "email": "b@gmail.com"},
+        ],
+    ):
         msg = handle_disconnect_google(7275339077, target="")
         assert "vui lòng chọn" in msg.lower() or "/disconnect-google 1" in msg

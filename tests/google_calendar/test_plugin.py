@@ -27,6 +27,7 @@ def load_module(name: str, path: Path):
 plugin_tools = load_module("calendar_plugin_tools", PLUGIN / "calendar_plugin_tools.py")
 plugin_module = load_module("calendar_plugin", PLUGIN / "__init__.py")
 
+
 class FakeContext:
     def __init__(self) -> None:
         self.tools = {}
@@ -59,7 +60,10 @@ class FakeClient:
         return {"ok": True, "result": {"events": [{"summary": "Test Meeting"}]}}
 
     def find_free_slots(self, caller, **kwargs):
-        return {"ok": True, "result": {"slots": [{"start_time": "2026-09-01T09:00:00Z"}]}}
+        return {
+            "ok": True,
+            "result": {"slots": [{"start_time": "2026-09-01T09:00:00Z"}]},
+        }
 
     def create_draft_event(self, caller, **kwargs):
         return {"ok": True, "result": {"draft": {"draft_id": "drf-test-1"}}}
@@ -118,6 +122,8 @@ def test_calendar_handler_success() -> None:
     res = json.loads(raw)
     assert res["ok"] is True
     assert len(res["result"]["events"]) == 1
+
+
 def test_calendar_get_event_handler(monkeypatch) -> None:
     caller = SimpleNamespace(principal_id="telegram:default:12345", user_id=12345)
     registry = FakeRegistry(caller=caller)
@@ -153,7 +159,10 @@ def test_calendar_create_event_handler(monkeypatch) -> None:
             lambda user_id, **kwargs: {
                 "status": "success",
                 "active_account": "baophuc1204vn@gmail.com",
-                "data": {"id": "ev-created-1", "htmlLink": "https://calendar.google.com/evt1"},
+                "data": {
+                    "id": "ev-created-1",
+                    "htmlLink": "https://calendar.google.com/evt1",
+                },
             },
         )
         raw = plugin_tools.handle_calendar_create_event(
@@ -183,7 +192,10 @@ def test_calendar_update_event_handler(monkeypatch) -> None:
             lambda user_id, **kwargs: {
                 "status": "success",
                 "active_account": "baophuc1204vn@gmail.com",
-                "data": {"id": kwargs["event_id"], "start": {"dateTime": kwargs["start_time"]}},
+                "data": {
+                    "id": kwargs["event_id"],
+                    "start": {"dateTime": kwargs["start_time"]},
+                },
             },
         )
         raw = plugin_tools.handle_calendar_update_event(

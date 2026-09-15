@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import base64
-import json
-import re
 from dataclasses import dataclass
 from hashlib import sha256
+import json
 from pathlib import Path
+import re
 from time import time
 from urllib.parse import urlsplit
 
@@ -21,13 +21,19 @@ class BrowserArtifact:
 
 
 def _field(value, name: str, default=None):
-    return value.get(name, default) if isinstance(value, dict) else getattr(value, name, default)
+    return (
+        value.get(name, default)
+        if isinstance(value, dict)
+        else getattr(value, name, default)
+    )
 
 
 def _markdown(result) -> tuple[str, str]:
     value = _field(result, "markdown")
     fit = str(_field(value, "fit_markdown", "") or "").strip()
-    raw = str(_field(value, "raw_markdown", value if isinstance(value, str) else "") or "").strip()
+    raw = str(
+        _field(value, "raw_markdown", value if isinstance(value, str) else "") or ""
+    ).strip()
     selected = fit or raw
     if not selected:
         raise ValueError("Crawl4AI returned no meaningful content")
@@ -96,10 +102,16 @@ def map_crawl_result(
     require_screenshot: bool = True,
 ) -> BrowserArtifact:
     if not _field(result, "success", False):
-        raise RuntimeError(str(_field(result, "error_message", "Crawl4AI crawl failed")))
+        raise RuntimeError(
+            str(_field(result, "error_message", "Crawl4AI crawl failed"))
+        )
 
     def validator(value: str) -> str:
-        return validate_public_target(value, resolver) if resolver else validate_public_target(value)
+        return (
+            validate_public_target(value, resolver)
+            if resolver
+            else validate_public_target(value)
+        )
 
     requested = validator(requested_url)
     final = validator(str(_field(result, "url", requested)))
@@ -114,7 +126,9 @@ def map_crawl_result(
     disclosure_pairs = _normalize_disclosures(disclosures)
     asset_records = list(assets or [])
     if disclosure_pairs:
-        expanded = "\n\n".join(f"### {item['question']}\n{item['answer']}" for item in disclosure_pairs)
+        expanded = "\n\n".join(
+            f"### {item['question']}\n{item['answer']}" for item in disclosure_pairs
+        )
         rendered += "\n\n## Expanded disclosure content\n\n" + expanded
 
     canonical = _canonical_url(html, final, origin, validator)
@@ -131,8 +145,15 @@ def map_crawl_result(
     markdown_path.write_text(rendered, encoding="utf-8")
     html_path.write_text(html, encoding="utf-8")
 
-    asset_manifest = json.dumps(asset_records, ensure_ascii=False, sort_keys=True).encode("utf-8")
-    digest = sha256(html.encode("utf-8") + rendered.encode("utf-8") + screenshot_bytes + asset_manifest).hexdigest()
+    asset_manifest = json.dumps(
+        asset_records, ensure_ascii=False, sort_keys=True
+    ).encode("utf-8")
+    digest = sha256(
+        html.encode("utf-8")
+        + rendered.encode("utf-8")
+        + screenshot_bytes
+        + asset_manifest
+    ).hexdigest()
     artifact = {
         "schema_version": 1,
         "executor": "hermes-crawl4ai",
@@ -145,7 +166,9 @@ def map_crawl_result(
         "assets": asset_records,
     }
     artifact_path = artifact_dir / f"{event_id}.artifact.json"
-    artifact_path.write_text(json.dumps(artifact, ensure_ascii=False, indent=2), encoding="utf-8")
+    artifact_path.write_text(
+        json.dumps(artifact, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
 
     started = time()
     finished = max(time(), started + 0.000001)
@@ -160,7 +183,9 @@ def map_crawl_result(
         "started_at": started,
         "finished_at": finished,
         "download_bytes": len(html.encode("utf-8")) + len(rendered.encode("utf-8")),
-        "content_asset_bytes": sum(int(item.get("byte_count", 0)) for item in asset_records),
+        "content_asset_bytes": sum(
+            int(item.get("byte_count", 0)) for item in asset_records
+        ),
         "screenshot_bytes": len(screenshot_bytes),
         "semantic_fingerprint": sha256(semantic).hexdigest(),
         "links": links,
@@ -172,7 +197,9 @@ def map_crawl_result(
     page = {
         "event_id": event_id,
         "canonical_url": canonical,
-        "title": re.sub(r"\s+", " ", title_match.group(1)).strip() if title_match else canonical,
+        "title": re.sub(r"\s+", " ", title_match.group(1)).strip()
+        if title_match
+        else canonical,
         "rendered_text": rendered,
         "semantic_structure": [],
         "minimal_html": html,

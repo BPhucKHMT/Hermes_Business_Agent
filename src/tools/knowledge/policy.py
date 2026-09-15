@@ -1,10 +1,10 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 import json
 from pathlib import Path
 from types import MappingProxyType
-from typing import Mapping
 
 REQUIRED_BUDGET_KEYS = {
     "wall_clock_seconds",
@@ -50,7 +50,11 @@ class WebsitePolicy:
 
 def load_website_policy(path: Path) -> WebsitePolicy:
     value = json.loads(path.read_text(encoding="utf-8-sig"))
-    if not isinstance(value, dict) or set(value) != {"schema_version", "crawl_budget", "capture"}:
+    if not isinstance(value, dict) or set(value) != {
+        "schema_version",
+        "crawl_budget",
+        "capture",
+    }:
         raise ValueError("website policy contains unknown or missing keys")
     if value["schema_version"] != 1:
         raise ValueError("unsupported website policy schema")
@@ -58,7 +62,9 @@ def load_website_policy(path: Path) -> WebsitePolicy:
     budget = value["crawl_budget"]
     if not isinstance(budget, dict) or set(budget) != REQUIRED_BUDGET_KEYS:
         raise ValueError("crawl budget contains unknown or missing keys")
-    if any(type(budget[key]) is not int or budget[key] <= 0 for key in REQUIRED_BUDGET_KEYS):
+    if any(
+        type(budget[key]) is not int or budget[key] <= 0 for key in REQUIRED_BUDGET_KEYS
+    ):
         raise ValueError("crawl budget values must be positive integers")
 
     capture = value["capture"]

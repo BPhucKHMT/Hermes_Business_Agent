@@ -112,21 +112,27 @@ def register(ctx: Any) -> CalendarToolsGuard:
         name="calendar_find_free_slots",
         toolset="calendar_connector",
         schema=CALENDAR_FIND_FREE_SLOTS_SCHEMA,
-        handler=partial(handle_calendar_find_free_slots, client=client, registry=registry),
+        handler=partial(
+            handle_calendar_find_free_slots, client=client, registry=registry
+        ),
         description="Find available meeting slots within working hours.",
     )
     ctx.register_tool(
         name="calendar_create_draft_event",
         toolset="calendar_connector",
         schema=CALENDAR_CREATE_DRAFT_EVENT_SCHEMA,
-        handler=partial(handle_calendar_create_draft_event, client=client, registry=registry),
+        handler=partial(
+            handle_calendar_create_draft_event, client=client, registry=registry
+        ),
         description="Stage a new calendar event draft (Tier 2).",
     )
     ctx.register_tool(
         name="calendar_confirm_event",
         toolset="calendar_connector",
         schema=CALENDAR_CONFIRM_EVENT_SCHEMA,
-        handler=partial(handle_calendar_confirm_event, client=client, registry=registry),
+        handler=partial(
+            handle_calendar_confirm_event, client=client, registry=registry
+        ),
         description="Commit a previously staged event draft to Google Calendar.",
     )
     ctx.register_tool(
@@ -171,7 +177,12 @@ def register(ctx: Any) -> CalendarToolsGuard:
             partial(handle_connect_calendar, client=client, registry=registry),
             description="Connect a Google Calendar account",
         )
-    for cmd in ("calendar_status", "calendar-status", "status_calendar", "status-calendar"):
+    for cmd in (
+        "calendar_status",
+        "calendar-status",
+        "status_calendar",
+        "status-calendar",
+    ):
         ctx.register_command(
             cmd,
             partial(handle_calendar_status_cmd, client=client, registry=registry),

@@ -1,6 +1,7 @@
-import tools
 import os
 from pathlib import Path
+
+import tools
 
 candidates = [
     Path(os.environ.get("LOCALAPPDATA", "")) / "hermes" / "hermes-agent",

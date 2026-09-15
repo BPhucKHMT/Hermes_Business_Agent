@@ -1,7 +1,7 @@
 import importlib.util
 import os
-import sys
 from pathlib import Path
+import sys
 
 ROOT = Path(__file__).resolve().parents[2]
 SRC = ROOT / "src"
@@ -21,7 +21,7 @@ sys.path.insert(0, str(PLUGIN))
 sys.path.insert(0, str(SRC))
 sys.path.insert(0, str(UPSTREAM))
 
-import tools
+import tools  # noqa: E402 -- imports follow plugin path bootstrap
 
 if str(SRC / "tools") not in tools.__path__:
     tools.__path__.insert(0, str(SRC / "tools"))

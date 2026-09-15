@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import asyncio
-import uuid
 from pathlib import Path
 from time import time
 from urllib.parse import urlsplit
+import uuid
 
 from browser_executor import Crawl4AISession
 from web import accept_observation, finalize_session, start_session, validate_capture
@@ -21,14 +21,16 @@ _UTILITY_SEGMENTS = {
 }
 
 
-def prioritize_links(requested_url: str, links: tuple[str, ...] | list[str]) -> list[str]:
+def prioritize_links(
+    requested_url: str, links: tuple[str, ...] | list[str]
+) -> list[str]:
     requested_parts = [part for part in urlsplit(requested_url).path.split("/") if part]
     parent = requested_parts[:-1]
 
     def score(item: str) -> tuple[int, bool]:
         parts = [part.lower() for part in urlsplit(item).path.split("/") if part]
         shared = 0
-        for left, right in zip(parent, parts):
+        for left, right in zip(parent, parts, strict=False):
             if left.lower() != right:
                 break
             shared += 1
@@ -87,7 +89,10 @@ async def _trusted_crawl(
                     if candidate not in seen and candidate not in frontier:
                         frontier.append(candidate)
 
-            if session["no_progress_count"] >= policy.crawl_budget.consecutive_no_progress:
+            if (
+                session["no_progress_count"]
+                >= policy.crawl_budget.consecutive_no_progress
+            ):
                 break
 
     stop = "frontier_exhausted" if not frontier else "novelty_converged"
@@ -118,4 +123,6 @@ def trusted_crawl(
     resolver=None,
     allow_private: bool = False,
 ) -> dict:
-    return asyncio.run(_trusted_crawl(root_url, policy, runtime_root, scope, resolver, allow_private))
+    return asyncio.run(
+        _trusted_crawl(root_url, policy, runtime_root, scope, resolver, allow_private)
+    )

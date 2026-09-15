@@ -1,7 +1,5 @@
 """Google connection command handlers."""
 
-from typing import Dict, Union
-
 from .auth import (
     disconnect_user,
     initiate_google_connection,
@@ -9,7 +7,7 @@ from .auth import (
 )
 
 
-def handle_connect_google(telegram_user_id: Union[int, str]) -> str:
+def handle_connect_google(telegram_user_id: int | str) -> str:
     """Generate response containing a single all-in-one Google Workspace authorization link (Gmail, Calendar, Drive)."""
     try:
         url_super = initiate_google_connection(telegram_user_id, toolkit="googlesuper")
@@ -20,11 +18,11 @@ def handle_connect_google(telegram_user_id: Union[int, str]) -> str:
             "💡 *Chỉ cần đăng nhập 1 lần duy nhất, tài khoản của bạn sẽ được kích hoạt đồng thời "
             "cả Gmail (đọc, gửi, soạn nháp) và Google Calendar (tra cứu, lên lịch họp)!*"
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 -- command boundary renders user-facing error text
         return f"❌ Lỗi khi tạo link liên kết tài khoản: {str(exc)}"
 
 
-def handle_connect_calendar(telegram_user_id: Union[int, str]) -> str:
+def handle_connect_calendar(telegram_user_id: int | str) -> str:
     """Generate response containing the magic authorization link specifically for Google Calendar."""
     try:
         url_cal = initiate_google_connection(telegram_user_id, toolkit="googlecalendar")
@@ -35,17 +33,17 @@ def handle_connect_calendar(telegram_user_id: Union[int, str]) -> str:
             "💡 *Sau khi đăng nhập tài khoản Google bạn muốn dùng cho Calendar, "
             "Hermes sẽ tự động kích hoạt tính năng tra cứu và quản lý lịch trình cho riêng bạn!*"
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 -- command boundary renders user-facing error text
         return f"❌ Lỗi khi tạo link liên kết Calendar: {str(exc)}"
 
 
-def handle_google_status(telegram_user_id: Union[int, str]) -> str:
+def handle_google_status(telegram_user_id: int | str) -> str:
     """Report the current Google connection status for the user with all connected emails."""
     connections = list_user_connections(telegram_user_id)
 
     if connections:
         # Group accounts by email
-        email_map: Dict[str, list[str]] = {}
+        email_map: dict[str, list[str]] = {}
         for conn in connections:
             em = conn.get("email") or "Chưa xác định địa chỉ"
             cid = conn.get("id", "")
@@ -53,19 +51,21 @@ def handle_google_status(telegram_user_id: Union[int, str]) -> str:
 
         lines = [
             f"✅ **Trạng thái Tài khoản Google:** ĐÃ KẾT NỐI ({len(email_map)} hòm thư)\n",
-            "📧 **Danh sách các tài khoản Email đã liên kết:**"
+            "📧 **Danh sách các tài khoản Email đã liên kết:**",
         ]
         for idx, (em, cids) in enumerate(email_map.items(), 1):
             cids_str = ", ".join(f"`{c}`" for c in cids)
             lines.append(f"  {idx}. **`{em}`** (Phiên: {cids_str})")
 
-        lines.extend([
-            "\n📋 **Dịch vụ đang hoạt động:**",
-            "  • **Gmail:** Sẵn sàng đọc, gửi và soạn nháp thư.",
-            "  • **Google Calendar:** Sẵn sàng tra cứu và lên lịch họp.",
-            f"\n*(Tổng số phiên kết nối: {len(connections)})*",
-            "\n💡 *Bạn có thể ngắt kết nối bất kỳ lúc nào bằng lệnh `/disconnect-google`.*"
-        ])
+        lines.extend(
+            [
+                "\n📋 **Dịch vụ đang hoạt động:**",
+                "  • **Gmail:** Sẵn sàng đọc, gửi và soạn nháp thư.",
+                "  • **Google Calendar:** Sẵn sàng tra cứu và lên lịch họp.",
+                f"\n*(Tổng số phiên kết nối: {len(connections)})*",
+                "\n💡 *Bạn có thể ngắt kết nối bất kỳ lúc nào bằng lệnh `/disconnect-google`.*",
+            ]
+        )
         return "\n".join(lines)
     return (
         "⚠️ **Trạng thái Tài khoản Google:** CHƯA KẾT NỐI (DISCONNECTED)\n\n"
@@ -75,7 +75,7 @@ def handle_google_status(telegram_user_id: Union[int, str]) -> str:
 
 
 def handle_disconnect_google(
-    telegram_user_id: Union[int, str],
+    telegram_user_id: int | str,
     target: str = "",
 ) -> str:
     """Disconnect and revoke Google access for the user with interactive selection menu."""
@@ -95,15 +95,16 @@ def handle_disconnect_google(
             tk = conn.get("toolkit") or "Workspace"
             cid = conn.get("id", "")
             lines.append(f"  {idx}. **{lbl}** ({tk} - Mã: `{cid}`)")
-        lines.extend([
-            "\n👉 **Vui lòng chọn tài khoản bạn muốn ngắt kết nối:**",
-            "• Gõ: `/disconnect-google 1` để gỡ tài khoản số 1",
-            "• Hoặc gõ: `/disconnect-google <địa_chỉ_email>` để gỡ email đó",
-            "\n👉 **Nếu muốn ngắt kết nối TẤT CẢ các tài khoản cùng lúc:**",
-            "• Gõ: `/disconnect-google all`"
-        ])
+        lines.extend(
+            [
+                "\n👉 **Vui lòng chọn tài khoản bạn muốn ngắt kết nối:**",
+                "• Gõ: `/disconnect-google 1` để gỡ tài khoản số 1",
+                "• Hoặc gõ: `/disconnect-google <địa_chỉ_email>` để gỡ email đó",
+                "\n👉 **Nếu muốn ngắt kết nối TẤT CẢ các tài khoản cùng lúc:**",
+                "• Gõ: `/disconnect-google all`",
+            ]
+        )
         return "\n".join(lines)
-
 
     try:
         success, disconnected = disconnect_user(
@@ -115,7 +116,11 @@ def handle_disconnect_google(
             return "❌ Lỗi khi ngắt kết nối tài khoản. Vui lòng thử lại sau."
 
         if target_clean and target_clean != "all":
-            disc_label = ", ".join(f"`{d}`" for d in disconnected) if disconnected else f"`{target.strip()}`"
+            disc_label = (
+                ", ".join(f"`{d}`" for d in disconnected)
+                if disconnected
+                else f"`{target.strip()}`"
+            )
             remaining = [
                 c.get("email") or c.get("id")
                 for c in connections
@@ -123,9 +128,12 @@ def handle_disconnect_google(
             ]
             rem_msg = (
                 f"\n💡 *Tài khoản còn lại:* {', '.join(f'`{r}`' for r in remaining)} vẫn đang hoạt động bình thường."
-                if remaining else "\n💡 *Bạn đã ngắt kết nối hết toàn bộ tài khoản Google.*"
+                if remaining
+                else "\n💡 *Bạn đã ngắt kết nối hết toàn bộ tài khoản Google.*"
             )
-            return f"🔒 **Đã ngắt kết nối thành công tài khoản:** {disc_label}\n{rem_msg}"
+            return (
+                f"🔒 **Đã ngắt kết nối thành công tài khoản:** {disc_label}\n{rem_msg}"
+            )
 
         return (
             "🔒 **Đã ngắt kết nối TOÀN BỘ tài khoản Google thành công!**\n\n"
@@ -134,5 +142,5 @@ def handle_disconnect_google(
         )
     except ValueError as exc:
         return f"❌ Tài khoản Google không hợp lệ: {exc}"
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 -- command boundary renders user-facing error text
         return f"❌ Lỗi khi ngắt kết nối tài khoản: {str(exc)}"

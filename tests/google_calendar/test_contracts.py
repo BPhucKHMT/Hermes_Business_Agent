@@ -1,13 +1,7 @@
-from datetime import datetime, timezone
-import pytest
-
 from tools.calendar.contracts import (
-    CalendarConnection,
-    CalendarConnectionStatus,
     CalendarEvent,
     EventDraft,
     EventDraftStatus,
-    FreeSlot,
     compute_draft_idempotency_key,
 )
 
@@ -80,5 +74,7 @@ def test_account_target_is_part_of_draft_idempotency() -> None:
         **common,
         account_email=" Alpha@example.invalid ",
     )
-    bravo = compute_draft_idempotency_key(**common, account_email="bravo@example.invalid")
+    bravo = compute_draft_idempotency_key(
+        **common, account_email="bravo@example.invalid"
+    )
     assert alpha != bravo

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 from urllib.error import HTTPError
 import urllib.parse
 import urllib.request
@@ -20,7 +20,7 @@ class TikTokClient:
     def __init__(self, http_client: Any = None) -> None:
         self.http_client = http_client
 
-    def _get_headers(self, token_data: Dict[str, Any]) -> Dict[str, str]:
+    def _get_headers(self, token_data: dict[str, Any]) -> dict[str, str]:
         token = token_data.get("access_token", "")
         if not token and not token_data.get("mock_mode"):
             raise ValueError("missing_access_token")
@@ -29,19 +29,28 @@ class TikTokClient:
             "Content-Type": "application/json; charset=UTF-8",
         }
 
-    def get_creator_info(self, token_data: Dict[str, Any]) -> TikTokCreatorInfo:
+    def get_creator_info(self, token_data: dict[str, Any]) -> TikTokCreatorInfo:
         if token_data.get("mock_mode") or "mock_creator" in token_data:
             mock = token_data.get("mock_creator", {})
             return TikTokCreatorInfo(
                 open_id=mock.get("open_id", "open-id-tiktok-123"),
                 creator_nickname=mock.get("creator_nickname", "TITAN AI Shorts"),
                 creator_username=mock.get("creator_username", "titan_ai_shorts"),
-                creator_avatar_url=mock.get("creator_avatar_url", "https://p16-tiktokcdn.com/avatar.jpg"),
-                privacy_level_options=tuple(mock.get("privacy_level_options", ("PUBLIC_TO_EVERYONE", "MUTUAL_FOLLOW_FRIENDS", "SELF_ONLY"))),
+                creator_avatar_url=mock.get(
+                    "creator_avatar_url", "https://p16-tiktokcdn.com/avatar.jpg"
+                ),
+                privacy_level_options=tuple(
+                    mock.get(
+                        "privacy_level_options",
+                        ("PUBLIC_TO_EVERYONE", "MUTUAL_FOLLOW_FRIENDS", "SELF_ONLY"),
+                    )
+                ),
                 comment_disabled=mock.get("comment_disabled", False),
                 duet_disabled=mock.get("duet_disabled", False),
                 stitch_disabled=mock.get("stitch_disabled", False),
-                max_video_post_duration_sec=int(mock.get("max_video_post_duration_sec", 600)),
+                max_video_post_duration_sec=int(
+                    mock.get("max_video_post_duration_sec", 600)
+                ),
                 status="connected",
             )
 
@@ -51,7 +60,9 @@ class TikTokClient:
         if self.http_client is not None:
             res_data = self.http_client.post(url, headers=headers, body=b"{}")
         else:
-            req = urllib.request.Request(url, data=b"{}", headers=headers, method="POST")
+            req = urllib.request.Request(
+                url, data=b"{}", headers=headers, method="POST"
+            )
             try:
                 with urllib.request.urlopen(req, timeout=15) as resp:
                     res_data = json.loads(resp.read().decode("utf-8"))
@@ -72,11 +83,15 @@ class TikTokClient:
             comment_disabled=bool(data.get("comment_disabled", False)),
             duet_disabled=bool(data.get("duet_disabled", False)),
             stitch_disabled=bool(data.get("stitch_disabled", False)),
-            max_video_post_duration_sec=int(data.get("max_video_post_duration_sec", 600)),
+            max_video_post_duration_sec=int(
+                data.get("max_video_post_duration_sec", 600)
+            ),
             status="connected",
         )
 
-    def init_video_publish(self, token_data: Dict[str, Any], draft: TikTokPostDraft) -> str:
+    def init_video_publish(
+        self, token_data: dict[str, Any], draft: TikTokPostDraft
+    ) -> str:
         if token_data.get("mock_mode") or "mock_mode" in token_data:
             return f"pub-tt-{uuid4().hex[:16]}"
 
@@ -95,8 +110,12 @@ class TikTokClient:
             },
             "source_info": {
                 "source": "FILE_UPLOAD",
-                "video_size": Path(draft.video_file_path).stat().st_size if Path(draft.video_file_path).is_file() else 10000,
-                "chunk_size": Path(draft.video_file_path).stat().st_size if Path(draft.video_file_path).is_file() else 10000,
+                "video_size": Path(draft.video_file_path).stat().st_size
+                if Path(draft.video_file_path).is_file()
+                else 10000,
+                "chunk_size": Path(draft.video_file_path).stat().st_size
+                if Path(draft.video_file_path).is_file()
+                else 10000,
                 "total_chunk_count": 1,
             },
         }
@@ -106,7 +125,9 @@ class TikTokClient:
         if self.http_client is not None:
             res_data = self.http_client.post(url, headers=headers, body=body_bytes)
         else:
-            req = urllib.request.Request(url, data=body_bytes, headers=headers, method="POST")
+            req = urllib.request.Request(
+                url, data=body_bytes, headers=headers, method="POST"
+            )
             try:
                 with urllib.request.urlopen(req, timeout=15) as resp:
                     res_data = json.loads(resp.read().decode("utf-8"))
@@ -118,7 +139,9 @@ class TikTokClient:
             raise RuntimeError("tiktok_missing_publish_id_in_response")
         return str(publish_id)
 
-    def fetch_publish_status(self, token_data: Dict[str, Any], publish_id: str) -> TikTokPostResult:
+    def fetch_publish_status(
+        self, token_data: dict[str, Any], publish_id: str
+    ) -> TikTokPostResult:
         if token_data.get("mock_mode") or "mock_mode" in token_data:
             return TikTokPostResult(
                 publish_id=publish_id,
@@ -135,7 +158,9 @@ class TikTokClient:
         if self.http_client is not None:
             res_data = self.http_client.post(url, headers=headers, body=body_bytes)
         else:
-            req = urllib.request.Request(url, data=body_bytes, headers=headers, method="POST")
+            req = urllib.request.Request(
+                url, data=body_bytes, headers=headers, method="POST"
+            )
             try:
                 with urllib.request.urlopen(req, timeout=15) as resp:
                     res_data = json.loads(resp.read().decode("utf-8"))

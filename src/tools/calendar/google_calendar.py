@@ -1,12 +1,10 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
 import json
-from typing import Any, Dict, List, Optional
+from typing import Any
 from urllib.error import HTTPError
 import urllib.parse
 import urllib.request
-from uuid import uuid4
 
 from tools.calendar.contracts import CalendarEvent, EventDraft
 
@@ -15,7 +13,7 @@ class GoogleCalendarClient:
     def __init__(self, http_client: Any = None) -> None:
         self.http_client = http_client
 
-    def _get_headers(self, token_data: Dict[str, Any]) -> Dict[str, str]:
+    def _get_headers(self, token_data: dict[str, Any]) -> dict[str, str]:
         token = token_data.get("access_token", "")
         if not token:
             raise ValueError("missing_access_token")
@@ -24,9 +22,14 @@ class GoogleCalendarClient:
             "Accept": "application/json",
             "Content-Type": "application/json",
         }
+
     def _request_json(
-        self, token_data: Dict[str, Any], url: str, method: str = "GET", body_bytes: Optional[bytes] = None
-    ) -> Dict[str, Any]:
+        self,
+        token_data: dict[str, Any],
+        url: str,
+        method: str = "GET",
+        body_bytes: bytes | None = None,
+    ) -> dict[str, Any]:
         headers = self._get_headers(token_data)
         if self.http_client is not None:
             if method == "GET":
@@ -37,7 +40,9 @@ class GoogleCalendarClient:
                 return self.http_client.delete(url, headers=headers)
             return self.http_client.get(url, headers=headers)
 
-        req = urllib.request.Request(url, data=body_bytes, headers=headers, method=method)
+        req = urllib.request.Request(
+            url, data=body_bytes, headers=headers, method=method
+        )
         try:
             with urllib.request.urlopen(req, timeout=15) as resp:
                 if method == "DELETE":
@@ -45,14 +50,15 @@ class GoogleCalendarClient:
                 return json.loads(resp.read().decode("utf-8"))
         except HTTPError as err:
             raise RuntimeError(f"google_calendar_api_error_{err.code}") from err
+
     def list_events(
         self,
-        token_data: Dict[str, Any],
+        token_data: dict[str, Any],
         calendar_id: str = "primary",
-        time_min: Optional[str] = None,
-        time_max: Optional[str] = None,
+        time_min: str | None = None,
+        time_max: str | None = None,
         max_results: int = 50,
-    ) -> List[CalendarEvent]:
+    ) -> list[CalendarEvent]:
         if "mock_events" in token_data:
             mock_list = token_data.get("mock_events", [])
             return [self._item_to_event(calendar_id, item) for item in mock_list]
@@ -74,7 +80,7 @@ class GoogleCalendarClient:
 
     def get_event(
         self,
-        token_data: Dict[str, Any],
+        token_data: dict[str, Any],
         calendar_id: str,
         event_id: str,
     ) -> CalendarEvent:
@@ -92,15 +98,14 @@ class GoogleCalendarClient:
 
     def create_event(
         self,
-        token_data: Dict[str, Any],
+        token_data: dict[str, Any],
         calendar_id: str,
         draft: EventDraft,
     ) -> CalendarEvent:
         cal_encoded = urllib.parse.quote(calendar_id, safe="")
         url = f"https://www.googleapis.com/calendar/v3/calendars/{cal_encoded}/events"
-        headers = self._get_headers(token_data)
 
-        payload: Dict[str, Any] = {
+        payload: dict[str, Any] = {
             "summary": draft.summary,
             "description": draft.description,
             "location": draft.location,
@@ -110,14 +115,16 @@ class GoogleCalendarClient:
         if draft.attendees:
             payload["attendees"] = [{"email": email} for email in draft.attendees]
         body_bytes = json.dumps(payload, ensure_ascii=False).encode("utf-8")
-        res_data = self._request_json(token_data, url, method="POST", body_bytes=body_bytes)
+        res_data = self._request_json(
+            token_data, url, method="POST", body_bytes=body_bytes
+        )
         if "mock_events" in token_data and isinstance(res_data, dict):
             token_data["mock_events"].append(res_data)
         return self._item_to_event(calendar_id, res_data)
 
     def delete_event(
         self,
-        token_data: Dict[str, Any],
+        token_data: dict[str, Any],
         calendar_id: str,
         event_id: str,
     ) -> bool:
@@ -128,7 +135,7 @@ class GoogleCalendarClient:
         self._request_json(token_data, url, method="DELETE")
         return True
 
-    def _item_to_event(self, calendar_id: str, item: Dict[str, Any]) -> CalendarEvent:
+    def _item_to_event(self, calendar_id: str, item: dict[str, Any]) -> CalendarEvent:
         start_obj = item.get("start", {})
         end_obj = item.get("end", {})
         is_all_day = "date" in start_obj and "dateTime" not in start_obj
@@ -136,7 +143,9 @@ class GoogleCalendarClient:
         end_time = end_obj.get("dateTime") or end_obj.get("date") or ""
 
         attendees = tuple(
-            att.get("email", "") for att in item.get("attendees", []) if isinstance(att, dict) and att.get("email")
+            att.get("email", "")
+            for att in item.get("attendees", [])
+            if isinstance(att, dict) and att.get("email")
         )
 
         return CalendarEvent(

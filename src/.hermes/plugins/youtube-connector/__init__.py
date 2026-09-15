@@ -10,7 +10,6 @@ _PLUGIN_DIR = Path(__file__).resolve().parent
 if str(_PLUGIN_DIR) not in sys.path:
     sys.path.insert(0, str(_PLUGIN_DIR))
 
-import os
 
 for candidate in (
     Path(os.environ.get("HERMES_PROJECT_SRC", "")),
@@ -39,24 +38,29 @@ for candidate in (
 
             # Auto-bridge virtualenv site-packages so Hermes gateway inherits project dependencies
             import site
+
             venv_dir = candidate / ".venv"
             if venv_dir.is_dir():
-                for sp in list(venv_dir.glob("lib/python*/site-packages")) + [venv_dir / "Lib" / "site-packages"]:
+                for sp in list(venv_dir.glob("lib/python*/site-packages")) + [
+                    venv_dir / "Lib" / "site-packages"
+                ]:
                     if sp.is_dir():
                         site.addsitedir(str(sp.resolve()))
             break
-    except Exception:
+    except Exception:  # noqa: BLE001 -- probe candidate dirs, keep searching
         continue
-from youtube_client_plugin import get_default_client
-from youtube_guard import YouTubeToolsGuard
-from youtube_plugin_tools import (
+from youtube_client_plugin import (  # noqa: E402 -- needs bootstrapped sys.path
+    get_default_client,
+)
+from youtube_guard import YouTubeToolsGuard  # noqa: E402 -- needs bootstrapped sys.path
+from youtube_plugin_tools import (  # noqa: E402 -- needs bootstrapped sys.path
     handle_youtube_channel_status,
     handle_youtube_create_draft_video,
     handle_youtube_list_videos,
     handle_youtube_update_video_metadata,
     handle_youtube_upload_video,
 )
-from youtube_schemas import (
+from youtube_schemas import (  # noqa: E402 -- needs bootstrapped sys.path
     YOUTUBE_CHANNEL_STATUS_SCHEMA,
     YOUTUBE_CREATE_DRAFT_VIDEO_SCHEMA,
     YOUTUBE_LIST_VIDEOS_SCHEMA,
@@ -74,7 +78,9 @@ def register(ctx: Any) -> YouTubeToolsGuard:
         name="youtube_channel_status",
         toolset="youtube_connector",
         schema=YOUTUBE_CHANNEL_STATUS_SCHEMA,
-        handler=partial(handle_youtube_channel_status, client=client, registry=registry),
+        handler=partial(
+            handle_youtube_channel_status, client=client, registry=registry
+        ),
         description="Check YouTube channel status, title, subscriber count, and video count.",
     )
     ctx.register_tool(
@@ -88,7 +94,9 @@ def register(ctx: Any) -> YouTubeToolsGuard:
         name="youtube_create_draft_video",
         toolset="youtube_connector",
         schema=YOUTUBE_CREATE_DRAFT_VIDEO_SCHEMA,
-        handler=partial(handle_youtube_create_draft_video, client=client, registry=registry),
+        handler=partial(
+            handle_youtube_create_draft_video, client=client, registry=registry
+        ),
         description="Stage a new video draft with metadata and file path (Tier 2).",
     )
     ctx.register_tool(
@@ -102,7 +110,9 @@ def register(ctx: Any) -> YouTubeToolsGuard:
         name="youtube_update_video_metadata",
         toolset="youtube_connector",
         schema=YOUTUBE_UPDATE_METADATA_SCHEMA,
-        handler=partial(handle_youtube_update_video_metadata, client=client, registry=registry),
+        handler=partial(
+            handle_youtube_update_video_metadata, client=client, registry=registry
+        ),
         description="Update metadata of an existing YouTube video.",
     )
 

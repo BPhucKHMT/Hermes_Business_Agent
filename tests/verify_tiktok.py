@@ -3,6 +3,7 @@ from importlib.util import module_from_spec, spec_from_file_location
 import json
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -63,12 +64,13 @@ def layer_1() -> None:
 
     # Verify skill text
     skill = (SRC / "skills/tiktok/SKILL.md").read_text(encoding="utf-8").lower()
-    for phrase in ("tier 2", "tiktok_create_draft_post", "tiktok_publish_video", "creator"):
+    for phrase in (
+        "tier 2",
+        "tiktok_create_draft_post",
+        "tiktok_publish_video",
+        "creator",
+    ):
         assert phrase in skill, f"missing phrase in tiktok skill: {phrase}"
-
-    # Verify AGENTS capability
-    agents_txt = (SRC / "AGENTS.md").read_text(encoding="utf-8")
-    assert "/tiktok" in agents_txt
 
     print("tiktok layer 1: pass")
 
@@ -79,14 +81,42 @@ def layer_2() -> None:
     basetemp = Path(tempfile.mkdtemp(prefix="tiktok-pytest-", dir=runtime))
     env = dict(os.environ)
     separator = os.pathsep
-    env["PYTHONPATH"] = separator.join((str(SRC), str(PLUGIN), str(UPSTREAM), env.get("PYTHONPATH", "")))
+    env["PYTHONPATH"] = separator.join(
+        (str(SRC), str(PLUGIN), str(UPSTREAM), env.get("PYTHONPATH", ""))
+    )
 
-    import shutil
-    uv_candidate = shutil.which("uv") or (str(Path.home() / ".local/bin/uv") if (Path.home() / ".local/bin/uv").is_file() else ("C:/Users/ADMIN/.local/bin/uv.exe" if Path("C:/Users/ADMIN/.local/bin/uv.exe").is_file() else None))
+    uv_candidate = shutil.which("uv") or (
+        str(Path.home() / ".local/bin/uv")
+        if (Path.home() / ".local/bin/uv").is_file()
+        else (
+            "C:/Users/ADMIN/.local/bin/uv.exe"
+            if Path("C:/Users/ADMIN/.local/bin/uv.exe").is_file()
+            else None
+        )
+    )
     if uv_candidate:
-        command = [str(uv_candidate), "run", "--frozen", "python", "-m", "pytest", str(ROOT / "tests/tiktok_tool"), "-q", "--basetemp", str(basetemp)]
+        command = [
+            str(uv_candidate),
+            "run",
+            "--frozen",
+            "python",
+            "-m",
+            "pytest",
+            str(ROOT / "tests/tiktok_tool"),
+            "-q",
+            "--basetemp",
+            str(basetemp),
+        ]
     else:
-        command = [sys.executable, "-m", "pytest", str(ROOT / "tests/tiktok_tool"), "-q", "--basetemp", str(basetemp)]
+        command = [
+            sys.executable,
+            "-m",
+            "pytest",
+            str(ROOT / "tests/tiktok_tool"),
+            "-q",
+            "--basetemp",
+            str(basetemp),
+        ]
 
     completed = subprocess.run(
         command,

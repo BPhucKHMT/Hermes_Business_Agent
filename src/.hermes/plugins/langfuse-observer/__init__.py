@@ -3,8 +3,11 @@
 # ponytail: simple dictionary-based session routing with global lock.
 # Single observer adapter bridging Hermes hooks directly to Langfuse SDK.
 """
+
 from __future__ import annotations
 
+from collections.abc import Callable, Mapping
+import contextlib
 from contextvars import ContextVar
 from dataclasses import dataclass, field
 import hashlib
@@ -12,7 +15,7 @@ import json
 import logging
 import os
 import threading
-from typing import Any, Callable, Dict, List, Mapping, Optional, Tuple
+from typing import Any
 
 try:
     from agent.redact import redact_sensitive_text as _redact_sensitive_text
@@ -20,7 +23,10 @@ except (ImportError, ModuleNotFoundError):
     _redact_sensitive_text = None
 
 try:
-    from langfuse import Langfuse as _LangfuseSDK, propagate_attributes as _propagate_attributes
+    from langfuse import (
+        Langfuse as _LangfuseSDK,
+        propagate_attributes as _propagate_attributes,
+    )
 except (ImportError, ModuleNotFoundError):
     _LangfuseSDK = None
     _propagate_attributes = None
@@ -35,12 +41,14 @@ _MISSING = object()
 _INIT_FAILED = object()
 
 _STATE_LOCK = threading.RLock()
-_TRACE_STATE: Dict[str, "_TraceState"] = {}
+_TRACE_STATE: dict[str, _TraceState] = {}
 _CONTEXT: Any = None
 _CLIENT: Any = None
-_REDACTOR: Optional[Callable[[str], str]] = None
-_CURRENT_IDENTITY: ContextVar[Optional["_HostIdentity"]] = ContextVar("identity", default=None)
-_STATUS: Dict[str, Any] = {
+_REDACTOR: Callable[[str], str] | None = None
+_CURRENT_IDENTITY: ContextVar[_HostIdentity | None] = ContextVar(
+    "identity", default=None
+)
+_STATUS: dict[str, Any] = {
     "active": False,
     "inactive_reason": "not initialized",
     "health": "unknown",
@@ -74,16 +82,16 @@ class _TraceState:
     session_id: str
     turn_id: str
     task_id: str
-    identity: Optional[_HostIdentity]
-    generations: Dict[str, Any] = field(default_factory=dict)
-    tools: Dict[str, Any] = field(default_factory=dict)
-    pending_tools: Dict[str, List[Any]] = field(default_factory=dict)
-    tool_calls: List[Dict[str, Any]] = field(default_factory=list)
+    identity: _HostIdentity | None
+    generations: dict[str, Any] = field(default_factory=dict)
+    tools: dict[str, Any] = field(default_factory=dict)
+    pending_tools: dict[str, list[Any]] = field(default_factory=dict)
+    tool_calls: list[dict[str, Any]] = field(default_factory=list)
     closed: bool = False
 
 
 class _Observer:
-    def get_status(self) -> Dict[str, Any]:
+    def get_status(self) -> dict[str, Any]:
         return get_status()
 
 
@@ -96,16 +104,17 @@ def _set_status(**updates: Any) -> None:
         _STATUS.update(updates)
 
 
-def get_status() -> Dict[str, Any]:
+def get_status() -> dict[str, Any]:
     with _STATE_LOCK:
         return dict(_STATUS)
 
 
-def _load_redactor() -> Optional[Callable[[str], str]]:
+def _load_redactor() -> Callable[[str], str] | None:
     global _REDACTOR
     if _REDACTOR is not None:
         return _REDACTOR
     if _redact_sensitive_text is not None:
+
         def redact(val: str) -> str:
             try:
                 return str(_redact_sensitive_text(val, force=True))
@@ -125,7 +134,7 @@ def _redact(val: str) -> str:
     try:
         res = redactor(val)
         return res if res else "[content omitted: sanitizer unavailable]"
-    except Exception:
+    except Exception:  # noqa: BLE001 -- sanitizer failure must degrade to omission
         return "[content omitted: sanitizer unavailable]"
 
 
@@ -146,7 +155,9 @@ def _safe_value(val: Any, depth: int = 0) -> Any:
     if isinstance(val, str):
         return _safe_text(val)
     if isinstance(val, Mapping):
-        return {str(k)[:64]: _safe_value(v, depth + 1) for k, v in list(val.items())[:32]}
+        return {
+            str(k)[:64]: _safe_value(v, depth + 1) for k, v in list(val.items())[:32]
+        }
     if isinstance(val, (list, tuple)):
         return [_safe_value(x, depth + 1) for x in val[:50]]
     return _safe_text(str(val))
@@ -155,13 +166,13 @@ def _safe_value(val: Any, depth: int = 0) -> Any:
 def _capture_content(val: Any) -> Any:
     if isinstance(val, str):
         val = val.strip()
-        if (val.startswith("{") and val.endswith("}")) or (val.startswith("[") and val.endswith("]")):
-            try:
+        if (val.startswith("{") and val.endswith("}")) or (
+            val.startswith("[") and val.endswith("]")
+        ):
+            with contextlib.suppress(Exception):
                 parsed = json.loads(val)
                 if isinstance(parsed, (dict, list)):
                     return _safe_value(parsed)
-            except Exception:
-                pass
     return _safe_value(val)
 
 
@@ -170,7 +181,11 @@ def _digest(val: str) -> str:
 
 
 def _opaque_id(prefix: str, *parts: Any) -> str:
-    raw = json.dumps([prefix, *[str(p or "") for p in parts]], ensure_ascii=True, separators=(",", ":"))
+    raw = json.dumps(
+        [prefix, *[str(p or "") for p in parts]],
+        ensure_ascii=True,
+        separators=(",", ":"),
+    )
     return prefix + ":" + hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
 
@@ -183,7 +198,7 @@ def _native_exporter_enabled() -> bool:
     if callable(checker):
         try:
             return any(checker(p) for p in _NATIVE_PLUGIN_IDS)
-        except Exception:
+        except Exception:  # noqa: BLE001 -- assume native exporter on host-contract failure
             return True
     return False
 
@@ -191,7 +206,11 @@ def _native_exporter_enabled() -> bool:
 def _get_client() -> Any:
     global _CLIENT
     if _native_exporter_enabled():
-        _set_status(active=False, inactive_reason="native Langfuse exporter is enabled", health="inactive")
+        _set_status(
+            active=False,
+            inactive_reason="native Langfuse exporter is enabled",
+            health="inactive",
+        )
         return None
     if _CLIENT is _INIT_FAILED:
         return None
@@ -203,14 +222,26 @@ def _get_client() -> Any:
             return _CLIENT if _CLIENT is not _INIT_FAILED else None
         pk = _env("HERMES_LANGFUSE_PUBLIC_KEY")
         sk = _env("HERMES_LANGFUSE_SECRET_KEY")
-        if not pk or not sk or not (pk.startswith("pk-lf-") and sk.startswith("sk-lf-")):
-            _set_status(active=False, inactive_reason="Langfuse credentials missing", health="inactive")
+        if (
+            not pk
+            or not sk
+            or not (pk.startswith("pk-lf-") and sk.startswith("sk-lf-"))
+        ):
+            _set_status(
+                active=False,
+                inactive_reason="Langfuse credentials missing",
+                health="inactive",
+            )
             _CLIENT = _INIT_FAILED
             return None
 
         sdk_cls = _load_sdk()
         if sdk_cls is None:
-            _set_status(active=False, inactive_reason="Langfuse SDK unavailable", health="inactive")
+            _set_status(
+                active=False,
+                inactive_reason="Langfuse SDK unavailable",
+                health="inactive",
+            )
             _CLIENT = _INIT_FAILED
             return None
 
@@ -225,26 +256,55 @@ def _get_client() -> Any:
                 debug=_env("HERMES_LANGFUSE_DEBUG").lower() in {"1", "true", "yes"},
             )
             if not callable(getattr(client, "start_observation", None)):
-                _set_status(active=False, inactive_reason="Langfuse SDK lacks start_observation", health="inactive")
+                _set_status(
+                    active=False,
+                    inactive_reason="Langfuse SDK lacks start_observation",
+                    health="inactive",
+                )
                 _CLIENT = _INIT_FAILED
                 return None
             _CLIENT = client
             _load_redactor()
             health = "ready" if _REDACTOR is not None else "degraded"
-            _set_status(active=True, inactive_reason="", health=health, flush_timeout_supported=True)
+            _set_status(
+                active=True,
+                inactive_reason="",
+                health=health,
+                flush_timeout_supported=True,
+            )
             return _CLIENT
-        except Exception:
-            _set_status(active=False, inactive_reason="Langfuse client initialization failed", health="inactive")
+        except Exception:  # noqa: BLE001 -- init failure degrades to inactive observer
+            _set_status(
+                active=False,
+                inactive_reason="Langfuse client initialization failed",
+                health="inactive",
+            )
             _CLIENT = _INIT_FAILED
             return None
 
 
-def _start_root(client: Any, key: str, identity: Optional[_HostIdentity], s_id: str, t_id: str, task_id: str, inp: Any) -> Optional[_TraceState]:
+def _start_root(
+    client: Any,
+    key: str,
+    identity: _HostIdentity | None,
+    s_id: str,
+    t_id: str,
+    task_id: str,
+    inp: Any,
+) -> _TraceState | None:
     meta = {
-        "environment": identity.environment if identity else _env("HERMES_LANGFUSE_ENV", "default"),
+        "environment": identity.environment
+        if identity
+        else _env("HERMES_LANGFUSE_ENV", "default"),
         "profile": identity.profile if identity else "unavailable",
         "platform": identity.platform if identity else "unavailable",
-        "session_id": s_id or _opaque_id("hermes-session", identity.environment if identity else "default", identity.profile if identity else "", identity.platform if identity else ""),
+        "session_id": s_id
+        or _opaque_id(
+            "hermes-session",
+            identity.environment if identity else "default",
+            identity.profile if identity else "",
+            identity.platform if identity else "",
+        ),
         "raw_session_id": s_id or "unavailable",
         "turn_id": t_id or "unavailable",
         "identity_source": "host_event" if identity else "unavailable",
@@ -253,7 +313,12 @@ def _start_root(client: Any, key: str, identity: Optional[_HostIdentity], s_id: 
         "capture_mode": "sanitized",
     }
     if identity and identity.user_id:
-        meta["user_id"] = _opaque_id("hermes-user", identity.platform or "unknown", identity.profile or "unknown", identity.user_id)
+        meta["user_id"] = _opaque_id(
+            "hermes-user",
+            identity.platform or "unknown",
+            identity.profile or "unknown",
+            identity.user_id,
+        )
 
     root_args = {
         "name": "Hermes turn",
@@ -267,7 +332,7 @@ def _start_root(client: Any, key: str, identity: Optional[_HostIdentity], s_id: 
             tid = fn_trace_id(seed=key)
             if tid:
                 root_args["trace_context"] = {"trace_id": tid}
-        except Exception:
+        except Exception:  # noqa: BLE001 -- trace id is optional enrichment
             pass
 
     try:
@@ -279,7 +344,7 @@ def _start_root(client: Any, key: str, identity: Optional[_HostIdentity], s_id: 
                     user_id=meta.get("user_id"),
                     metadata=_safe_value(meta),
                 )
-            except Exception:
+            except Exception:  # noqa: BLE001 -- propagation is optional enrichment
                 propagate_ctx = None
 
         if propagate_ctx is not None:
@@ -298,19 +363,32 @@ def _start_root(client: Any, key: str, identity: Optional[_HostIdentity], s_id: 
         for fn_name in ("update_trace", "update"):
             up_fn = getattr(root, fn_name, None)
             if callable(up_fn):
-                try:
+                with contextlib.suppress(Exception):
                     up_fn(**up_dict)
-                except Exception:
-                    pass
-        return _TraceState(key=key, root=root, session_id=s_id, turn_id=t_id, task_id=task_id, identity=identity)
-    except Exception:
+        return _TraceState(
+            key=key,
+            root=root,
+            session_id=s_id,
+            turn_id=t_id,
+            task_id=task_id,
+            identity=identity,
+        )
+    except Exception:  # noqa: BLE001 -- telemetry failure must not break the turn
         return None
 
 
-def _end_obs(obs: Any, output: Any = _MISSING, metadata: Any = None, usage: Any = None, cost: Any = None, error: bool = False, status_message: str = "") -> None:
+def _end_obs(
+    obs: Any,
+    output: Any = _MISSING,
+    metadata: Any = None,
+    usage: Any = None,
+    cost: Any = None,
+    error: bool = False,
+    status_message: str = "",
+) -> None:
     if obs is None:
         return
-    up: Dict[str, Any] = {}
+    up: dict[str, Any] = {}
     if output is not _MISSING:
         up["output"] = _capture_content(output)
     if metadata:
@@ -325,16 +403,12 @@ def _end_obs(obs: Any, output: Any = _MISSING, metadata: Any = None, usage: Any 
             up["status_message"] = _safe_text(status_message, limit=120)
     fn_up = getattr(obs, "update", None)
     if callable(fn_up):
-        try:
+        with contextlib.suppress(Exception):
             fn_up(**up)
-        except Exception:
-            pass
     fn_end = getattr(obs, "end", None)
     if callable(fn_end):
-        try:
+        with contextlib.suppress(Exception):
             fn_end()
-        except Exception:
-            pass
 
 
 def _close_state(state: _TraceState, output: Any = _MISSING) -> None:
@@ -357,24 +431,29 @@ def _close_state(state: _TraceState, output: Any = _MISSING) -> None:
         for m in ("update_trace", "update"):
             fn = getattr(state.root, m, None)
             if callable(fn):
-                try:
+                with contextlib.suppress(Exception):
                     fn(output=safe_out)
-                except Exception:
-                    pass
     fn_end = getattr(state.root, "end", None)
     if callable(fn_end):
-        try:
+        with contextlib.suppress(Exception):
             fn_end()
-        except Exception:
-            pass
 
 
-def _ensure_state(kw: Mapping[str, Any], client: Any) -> Optional[_TraceState]:
+def _ensure_state(kw: Mapping[str, Any], client: Any) -> _TraceState | None:
     ident = _CURRENT_IDENTITY.get()
     s_id = str(kw.get("session_id") or (ident.session_id if ident else "")).strip()
     t_id = str(kw.get("turn_id") or "").strip()
     task_id = str(kw.get("task_id") or (ident.task_id if ident else "")).strip()
-    key = "|".join([ident.environment if ident else "default", ident.profile if ident else "", ident.platform if ident else "", s_id, t_id, task_id])
+    key = "|".join(
+        [
+            ident.environment if ident else "default",
+            ident.profile if ident else "",
+            ident.platform if ident else "",
+            s_id,
+            t_id,
+            task_id,
+        ]
+    )
 
     with _STATE_LOCK:
         if key in _TRACE_STATE:
@@ -405,10 +484,23 @@ def _on_pre_api_request(**kw: Any) -> None:
                 as_type="generation",
                 input=_capture_content(kw.get("request_messages") or kw.get("request")),
                 model=_safe_text(kw.get("model") or ""),
-                metadata=_safe_value({k: kw.get(k) for k in ("api_request_id", "provider", "model", "api_mode", "base_url", "api_call_count") if kw.get(k) is not None}),
+                metadata=_safe_value(
+                    {
+                        k: kw.get(k)
+                        for k in (
+                            "api_request_id",
+                            "provider",
+                            "model",
+                            "api_mode",
+                            "base_url",
+                            "api_call_count",
+                        )
+                        if kw.get(k) is not None
+                    }
+                ),
             )
             st.generations[r_id] = gen
-        except Exception:
+        except Exception:  # noqa: BLE001 -- telemetry failure must not break the turn
             pass
 
 
@@ -425,15 +517,29 @@ def _on_post_api_request(**kw: Any) -> None:
     resp = kw.get("response") or kw.get("assistant_message")
     out = resp.get("content") if isinstance(resp, Mapping) else resp
     usage = kw.get("usage")
-    u_det = {"input": usage.get("input_tokens", 0), "output": usage.get("output_tokens", 0)} if isinstance(usage, Mapping) else None
+    u_det = (
+        {"input": usage.get("input_tokens", 0), "output": usage.get("output_tokens", 0)}
+        if isinstance(usage, Mapping)
+        else None
+    )
     dur = kw.get("api_duration")
-    meta = {"api_duration_s": round(float(dur), 3)} if isinstance(dur, (int, float)) and dur > 0 else None
+    meta = (
+        {"api_duration_s": round(float(dur), 3)}
+        if isinstance(dur, (int, float)) and dur > 0
+        else None
+    )
     _end_obs(gen, output=resp or out, usage=u_det, metadata=meta)
 
-    # If terminal assistant message without tool calls, close turn
-    has_tools = False
-    if isinstance(resp, Mapping) and resp.get("tool_calls"):
-        has_tools = True
+    # The host response may wrap the assistant message.
+    assistant = kw.get("assistant_message")
+    if not isinstance(assistant, Mapping):
+        assistant = (
+            resp.get("assistant_message", resp) if isinstance(resp, Mapping) else {}
+        )
+    has_tools = bool(
+        kw.get("assistant_tool_call_count")
+        or (isinstance(assistant, Mapping) and assistant.get("tool_calls"))
+    )
     if not has_tools:
         with _STATE_LOCK:
             _TRACE_STATE.pop(st.key, None)
@@ -458,13 +564,21 @@ def _on_api_request_error(**kw: Any) -> None:
         _close_state(st, output={"error": str(err)})
 
 
-def _nested_tool_error(val: Any) -> Optional[Tuple[str, str]]:
+def _nested_tool_error(val: Any) -> tuple[str, str] | None:
     if isinstance(val, Mapping):
         status = str(val.get("status") or "").lower()
         if val.get("ok") is False or status in {"error", "failed", "failure"}:
             err_obj = val.get("error")
-            t = str(err_obj.get("type") if isinstance(err_obj, Mapping) else val.get("error_type") or "tool_error")
-            m = str(err_obj.get("message") if isinstance(err_obj, Mapping) else val.get("error_message") or "")
+            t = str(
+                err_obj.get("type")
+                if isinstance(err_obj, Mapping)
+                else val.get("error_type") or "tool_error"
+            )
+            m = str(
+                err_obj.get("message")
+                if isinstance(err_obj, Mapping)
+                else val.get("error_message") or ""
+            )
             return (t, m)
         for sub in ("result", "data", "output", "response"):
             res = _nested_tool_error(val.get(sub))
@@ -500,7 +614,7 @@ def _on_pre_tool_call(**kw: Any) -> None:
                 st.tools[cid] = tool_obs
             else:
                 st.pending_tools.setdefault(t_name, []).append(tool_obs)
-        except Exception:
+        except Exception:  # noqa: BLE001 -- telemetry failure must not break the turn
             pass
 
 
@@ -519,18 +633,34 @@ def _on_post_tool_call(**kw: Any) -> None:
             obs = st.pending_tools[t_name].pop(0)
 
     res = kw.get("result")
-    err_info = _nested_tool_error(res) or (("tool_transport", str(kw.get("error") or "tool error")) if kw.get("status") in {"error", "failed"} or kw.get("error") else None)
+    err_info = _nested_tool_error(res) or (
+        ("tool_transport", str(kw.get("error") or "tool error"))
+        if kw.get("status") in {"error", "failed"} or kw.get("error")
+        else None
+    )
     meta = {"tool_name": t_name, "tool_call_id": cid}
     if err_info:
-        meta["error_kind"] = "tool_result" if _nested_tool_error(res) else "tool_transport"
+        meta["error_kind"] = (
+            "tool_result" if _nested_tool_error(res) else "tool_transport"
+        )
         meta["error_type"] = err_info[0]
         meta["error_message"] = err_info[1]
-    _end_obs(obs, output=res, metadata=meta, error=bool(err_info), status_message=err_info[0] if err_info else "")
+    _end_obs(
+        obs,
+        output=res,
+        metadata=meta,
+        error=bool(err_info),
+        status_message=err_info[0] if err_info else "",
+    )
 
 
 def _on_session_finalize(*, session_id: str = "", reason: str = "", **_: Any) -> None:
     with _STATE_LOCK:
-        keys = [k for k, v in _TRACE_STATE.items() if not session_id or v.session_id == session_id]
+        keys = [
+            k
+            for k, v in _TRACE_STATE.items()
+            if not session_id or v.session_id == session_id
+        ]
         for k in keys:
             st = _TRACE_STATE.pop(k, None)
             if st:
@@ -539,26 +669,35 @@ def _on_session_finalize(*, session_id: str = "", reason: str = "", **_: Any) ->
     if cl and cl is not _INIT_FAILED:
         fn_flush = getattr(cl, "flush", None)
         if callable(fn_flush):
-            try:
+            with contextlib.suppress(Exception):
                 fn_flush()
-            except Exception:
-                pass
 
 
-def _on_pre_gateway_dispatch(event: Any = None, gateway: Any = None, session_store: Any = None, **kw: Any) -> None:
+def _on_pre_gateway_dispatch(
+    event: Any = None, gateway: Any = None, session_store: Any = None, **kw: Any
+) -> None:
     del gateway, session_store
     src = getattr(event, "source", event)
     s_id = str(kw.get("session_id") or getattr(src, "session_id", "") or "").strip()
     if not s_id:
         return
-    _CURRENT_IDENTITY.set(_HostIdentity(
-        environment=_env("HERMES_LANGFUSE_ENV", "default"),
-        profile=str(getattr(src, "profile", "") or "").strip(),
-        platform=str(getattr(getattr(src, "platform", None), "value", getattr(src, "platform", "")) or "").strip(),
-        user_id=str(getattr(src, "user_id", "") or "").strip(),
-        session_id=s_id,
-        task_id=str(kw.get("task_id") or getattr(src, "task_id", "") or "").strip(),
-    ))
+    _CURRENT_IDENTITY.set(
+        _HostIdentity(
+            environment=_env("HERMES_LANGFUSE_ENV", "default"),
+            profile=str(getattr(src, "profile", "") or "").strip(),
+            platform=str(
+                getattr(
+                    getattr(src, "platform", None),
+                    "value",
+                    getattr(src, "platform", ""),
+                )
+                or ""
+            ).strip(),
+            user_id=str(getattr(src, "user_id", "") or "").strip(),
+            session_id=s_id,
+            task_id=str(kw.get("task_id") or getattr(src, "task_id", "") or "").strip(),
+        )
+    )
 
 
 def register(ctx: Any) -> _Observer:
@@ -581,10 +720,8 @@ def register(ctx: Any) -> _Observer:
             ("post_tool_call", _on_post_tool_call),
             ("on_session_finalize", _on_session_finalize),
         ):
-            try:
+            with contextlib.suppress(Exception):
                 fn_reg(h, cb)
-            except Exception:
-                pass
     return _Observer()
 
 

@@ -1,15 +1,32 @@
-from typing import Iterable, Optional
+from collections.abc import Iterable
 
 from azure.search.documents.models import VectorizableTextQuery
-
 from contracts import Evidence, EvidenceResult, normalize_workspace
 
 SELECT_FIELDS = [
-    "chunk_id", "content", "title", "source_path", "source_url", "website_id",
-    "page_id", "asset_id", "generation", "evidence_type", "document_version",
-    "effective_date", "page_number", "section_heading", "slide_number",
-    "sheet_name", "cell_range", "workspace",
+    "chunk_id",
+    "content",
+    "title",
+    "source_path",
+    "source_url",
+    "website_id",
+    "page_id",
+    "asset_id",
+    "generation",
+    "evidence_type",
+    "document_version",
+    "effective_date",
+    "page_number",
+    "section_heading",
+    "slide_number",
+    "sheet_name",
+    "cell_range",
+    "workspace",
 ]
+
+
+def _literal(value: str) -> str:
+    return value.replace("'", "''")
 
 
 def knowledge_search(
@@ -18,46 +35,67 @@ def knowledge_search(
     access_groups: Iterable[str],
     top_k: int = 8,
     semantic_configuration: str = "knowledge-semantic",
-    source_path: Optional[str] = None,
-    website_id: Optional[str] = None,
-    generation: Optional[str] = None,
-    workspace: Optional[str] = None,
+    source_path: str | None = None,
+    website_id: str | None = None,
+    generation: str | None = None,
+    workspace: str | None = None,
 ) -> EvidenceResult:
     query = query.strip()
     groups = sorted({group.strip() for group in access_groups if group.strip()})
-    if not query or not groups or top_k < 1 or (source_path and website_id) or (generation and not website_id):
-        raise ValueError("query, access groups, valid top_k, and at most one valid source scope are required")
+    if (
+        not query
+        or not groups
+        or top_k < 1
+        or (source_path and website_id)
+        or (generation and not website_id)
+    ):
+        raise ValueError(
+            "query, access groups, valid top_k, and at most one valid source scope are required"
+        )
 
-    filters = ["access_groups/any(g: %s)" % " or ".join("g eq '%s'" % group.replace("'", "''") for group in groups)]
+    groups_filter = " or ".join(f"g eq '{_literal(group)}'" for group in groups)
+    filters = [f"access_groups/any(g: {groups_filter})"]
     if source_path:
-        filters.append("source_path eq '%s'" % source_path.replace("'", "''"))
+        filters.append(f"source_path eq '{_literal(source_path)}'")
     if website_id:
-        filters.append("website_id eq '%s'" % website_id.replace("'", "''"))
+        filters.append(f"website_id eq '{_literal(website_id)}'")
     if generation:
-        filters.append("generation eq '%s'" % generation.replace("'", "''"))
+        filters.append(f"generation eq '{_literal(generation)}'")
     if workspace is not None:
         normalized_ws = normalize_workspace(workspace).replace("'", "''")
         if normalized_ws == "__global__":
             filters.append("workspace eq '__global__'")
         else:
-            filters.append(f"(workspace eq '{normalized_ws}' or workspace eq '__global__')")
+            filters.append(
+                f"(workspace eq '{normalized_ws}' or workspace eq '__global__')"
+            )
 
     options = {
         "search_text": query,
-        "vector_queries": [VectorizableTextQuery(text=query, k_nearest_neighbors=top_k, fields="content_vector")],
+        "vector_queries": [
+            VectorizableTextQuery(
+                text=query, k_nearest_neighbors=top_k, fields="content_vector"
+            )
+        ],
         "filter": " and ".join(filters),
         "select": SELECT_FIELDS,
         "top": top_k,
     }
     if semantic_configuration:
-        options.update({
-            "query_type": "semantic",
-            "semantic_configuration_name": semantic_configuration,
-            "query_caption": "extractive",
-        })
+        options.update(
+            {
+                "query_type": "semantic",
+                "semantic_configuration_name": semantic_configuration,
+                "query_caption": "extractive",
+            }
+        )
 
     evidence = tuple(_evidence(item) for item in client.search(**options))
-    return EvidenceResult(status="ok", evidence=evidence) if evidence else EvidenceResult(status="no_evidence")
+    return (
+        EvidenceResult(status="ok", evidence=evidence)
+        if evidence
+        else EvidenceResult(status="no_evidence")
+    )
 
 
 def knowledge_search_many(
@@ -66,12 +104,14 @@ def knowledge_search_many(
     access_groups: Iterable[str],
     top_k: int = 8,
     semantic_configuration: str = "knowledge-semantic",
-    source_path: Optional[str] = None,
-    website_id: Optional[str] = None,
-    generation: Optional[str] = None,
-    workspace: Optional[str] = None,
+    source_path: str | None = None,
+    website_id: str | None = None,
+    generation: str | None = None,
+    workspace: str | None = None,
 ) -> EvidenceResult:
-    variants = list(dict.fromkeys(query.strip() for query in queries if query and query.strip()))
+    variants = list(
+        dict.fromkeys(query.strip() for query in queries if query and query.strip())
+    )
     if not 1 <= len(variants) <= 3:
         raise ValueError("one to three query variants are required")
 
@@ -117,7 +157,9 @@ def _evidence(item) -> Evidence:
         evidence_type=item.get("evidence_type"),
         document_version=item.get("document_version"),
         effective_date=item.get("effective_date"),
-        page_number=None if item.get("source_path", "").lower().endswith(".docx") else item.get("page_number"),
+        page_number=None
+        if item.get("source_path", "").lower().endswith(".docx")
+        else item.get("page_number"),
         section_heading=item.get("section_heading"),
         slide_number=item.get("slide_number"),
         sheet_name=item.get("sheet_name"),

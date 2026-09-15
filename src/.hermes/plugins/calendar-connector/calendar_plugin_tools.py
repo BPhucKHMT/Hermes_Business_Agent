@@ -7,22 +7,31 @@ import os
 from pathlib import Path
 import re
 import sys
-from typing import Any, Dict
+from typing import Any
 
 from calendar_caller import CallerContextRegistry, DmOnlyError
+
 logger = logging.getLogger(__name__)
-def _json(data: Dict[str, Any]) -> str:
+
+
+def _json(data: dict[str, Any]) -> str:
     return json.dumps(data, ensure_ascii=False)
 
 
 def _error(code: str, message: str = "") -> str:
-    err: Dict[str, Any] = {"code": code}
+    err: dict[str, Any] = {"code": code}
     if message:
         err["message"] = message
         lower = message.lower()
-        if any(term in lower for term in ("missing_access_token", "invalid_grant", "401", "unauthorized")):
-            err["hint"] = "Tài khoản Google chưa được kết nối hoặc token đã hết hạn. Hãy dùng lệnh /connect_google để kết nối lại."
+        if any(
+            term in lower
+            for term in ("missing_access_token", "invalid_grant", "401", "unauthorized")
+        ):
+            err["hint"] = (
+                "Tài khoản Google chưa được kết nối hoặc token đã hết hạn. Hãy dùng lệnh /connect_google để kết nối lại."
+            )
     return _json({"ok": False, "error": err})
+
 
 def _resolve_caller(
     registry: CallerContextRegistry | Any,
@@ -39,6 +48,7 @@ def _caller_error(exc: Exception) -> str:
         return _error("dm_required", str(exc))
     return _error("missing_caller_context", str(exc))
 
+
 def _candidate_src_dirs() -> list[Path]:
     candidates: list[Path] = []
     for key in ("HERMES_PROJECT_SRC", "HERMES_SRC_DIR"):
@@ -51,13 +61,17 @@ def _candidate_src_dirs() -> list[Path]:
             candidates.append(parent_candidate)
     for env_file in (
         Path.home() / ".hermes" / ".env",
-        Path(os.environ.get("LOCALAPPDATA", "")) / "hermes" / ".env" if os.name == "nt" else None,
+        Path(os.environ.get("LOCALAPPDATA", "")) / "hermes" / ".env"
+        if os.name == "nt"
+        else None,
     ):
         if env_file and env_file.is_file():
             try:
                 for line in env_file.read_text(encoding="utf-8").splitlines():
                     if line.strip().startswith("HERMES_PROJECT_SRC="):
-                        val = line.strip().split("=", 1)[1].strip().strip('"').strip("'")
+                        val = (
+                            line.strip().split("=", 1)[1].strip().strip('"').strip("'")
+                        )
                         if val and (Path(val) / "tools").is_dir():
                             candidates.append(Path(val))
             except OSError:
@@ -78,7 +92,9 @@ except (ImportError, ModuleNotFoundError):
             _src_dir = str(_cand.resolve())
             if _src_dir not in sys.path:
                 sys.path.insert(0, _src_dir)
-            _spec = importlib.util.spec_from_file_location("tools.composio.bridge", str(_target))
+            _spec = importlib.util.spec_from_file_location(
+                "tools.composio.bridge", str(_target)
+            )
             if _spec and _spec.loader:
                 _mod = importlib.util.module_from_spec(_spec)
                 sys.modules["tools.composio.bridge"] = _mod
@@ -90,12 +106,15 @@ except (ImportError, ModuleNotFoundError):
 def _call_google(
     operation: str,
     principal_id: str,
-    params: Dict[str, Any] | None = None,
+    params: dict[str, Any] | None = None,
 ) -> Any:
     bridge = sys.modules.get("tools.composio.bridge") or _composio_bridge
     if bridge is None or not hasattr(bridge, "call_google"):
-        raise RuntimeError("call_google bridge unavailable; run python src/setup_local.py --local")
+        raise RuntimeError(
+            "call_google bridge unavailable; run python src/setup_local.py --local"
+        )
     return bridge.call_google(operation, principal_id, params)
+
 
 def _resolve_principal(caller: Any) -> str:
     principal_id = str(getattr(caller, "principal_id", "")).strip()
@@ -105,7 +124,7 @@ def _resolve_principal(caller: Any) -> str:
 
 
 def handle_calendar_list_events(
-    params: Dict[str, Any],
+    params: dict[str, Any],
     *,
     client: Any = None,
     registry: Any = None,
@@ -145,18 +164,27 @@ def handle_calendar_list_events(
             if c_res.get("status") == "success":
                 raw_data = c_res.get("data", {})
                 items = raw_data.get("items", []) if isinstance(raw_data, dict) else []
-                return _json({
-                    "ok": True,
-                    "result": {
-                        "events": items,
-                        "count": len(items),
-                        "summary": raw_data.get("summary") if isinstance(raw_data, dict) else "",
-                        "active_account": c_res.get("active_account"),
-                        "all_connected_accounts": c_res.get("all_connected_accounts", []),
-                    },
-                })
-            return _error(c_res.get("error_code", "calendar_query_failed").lower(), c_res.get("message", "Lỗi khi đọc lịch"))
-        except Exception as exc:
+                return _json(
+                    {
+                        "ok": True,
+                        "result": {
+                            "events": items,
+                            "count": len(items),
+                            "summary": raw_data.get("summary")
+                            if isinstance(raw_data, dict)
+                            else "",
+                            "active_account": c_res.get("active_account"),
+                            "all_connected_accounts": c_res.get(
+                                "all_connected_accounts", []
+                            ),
+                        },
+                    }
+                )
+            return _error(
+                c_res.get("error_code", "calendar_query_failed").lower(),
+                c_res.get("message", "Lỗi khi đọc lịch"),
+            )
+        except Exception as exc:  # noqa: BLE001 -- tool/gateway boundary maps to error payload
             return _error("calendar_query_failed", str(exc))
     try:
         res = client.list_events(
@@ -167,11 +195,12 @@ def handle_calendar_list_events(
             calendar_id=params.get("calendar_id", "primary"),
         )
         return _json(res)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 -- tool/gateway boundary maps to error payload
         return _error("calendar_query_failed", str(exc))
 
+
 def handle_calendar_find_free_slots(
-    params: Dict[str, Any],
+    params: dict[str, Any],
     *,
     client: Any = None,
     registry: Any = None,
@@ -203,13 +232,18 @@ def handle_calendar_find_free_slots(
                     },
                 )
                 if c_res.get("status") == "success":
-                    return _json({
-                        "ok": True,
-                        "result": c_res.get("data", {}),
-                        "active_account": c_res.get("active_account"),
-                    })
-                return _error(c_res.get("error_code", "free_slots_search_failed").lower(), c_res.get("message", "Lỗi tìm khoảng trống"))
-            except Exception as exc:
+                    return _json(
+                        {
+                            "ok": True,
+                            "result": c_res.get("data", {}),
+                            "active_account": c_res.get("active_account"),
+                        }
+                    )
+                return _error(
+                    c_res.get("error_code", "free_slots_search_failed").lower(),
+                    c_res.get("message", "Lỗi tìm khoảng trống"),
+                )
+            except Exception as exc:  # noqa: BLE001 -- tool/gateway boundary maps to error payload
                 return _error("free_slots_search_failed", str(exc))
         res = client.find_free_slots(
             caller=caller,
@@ -220,12 +254,12 @@ def handle_calendar_find_free_slots(
         return _json(res)
     except (DmOnlyError, LookupError) as exc:
         return _caller_error(exc)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 -- tool/gateway boundary maps to error payload
         return _error("free_slots_search_failed", str(exc))
 
 
 def handle_calendar_create_draft_event(
-    params: Dict[str, Any],
+    params: dict[str, Any],
     *,
     client: Any = None,
     registry: Any = None,
@@ -258,12 +292,12 @@ def handle_calendar_create_draft_event(
         return _json(res)
     except (DmOnlyError, LookupError) as exc:
         return _caller_error(exc)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 -- tool/gateway boundary maps to error payload
         return _error("create_draft_failed", str(exc))
 
 
 def handle_calendar_confirm_event(
-    params: Dict[str, Any],
+    params: dict[str, Any],
     *,
     client: Any = None,
     registry: Any = None,
@@ -283,12 +317,12 @@ def handle_calendar_confirm_event(
         return _json(res)
     except (DmOnlyError, LookupError) as exc:
         return _caller_error(exc)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 -- tool/gateway boundary maps to error payload
         return _error("confirm_event_failed", str(exc))
 
 
 def handle_calendar_status(
-    params: Dict[str, Any],
+    params: dict[str, Any],
     *,
     client: Any = None,
     registry: Any = None,
@@ -314,33 +348,47 @@ def handle_calendar_status(
             if account_emails:
                 clean_emails = []
                 for raw_em in account_emails.values():
-                    match = re.search(r'[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+', raw_em)
+                    match = re.search(
+                        r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+", raw_em
+                    )
                     clean = match.group(0).lower() if match else raw_em.lower()
                     if clean not in clean_emails:
                         clean_emails.append(clean)
 
                 if clean_emails:
                     calendars = [
-                        {"email": em, "calendar_id": "primary", "calendar_name": f"Google Calendar ({em})"}
+                        {
+                            "email": em,
+                            "calendar_id": "primary",
+                            "calendar_name": f"Google Calendar ({em})",
+                        }
                         for em in clean_emails
                     ]
-                    return _json({
-                        "ok": True,
-                        "status": "connected",
-                        "principal_id": principal_id,
-                        "connected_accounts": clean_emails,
-                        "calendars": calendars,
-                    })
-        except Exception as exc:
-            logger.debug("Failed querying Composio account emails for status (%s): %s", principal_id, exc)
+                    return _json(
+                        {
+                            "ok": True,
+                            "status": "connected",
+                            "principal_id": principal_id,
+                            "connected_accounts": clean_emails,
+                            "calendars": calendars,
+                        }
+                    )
+        except Exception as exc:  # noqa: BLE001 -- tool/gateway boundary maps to error payload
+            logger.debug(
+                "Failed querying Composio account emails for status (%s): %s",
+                principal_id,
+                exc,
+            )
 
     try:
         res = client.status(caller)
         return _json(res)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 -- tool/gateway boundary maps to error payload
         return _error("calendar_status_failed", str(exc))
+
+
 def handle_calendar_get_event(
-    params: Dict[str, Any],
+    params: dict[str, Any],
     *,
     client: Any = None,
     registry: Any = None,
@@ -376,20 +424,25 @@ def handle_calendar_get_event(
             },
         )
         if c_res.get("status") == "success":
-            return _json({
-                "ok": True,
-                "result": {
-                    "event": c_res.get("data", {}),
-                    "active_account": c_res.get("active_account"),
-                },
-            })
-        return _error(c_res.get("error_code", "get_event_failed").lower(), c_res.get("message", "Lỗi khi lấy thông tin sự kiện"))
-    except Exception as exc:
+            return _json(
+                {
+                    "ok": True,
+                    "result": {
+                        "event": c_res.get("data", {}),
+                        "active_account": c_res.get("active_account"),
+                    },
+                }
+            )
+        return _error(
+            c_res.get("error_code", "get_event_failed").lower(),
+            c_res.get("message", "Lỗi khi lấy thông tin sự kiện"),
+        )
+    except Exception as exc:  # noqa: BLE001 -- tool/gateway boundary maps to error payload
         return _error("get_event_failed", str(exc))
 
 
 def handle_calendar_create_event(
-    params: Dict[str, Any],
+    params: dict[str, Any],
     *,
     client: Any = None,
     registry: Any = None,
@@ -409,7 +462,9 @@ def handle_calendar_create_event(
     summary = str(params.get("summary", "")).strip()
     start_time = str(params.get("start_time", "")).strip()
     if not summary or not start_time:
-        return _error("missing_required_event_fields", "summary and start_time are required")
+        return _error(
+            "missing_required_event_fields", "summary and start_time are required"
+        )
 
     try:
         principal_id = _resolve_principal(caller)
@@ -428,7 +483,9 @@ def handle_calendar_create_event(
                 "duration_minutes": params.get("duration_minutes", 30),
                 "description": str(params.get("description", "")),
                 "location": str(params.get("location", "")),
-                "attendees": list(params.get("attendees", [])) if params.get("attendees") else None,
+                "attendees": list(params.get("attendees", []))
+                if params.get("attendees")
+                else None,
                 "calendar_id": str(params.get("calendar_id", "primary")),
                 "account_email": account_email,
             },
@@ -438,25 +495,31 @@ def handle_calendar_create_event(
             created_id = data.get("id") or data.get("event_id")
             if not created_id:
                 return _error("create_event_failed", "provider_missing_event_id")
-            return _json({
-                "ok": True,
-                "result": {
-                    "status": "confirmed",
-                    "event_id": created_id,
-                    "event": data,
-                    "summary": summary,
-                    "start_time": start_time,
-                    "active_account": c_res.get("active_account"),
-                    "html_link": data.get("htmlLink") or data.get("display_url") or "",
-                },
-            })
-        return _error("create_event_failed", c_res.get("message", "Lỗi tạo sự kiện trên Calendar"))
-    except Exception as exc:
+            return _json(
+                {
+                    "ok": True,
+                    "result": {
+                        "status": "confirmed",
+                        "event_id": created_id,
+                        "event": data,
+                        "summary": summary,
+                        "start_time": start_time,
+                        "active_account": c_res.get("active_account"),
+                        "html_link": data.get("htmlLink")
+                        or data.get("display_url")
+                        or "",
+                    },
+                }
+            )
+        return _error(
+            "create_event_failed", c_res.get("message", "Lỗi tạo sự kiện trên Calendar")
+        )
+    except Exception as exc:  # noqa: BLE001 -- tool/gateway boundary maps to error payload
         return _error("create_event_failed", str(exc))
 
 
 def handle_calendar_update_event(
-    params: Dict[str, Any],
+    params: dict[str, Any],
     *,
     client: Any = None,
     registry: Any = None,
@@ -503,23 +566,29 @@ def handle_calendar_update_event(
         )
         if c_res.get("status") == "success":
             data = c_res.get("data", {})
-            return _json({
-                "ok": True,
-                "result": {
-                    "status": "updated",
-                    "event_id": event_id,
-                    "event": data,
-                    "active_account": c_res.get("active_account"),
-                    "html_link": data.get("htmlLink") or data.get("display_url") or "",
-                },
-            })
-        return _error("update_event_failed", c_res.get("message", "Lỗi khi cập nhật sự kiện"))
-    except Exception as exc:
+            return _json(
+                {
+                    "ok": True,
+                    "result": {
+                        "status": "updated",
+                        "event_id": event_id,
+                        "event": data,
+                        "active_account": c_res.get("active_account"),
+                        "html_link": data.get("htmlLink")
+                        or data.get("display_url")
+                        or "",
+                    },
+                }
+            )
+        return _error(
+            "update_event_failed", c_res.get("message", "Lỗi khi cập nhật sự kiện")
+        )
+    except Exception as exc:  # noqa: BLE001 -- tool/gateway boundary maps to error payload
         return _error("update_event_failed", str(exc))
 
 
 def handle_calendar_delete_event(
-    params: Dict[str, Any],
+    params: dict[str, Any],
     *,
     client: Any = None,
     registry: Any = None,
@@ -557,15 +626,17 @@ def handle_calendar_delete_event(
             },
         )
         if c_res.get("status") == "success":
-            return _json({
-                "ok": True,
-                "result": {
-                    "status": "deleted",
-                    "deleted": True,
-                    "event_id": event_id,
-                    "active_account": c_res.get("active_account"),
-                },
-            })
+            return _json(
+                {
+                    "ok": True,
+                    "result": {
+                        "status": "deleted",
+                        "deleted": True,
+                        "event_id": event_id,
+                        "active_account": c_res.get("active_account"),
+                    },
+                }
+            )
         return _error("delete_event_failed", c_res.get("message", "Lỗi khi xóa lịch"))
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 -- tool/gateway boundary maps to error payload
         return _error("delete_event_failed", str(exc))

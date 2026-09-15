@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from copy import deepcopy
 from hashlib import sha256
 from hmac import compare_digest
@@ -7,14 +8,17 @@ import json
 from pathlib import Path
 import socket
 import time
-from typing import Callable
 from urllib.parse import urlsplit
 import uuid
 
 from url_validation import validate_public_target
 
 STOP_REASONS = {
-    "frontier_exhausted", "novelty_converged", "budget_exhausted", "blocked_boundary", "cancelled",
+    "frontier_exhausted",
+    "novelty_converged",
+    "budget_exhausted",
+    "blocked_boundary",
+    "cancelled",
 }
 
 
@@ -62,7 +66,9 @@ def start_session(
 
 
 def _validate_policy(session: dict) -> None:
-    serialized = json.dumps(session.get("policy"), sort_keys=True, separators=(",", ":"))
+    serialized = json.dumps(
+        session.get("policy"), sort_keys=True, separators=(",", ":")
+    )
     expected = sha256(serialized.encode()).hexdigest()
     if not compare_digest(str(session.get("policy_digest", "")), expected):
         raise ValueError("crawl session policy was modified")
@@ -70,10 +76,20 @@ def _validate_policy(session: dict) -> None:
 
 def _validate_event_identity(session: dict, event: dict) -> None:
     required = {
-        "event_id", "parent_event_id", "capability", "requested_url", "final_url",
-        "canonical_url", "started_at", "finished_at", "download_bytes",
-        "content_asset_bytes", "screenshot_bytes", "semantic_fingerprint",
-        "links", "artifacts",
+        "event_id",
+        "parent_event_id",
+        "capability",
+        "requested_url",
+        "final_url",
+        "canonical_url",
+        "started_at",
+        "finished_at",
+        "download_bytes",
+        "content_asset_bytes",
+        "screenshot_bytes",
+        "semantic_fingerprint",
+        "links",
+        "artifacts",
     }
     if not isinstance(event, dict) or not required.issubset(event):
         raise ValueError("observation event is malformed")
@@ -87,7 +103,9 @@ def _validate_event_identity(session: dict, event: dict) -> None:
         raise ValueError("root observation cannot have a parent")
 
 
-def _validate_event_urls(session: dict, event: dict, resolver: Callable) -> tuple[str, str, str]:
+def _validate_event_urls(
+    session: dict, event: dict, resolver: Callable
+) -> tuple[str, str, str]:
     requested = validate_public_target(event["requested_url"], resolver)
     final = validate_public_target(event["final_url"], resolver)
     canonical = validate_public_target(event["canonical_url"], resolver)
@@ -98,7 +116,10 @@ def _validate_event_urls(session: dict, event: dict, resolver: Callable) -> tupl
 
 
 def _apply_event_budget(session: dict, event: dict) -> None:
-    if event["finished_at"] < event["started_at"] or event["finished_at"] > session["deadline"]:
+    if (
+        event["finished_at"] < event["started_at"]
+        or event["finished_at"] > session["deadline"]
+    ):
         raise ValueError("observation exceeded time budget")
     for field in ("download_bytes", "content_asset_bytes", "screenshot_bytes"):
         if type(event[field]) is not int or event[field] < 0:
@@ -128,7 +149,10 @@ def _record_progress(session: dict, canonical: str, fingerprint: str) -> bool:
         fingerprint and fingerprint not in session["semantic_fingerprints"]
     )
     session["no_progress_count"] = 0 if progress else session["no_progress_count"] + 1
-    if session["no_progress_count"] > session["policy"]["crawl_budget"]["consecutive_no_progress"]:
+    if (
+        session["no_progress_count"]
+        > session["policy"]["crawl_budget"]["consecutive_no_progress"]
+    ):
         raise ValueError("observation exceeded no-progress budget")
     if canonical not in session["canonical_urls"]:
         session["canonical_urls"].append(canonical)
@@ -151,17 +175,21 @@ def accept_observation(
 
     fingerprint = str(event["semantic_fingerprint"]).strip()
     progress = _record_progress(result, canonical, fingerprint)
-    result["events"].append(dict(
-        event,
-        requested_url=requested,
-        final_url=final,
-        canonical_url=canonical,
-        derived_progress=progress,
-    ))
+    result["events"].append(
+        dict(
+            event,
+            requested_url=requested,
+            final_url=final,
+            canonical_url=canonical,
+            derived_progress=progress,
+        )
+    )
     return result
 
 
-def finalize_session(session: dict, stop_reason: str, unresolved_frontier: list) -> dict:
+def finalize_session(
+    session: dict, stop_reason: str, unresolved_frontier: list
+) -> dict:
     if stop_reason not in STOP_REASONS:
         raise ValueError("invalid crawl stop reason")
     if not session["events"]:

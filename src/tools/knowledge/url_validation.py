@@ -1,13 +1,20 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from ipaddress import ip_address
 import socket
-from typing import Callable
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 TRACKING_PARAMETERS = {
-    "fbclid", "gclid", "mc_cid", "mc_eid",
-    "utm_campaign", "utm_content", "utm_medium", "utm_source", "utm_term",
+    "fbclid",
+    "gclid",
+    "mc_cid",
+    "mc_eid",
+    "utm_campaign",
+    "utm_content",
+    "utm_medium",
+    "utm_source",
+    "utm_term",
 }
 
 
