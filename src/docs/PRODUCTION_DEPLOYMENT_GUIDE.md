@@ -1,6 +1,6 @@
 # Hướng Dẫn Triển Khai Production & Vận Hành Hermes Agent (Chuẩn DevOps)
 
-Tài liệu này cung cấp hướng dẫn toàn diện từ việc **Dựng mới một máy ảo Linux VPS (Zero-Friction Bootstrap)**, **Cập nhật mã nguồn 1-Click**, **Triển khai qua Docker**, **Cấu hình lưu trữ Uploads vĩnh viễn**, và **Giám sát hệ thống**.
+Historical Linux/Docker operator notes. These paths have not passed clean-machine acceptance and must not be presented as one-click customer installation. Windows local handoff is tracked by H017; use the repository README for its current acceptance status.
 
 ---
 
@@ -28,23 +28,24 @@ cd ~/Hermes-Business-Agent
 
 ### Bước 2: Tạo file `.env` chứa API Keys bí mật
 ```bash
-cp .env.example ~/.hermes.env
-nano ~/.hermes.env
+mkdir -p ~/.hermes
+cp src/.env.example ~/.hermes/.env
+nano ~/.hermes/.env
 ```
-*(Điền các khóa bí mật của bạn: `TELEGRAM_BOT_TOKEN`, `AZURE_FOUNDRY_API_KEY`, `TAVILY_API_KEY`, `COMPOSIO_API_KEY`)*
+*(Điền các khóa bí mật của bạn: `TELEGRAM_BOT_TOKEN`, `ZALO_BOT_TOKEN`, `AZURE_FOUNDRY_API_KEY`, `TAVILY_API_KEY`, `COMPOSIO_API_KEY`)*
 
 ### Bước 3: Chạy script tự động hóa toàn bộ
 ```bash
 bash deploy_vm.sh
 ```
 
-**Script `deploy_vm.sh` sẽ tự động thực hiện 100%:**
+**Script `deploy_vm.sh` attempts the following; its final banner is not acceptance evidence:**
 - Cài đặt toàn bộ apt packages & hơn 20 thư viện C cho Playwright/Chromium headless.
 - Cài đặt Node.js 20 LTS và global `agent-browser`.
 - Cài đặt `uv` và Python 3.12 cô lập.
 - Cài đặt upstream `hermes-agent` CLI.
 - Đồng bộ thư viện Python của dự án qua `uv sync --frozen`.
-- Tạo **Symlink** tự động cho 4 plugins (`email`, `calendar`, `youtube`, `tiktok`) và `SOUL.md`.
+- Tạo **Symlink** tự động cho toàn bộ plugins (`email`, `calendar`, `youtube`, `tiktok`, `zalo-platform`) và `SOUL.md`.
 - Sinh cấu hình `config.yaml` chuẩn Linux (không còn bất kỳ đường dẫn Windows hardcode nào).
 - Đăng ký `systemd` service (`hermes-gateway.service`), kích hoạt `enable-linger` và khởi động bot ngầm 24/7.
 - Tự chạy bộ self-test kiểm tra toàn bộ dịch vụ.
@@ -53,11 +54,11 @@ bash deploy_vm.sh
 
 ## 2. Triển khai thay thế bằng Docker Compose
 
-Nếu bạn muốn chạy dạng container để độc lập 100% với hệ điều hành của máy ảo:
+Docker is an optional, currently unverified operator deployment path:
 
 ```bash
 cd ~/Hermes-Business-Agent
-cp .env.example .env
+cp src/.env.example .env
 nano .env  # Điền các API keys
 
 # Khởi động container
@@ -83,7 +84,7 @@ Script sẽ tự động:
 2. `uv sync --frozen` cập nhật thư viện nếu có thay đổi.
 3. Tự restart service `hermes-gateway` qua systemctl.
 4. Hiển thị trạng thái gateway đang chạy.
-*(Toàn bộ diễn ra trong vài giây, không cần copy thủ công plugin hay sửa bất kỳ file config nào!)*
+Verify service health and real channel behavior after every update; a restart message alone does not prove success.
 
 ---
 

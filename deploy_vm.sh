@@ -288,11 +288,16 @@ for config_path in config_files:
         'email-connector',
         'calendar-connector',
         'youtube-connector',
-        'tiktok-connector'
+        'tiktok-connector',
+        'zalo-platform'
     ]:
         if p not in enabled:
             enabled.append(p)
 
+    # 5b. Enable Zalo Bot Platform in platforms
+    platforms = cfg.setdefault('platforms', {})
+    zalo_cfg = platforms.setdefault('zalo', {})
+    zalo_cfg.setdefault('enabled', True)
     # 6. Telegram Toolset Exposure (Merge to preserve existing toolsets)
     kpt = cfg.setdefault('known_plugin_toolsets', {})
     tg_tools = kpt.setdefault('telegram', [])
@@ -341,7 +346,7 @@ if [ ! -f "${ENV_TARGET}" ]; then
         cp "${SRC_ENV}" "${ENV_TARGET}"
         echo "  [OK] Initialized ${ENV_TARGET} from existing ${SRC_ENV}"
     else
-        cp "${SCRIPT_DIR}/.env.example" "${ENV_TARGET}"
+        cp "${SRC_DIR}/.env.example" "${ENV_TARGET}"
         echo "  [INFO] Created .env template at ${ENV_TARGET}."
         echo "  [ACTION REQUIRED] Configure TELEGRAM_BOT_TOKEN and API keys in: ${ENV_TARGET}"
     fi
@@ -470,8 +475,8 @@ check('2. Google Calendar Connector', lambda: __import__('tools.calendar.service
 check('3. YouTube Channel Connector', lambda: __import__('tools.youtube.service'))
 check('4. TikTok Posting Connector', lambda: __import__('tools.tiktok.service'))
 check('5. Web Research & Report Generator', lambda: __import__('skills.research.scripts.render_report'))
+check('6. Zalo Bot Platform Plugin', lambda: (src / '.hermes/plugins/zalo-platform/adapter.py').is_file() and __import__('importlib.util').util.find_spec('httpx'))
 "
-
 echo ""
 echo "======================================================================"
 echo "DEPLOYMENT COMPLETE"
