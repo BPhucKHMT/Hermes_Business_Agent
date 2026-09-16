@@ -1,13 +1,15 @@
-"""Google authentication and account targeting helpers."""
+"""Google authentication, account targeting, and capability helpers."""
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 import json
 import logging
 from pathlib import Path
 import re
 from typing import Any
 
+from .capabilities import SERVICES, assess_service, extract_scopes
 from .client import (
     format_user_id,
     get_composio_client,
@@ -16,6 +18,26 @@ from .client import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class AccountServiceState:
+    """Per-service readiness for one connected account."""
+
+    account_id: str
+    email: str
+    service: str
+    state: str  # ready | needs_scope | unsupported
+    reason: str = ""
+    scope: str = ""
+
+
+def _connected_accounts(user_id: str) -> list[Any]:
+    """Return raw connected-account items for one Composio user."""
+    client = get_composio_client()
+    accounts = client.connected_accounts.list(user_ids=[user_id])
+    items = getattr(accounts, "items", accounts)
+    return list(items or [])
 
 
 def _item_value(item: Any, key: str, default: Any = "") -> Any:
@@ -208,6 +230,35 @@ def _target_error(kind: str, target: str) -> ValueError:
     return ValueError(f"account_target_{kind}:{target}")
 
 
+def _matches_newest_first(
+    account_emails: dict[str, str], predicate
+) -> list[tuple[str, str]]:
+    """Return (account_id, email) matches, newest connection first.
+
+    Composio may hold several ACTIVE sessions for the same mailbox after a
+    re-login; the newest grant supersedes older ones, so it sorts first.
+    """
+    order = {item.id: idx for idx, item in enumerate(_account_order_cache())}
+    matches = [
+        (account_id, email)
+        for account_id, email in account_emails.items()
+        if predicate(email.casefold())
+    ]
+    matches.sort(key=lambda pair: order.get(pair[0], len(order)))
+    return matches
+
+
+def _account_order_cache():
+    try:
+        client = get_composio_client()
+        accounts = client.connected_accounts.list()
+        items = getattr(accounts, "items", accounts) or []
+        # Composio returns newest first; preserve that ordering.
+        return list(items)
+    except Exception:  # noqa: BLE001 -- ordering degrades to insertion order
+        return []
+
+
 def resolve_account_target(
     telegram_user_id: int | str,
     account_target: str | None = None,
@@ -248,15 +299,9 @@ def resolve_account_target(
     if len(id_matches) > 1:
         raise _target_error("ambiguous", target)
 
-    email_matches = [
-        (account_id, email)
-        for account_id, email in account_emails.items()
-        if clean_target == email.casefold()
-    ]
-    if len(email_matches) == 1:
+    email_matches = _matches_newest_first(account_emails, lambda e: e == clean_target)
+    if email_matches:
         return email_matches[0]
-    if len(email_matches) > 1:
-        raise _target_error("ambiguous", target)
 
     clean_keyword = re.sub(r"[^a-zA-Z0-9_.-]", "", clean_target)
     candidates = []
@@ -387,3 +432,125 @@ def disconnect_user(
     except Exception as exc:  # noqa: BLE001 -- disconnect degrades to False with a log line
         logger.error("Failed to disconnect user %s: %s", user_id, exc)
         return False, []
+
+
+def get_account_service_states(telegram_user_id: int | str) -> dict[str, dict]:
+    """Assess all six Google services for every active connection.
+
+    Returns {service: {"state": ..., "accounts": [{account_id, email, state,
+    reason, scope}]}}. A service is ready if at least one active account can
+    exercise it; needs_scope when accounts exist but scopes do not cover it.
+    """
+    user_id = format_user_id(telegram_user_id)
+    account_emails = get_user_emails(telegram_user_id)
+    result: dict[str, dict] = {}
+    try:
+        items = [
+            item
+            for item in _connected_accounts(user_id)
+            if str(_item_value(item, "status", "") or "").upper() == "ACTIVE"
+        ]
+    except Exception as exc:  # noqa: BLE001 -- assessment degrades with a log line
+        logger.error("Failed to assess Google services for %s: %s", user_id, exc)
+        items = []
+    for service in SERVICES:
+        rows = []
+        for item in items:
+            account_id = str(_item_value(item, "id", "") or "")
+            assessment = assess_service(item, service)
+            rows.append(
+                {
+                    "account_id": account_id,
+                    "email": account_emails.get(account_id, ""),
+                    "state": assessment["state"],
+                    "reason": assessment.get("reason", ""),
+                    "scope": assessment.get("scope", ""),
+                }
+            )
+        ready = [row for row in rows if row["state"] == "ready"]
+        result[service] = {
+            "state": "ready" if ready else ("needs_scope" if rows else "not_connected"),
+            "accounts": rows,
+        }
+    return result
+
+
+def has_service_capability(telegram_user_id: int | str, service: str) -> bool:
+    """Return True only when an active account holds the service's scope."""
+    user_id = format_user_id(telegram_user_id)
+    try:
+        items = [
+            item
+            for item in _connected_accounts(user_id)
+            if str(_item_value(item, "status", "") or "").upper() == "ACTIVE"
+        ]
+    except Exception as exc:  # noqa: BLE001 -- check degrades to False with a log line
+        logger.error("Failed checking %s capability for %s: %s", service, user_id, exc)
+        return False
+    return any(assess_service(item, service)["state"] == "ready" for item in items)
+
+
+def select_service_account(
+    telegram_user_id: int | str,
+    service: str,
+    account_email: str | None = None,
+) -> dict[str, Any]:
+    """Select the account to use for a service call without guessing.
+
+    Resolution order: explicit email -> single ready account -> error naming
+    candidates. Never falls back to the first account when multiple exist.
+    """
+    user_id = format_user_id(telegram_user_id)
+    account_emails = get_user_emails(telegram_user_id)
+    try:
+        items = [
+            item
+            for item in _connected_accounts(user_id)
+            if str(_item_value(item, "status", "") or "").upper() == "ACTIVE"
+        ]
+    except Exception as exc:
+        raise ValueError(f"account_lookup_failed:{exc}") from exc
+    ready = [
+        (str(_item_value(item, "id", "") or ""), item)
+        for item in items
+        if assess_service(item, service)["state"] == "ready"
+    ]
+    # Newest connection first so a re-login of the same mailbox supersedes the
+    # previous session (its scopes/token replace the older grant) instead of
+    # the stale one shadowing it.
+    ready.sort(
+        key=lambda pair: str(_item_value(pair[1], "created_at", "") or ""), reverse=True
+    )
+    if account_email:
+        wanted = account_email.strip().casefold()
+        matches = [
+            (account_id, item)
+            for account_id, item in ready
+            if account_emails.get(account_id, "").casefold() == wanted
+        ]
+        if not matches:
+            raise ValueError(f"account_target_not_found:{account_email}")
+        # Newest-first (sorted above): a re-login supersedes older sessions.
+        account_id, item = matches[0]
+        return {
+            "account_id": account_id,
+            "email": account_emails[account_id],
+            "scopes": sorted(extract_scopes(item)),
+        }
+    distinct = []
+    seen: set[str] = set()
+    for account_id, _item in ready:
+        email = account_emails.get(account_id, "")
+        if email and email.casefold() in seen:
+            continue
+        seen.add(email.casefold())
+        distinct.append((account_id, email))
+    if len(distinct) == 1:
+        account_id, email = distinct[0]
+        return {"account_id": account_id, "email": email, "scopes": []}
+    if not distinct:
+        raise ValueError(f"service_not_ready:{service}")
+    raise ValueError(
+        "account_selection_required:"
+        + ",".join(email or account_id for account_id, email in distinct)
+    )

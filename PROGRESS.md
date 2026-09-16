@@ -1,4 +1,164 @@
 # Hermes Progress
+## Fast resume — customer Gmail misrouting incident diagnosis, 2026-09-16
+
+- Production Telegram DM session `20260818_134611_c1fde99d` (sender
+  `7516302810` "N D", per `hermes sessions export` metadata) surfaced operator
+  Gmail `nguyenlam.baophuc@gmail.com` although the customer intended their own
+  account. Full 58-message export plus tool results were analyzed. Read-only
+  diagnosis; no code, config, memory, or live Google data changed.
+- Proven chain: gateway session isolation worked (DM session keyed by sender
+  chat_id `agent:main:telegram:dm:7516302810`); the model bypassed the
+  caller-bound email connector by running terminal Python and hardcoding
+  operator Telegram ID `7275339077` — first appearance is inside the
+  assistant's own command; absent from all messages and the system snapshot;
+  operator confirmed the ID is theirs. Composio returned the operator's
+  pre-existing googlesuper connection (`ca_vaBrzsYUH1B-`, created 2026-09-09,
+  `googlesuper_ocular-reed`, is_default, email_verified) as the only account;
+  the bot fixed only the tool-slug error (`GMAIL_FETCH_EMAILS` →
+  `GOOGLESUPER_FETCH_EMAILS`) and declared the customer's connect complete;
+  10 email previews entered the customer session context. No write actions
+  occurred; Calendar was claimed but never exercised.
+- Contributing factors (superseded root-cause detail below): an 18/08 greeting
+  turn addressed the sender as the operator; the session spans two hosts
+  (Windows local 2026-08-18 paths, Linux VPS 2026-09-16) and stale Windows
+  paths steered the first verification toward the native `google-workspace`
+  OAuth skill (`google_token.json`) instead of Composio.
+- Root cause pinned 2026-09-16 (operator-executed probes on VPS): the gateway
+  injects bot configuration into every session's system context, including
+  "Home Channels: telegram: bao phuc (ID: 7275339077)" (proven inside
+  `~/.hermes/sessions/request_dump_20260824_*.json` payload text). The model
+  conflated the bot owner's home-channel ID with the current sender and passed
+  it to Composio. `~/.hermes/MEMORY.md`/`USER.md` are empty on the VPS —
+  memory files were not the vector; `sessions.json` and
+  `channel_directory.json` merely index the operator's own DM. Residual
+  privacy note: home-channel injection discloses the operator's Telegram
+  identity to every user by design; acceptable only while caller-bound tools
+  enforce identity structurally.
+- First-account fallback in `resolve_account_target`
+  (`src/tools/composio/auth.py`) remains a latent ambiguity hazard but was not
+  the demonstrated cause here (only one account existed per entity).
+- Fix direction (maps to H018 M1 scope, implemented locally but not deployed):
+  Google identity must resolve only from the host event via the connector;
+  missing caller fails closed; the terminal/SDK path must not reach arbitrary
+  Composio entities with the shared `COMPOSIO_API_KEY`. Remaining operator
+  actions: decide whether to disable home-channel identity injection or accept
+  it behind structural enforcement; delete stale debug request dumps under
+  `~/.hermes/sessions/` after review (they embed full payloads); reconcile the
+  customer's own connection state via `/mail_status` in their DM; do not
+  resume local sessions on production. Owner: operator for reconciliation and
+  dump cleanup; implementation agent for connector enforcement via H018
+  deployment.
+
+
+## Fast resume — H018 Google Workspace actions implemented, 2026-09-16
+
+- Session executed the approved H018 plan (spec
+  `docs/superpowers/specs/2026-09-16-google-workspace-actions.md`, plan
+  `docs/superpowers/plans/2026-09-16-google-workspace-actions.md`): M1-M5
+  coding and Layer 1/2 verification complete. H018 is `active`; Layer 3
+  (independent live Google/Telegram acceptance) remains blocked on operator
+  prerequisites listed in feature-list.json. Not `passing`.
+- Provider inventory (read-only Composio catalog queries, 2026-09-16):
+  googlesuper exposes GOOGLEDRIVE_* (51), GOOGLEDOCS_* (32), GOOGLESHEETS_* (36),
+  GOOGLESLIDES_* (6), GMAIL_* (23) actions incl. send/draft/reply/labels,
+  upload/move/copy/share/trash, insert/replace/markdown updates, sheets batch
+  update, presentations batch_update. All 5 ACTIVE operator accounts already
+  carry full scopes (mail.google.com, drive, documents, spreadsheets,
+  presentations, calendar). Planning-time schema cache removed; re-derive
+  from the API when needed.
+- M1: new `src/tools/composio/capabilities.py` (scope-based readiness per
+  service; ACTIVE account alone no longer implies readiness);
+  `auth.py` adds get_account_service_states/has_service_capability/
+  select_service_account — explicit email or a single ready account resolves,
+  ambiguous accounts raise account_selection_required (no first-account guess);
+  `commands.py` status renders per-service capability instead of a fixed list;
+  worker now passes the full principal (profile preserved) to provider ops.
+- M2: `glinks.py` strict Google URL parsing (docs/sheets+gid/slides/drive
+  file/folder/open+resourcekey; rejects look-alike hosts);
+  `drive_tools.py` + `docs_tools.py` read paths with capability gating;
+  email-connector plugin registers google_drive_find, google_file_read,
+  google_doc_read, google_sheet_read, google_slide_read
+  (workspace_tools.py, workspace_schemas.py).
+- M3: `actions.py` classify_send_intent/evaluate_direct_send (draft-only
+  requests never send; explicit no-preview wording wins; missing fields
+  reported, only those); `action_store.py` SQLite lifecycle pending→executing→
+  verified|failed|unknown keyed by request hash (duplicate delivery never
+  re-executes; distinct intentional requests proceed);
+  `mutations.py` composes send-direct plus Drive/Docs/Sheets/Slides mutations
+  through the store; success without message ID records unknown, never silent
+  success; worker allowlist extended (47 operations).
+- M4: email-connector `handoff.py` — single-use expiring opaque tokens
+  (HMAC-hashed at rest, 15-minute TTL, max 5 active per user, platform user +
+  workspace bound, atomic redemption) for group→DM continuation;
+  `build_deep_link`/`handoff_notice` leak no account data.
+- Test contract updates: worker passes full principal so outbound tool tests
+  assert `telegram:default:<id>`; mail tests made hermetic (patch
+  auth.get_user_emails/_connected_accounts instead of reading the live
+  account cache; toolkit stub googlesuper); auth suite resets the composio
+  client singleton leaked by test_client_with_api_key. Pre-existing 3 mail
+  test failures (stale mocks vs 6d151bd toolkit check) fixed, not left red.
+- Verification evidence (all 2026-09-16): full suite
+  `src/.venv/Scripts/python.exe -m pytest tests/ -q -p no:cacheprovider
+  --ignore=tests/langfuse_observer` → 295 passed, exit 0 (langfuse suite
+  unchanged, separate venv per earlier handoff); `uv run --with ruff`:
+  `ruff check --config ruff.toml src tests` all pass; `ruff format --check
+  src tests` 176 files formatted; compileall clean; feature-list.json valid;
+  `tests/verify_composio.py --layer 1/2` pass (10 suites);
+  `tests/verify_calendar.py --layer 1/2` pass;
+  `tests/verify_email_intake.py --layer 1/2` pass.
+- Cleanup: planning-time action-catalog cache and pytest temp dirs removed;
+  `.runtime` stays git-ignored. No live Google writes, sends, or Telegram
+  messages were executed by this session; no operator secrets touched.
+- Next (Layer 3, owner: operator + independent verifier): provide live
+  fixtures listed in H018.blocked, then run spec acceptance A01-A15 with UTC
+  timestamps and read-back evidence; only the independent verifier moves
+  H018 to `passing`.
+
+## Fast resume — H018 Google Workspace spec and plan, 2026-09-16
+
+- Latest request is specification/planning only. H018 registered `not_started`;
+  no production code, operator config, installed Hermes or live Google data changed.
+  Earlier Zalo/Windows handoffs below remain historical and retain their blockers.
+- Approved scope: unified `/connect_google` for Gmail, Calendar, Drive, Docs,
+  Sheets and Slides read/write actions; private Google links and Drive-hosted
+  Office/PDF/text reading; capability-aware consent/status, caller/account/workspace
+  isolation, safe group-to-DM continuation without retyping.
+- Explicit send-now/skip-preview email intent is approval for that one email,
+  not standing autonomous permission. Preserve draft-only requests, landlord
+  draft-only, Tier 3, kill switch and destructive/sharing approval. Report
+  independently verified outcomes; unknown commit is not permission to resend.
+- Portable scope: requirement_customer.md REQ-GOOGLE-01..09,
+  REQ-AUTONOMY-03; CLAUDE.md approved target policy; DECISIONS.md D028.
+  Local detailed artifacts (docs remains ignored under D010):
+  `docs/superpowers/specs/2026-09-16-google-workspace-actions.md` and
+  `docs/superpowers/plans/2026-09-16-google-workspace-actions.md`.
+- Plan order: M1 provider capability/scope inventory + account/host boundaries;
+  M2 private search/link/file reads; M3 six-service mutations + direct send +
+  durable evidence; M4 user-bound group-to-DM handoff; M5 independent real
+  Google/Telegram acceptance A01-A15 and customer deployment documentation.
+- Baseline gaps inspected: ACTIVE googlesuper is treated as service readiness;
+  status uses a fixed Gmail/Calendar list; unspecified account picks first entry;
+  Telegram worker mapping strips profile; inspected send path lacks durable
+  action evidence/reconciliation; group personal tools currently reject DM-only.
+  H009's read-only feature wording is stale relative to D026 and registered
+  outbound tools. Reconcile it during M1/M3 without erasing old evidence or
+  claiming it passes. H009/H013/H017 and other states remain unchanged.
+- Next implementation action: activate H018 within WIP=1, read coding rules and
+  inspect locked SDK action schemas + actual Composio auth configuration.
+  Do not assume one consent screen, all scopes or API write coverage from a
+  toolkit name. No new OAuth service, arbitrary-tool executor or Drive crawler.
+- Live acceptance prerequisites: operator-owned test accounts/consent,
+  restricted-scope/admin approvals where needed, approved Telegram users/group,
+  reversible Google fixtures and an approved test email recipient.
+  Owners: operator for credentials/consent/fixtures; implementation agent for
+  API coverage and safeguards; independent verifier for final evidence/state.
+  Unblock live acceptance when these exist and M1-M4 gates pass.
+- Planning validation: 2026-09-16T04:47:06Z, Eval Python assertions completed
+  without error: feature JSON parses, IDs/dependencies valid, WIP respected,
+  H018 not_started with no evidence, nine Google requirements/direct-send policy,
+  fifteen acceptance scenarios, five milestones, six-service scope and no
+  TODO/TBD/FIXME placeholders. This is document/state validation only; no
+  production tests, OAuth changes, Google writes or Telegram sends were run.
 
 ## Fast resume — Zalo session handoff, 2026-09-12
 

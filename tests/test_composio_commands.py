@@ -23,13 +23,13 @@ def test_handle_google_status_connected():
         return_value=[{"id": "ca_1", "toolkit": "gmail", "status": "ACTIVE"}],
     ):
         msg = handle_google_status(7275339077)
-        assert "đã kết nối" in msg.lower() or "active" in msg.lower()
+        assert "connected" in msg.lower() or "active" in msg.lower()
 
 
 def test_handle_google_status_disconnected():
     with patch("src.tools.composio.commands.list_user_connections", return_value=[]):
         msg = handle_google_status(7275339077)
-        assert "chưa kết nối" in msg.lower() or "not connected" in msg.lower()
+        assert "not connected" in msg.lower() or "disconnected" in msg.lower()
         assert "/connect-google" in msg
 
 
@@ -45,11 +45,7 @@ def test_handle_disconnect_google():
         ),
     ):
         msg = handle_disconnect_google(7275339077, target="all")
-        assert (
-            "hủy kết nối" in msg.lower()
-            or "ngắt kết nối" in msg.lower()
-            or "thành công" in msg.lower()
-        )
+        assert "disconnected" in msg.lower() or "successfully" in msg.lower()
 
 
 def test_handle_disconnect_google_menu_multiple_accounts():

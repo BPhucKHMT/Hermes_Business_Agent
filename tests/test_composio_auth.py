@@ -6,6 +6,7 @@ from src.tools.composio.auth import (
     check_connection_status,
     initiate_google_connection,
 )
+import src.tools.composio.client as client_module
 from src.tools.composio.client import format_user_id, get_composio_client
 
 
@@ -35,6 +36,8 @@ def test_client_with_api_key(monkeypatch):
         client = get_composio_client(force_refresh=True)
         assert client is not None
         mock_cls.assert_called_once_with(api_key="test_key_123")
+
+    client_module._client_instance = None
 
 
 def test_initiate_google_connection(monkeypatch):

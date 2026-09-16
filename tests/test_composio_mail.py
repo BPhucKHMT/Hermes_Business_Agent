@@ -21,6 +21,7 @@ def test_mail_search_unauthenticated():
 
 def test_mail_search_authenticated():
     mock_client = MagicMock()
+    mock_client.connected_accounts.get.return_value.toolkit.slug = "googlesuper"
     mock_session = MagicMock()
     mock_session.execute.return_value = {
         "messages": [
@@ -41,6 +42,21 @@ def test_mail_search_authenticated():
             "src.tools.composio.mail_tools.get_composio_client",
             return_value=mock_client,
         ),
+        patch(
+            "src.tools.composio.auth.get_user_emails",
+            return_value={"ca_test": "user@gmail.com"},
+        ),
+        patch(
+            "src.tools.composio.auth._connected_accounts",
+            return_value=[
+                {
+                    "id": "ca_test",
+                    "status": "ACTIVE",
+                    "toolkit": {"slug": "googlesuper"},
+                    "data": {"scope": "https://mail.google.com/"},
+                }
+            ],
+        ),
     ):
         res = composio_mail_search(7275339077, query="Báo giá", max_results=3)
         assert res["status"] == "success"
@@ -48,13 +64,15 @@ def test_mail_search_authenticated():
             user_id="telegram_7275339077", multi_account={"enable": True}
         )
         mock_session.execute.assert_called_once_with(
-            tool_slug="GMAIL_FETCH_EMAILS",
+            tool_slug="GOOGLESUPER_FETCH_EMAILS",
             arguments={"query": "Báo giá", "max_results": 3},
+            account="ca_test",
         )
 
 
 def test_mail_send_success():
     mock_client = MagicMock()
+    mock_client.connected_accounts.get.return_value.toolkit.slug = "googlesuper"
     mock_session = MagicMock()
     mock_session.execute.return_value = {"message_id": "sent_123", "status": "SENT"}
     mock_client.create.return_value = mock_session
@@ -66,6 +84,21 @@ def test_mail_send_success():
         patch(
             "src.tools.composio.mail_tools.get_composio_client",
             return_value=mock_client,
+        ),
+        patch(
+            "src.tools.composio.auth.get_user_emails",
+            return_value={"ca_test": "user@gmail.com"},
+        ),
+        patch(
+            "src.tools.composio.auth._connected_accounts",
+            return_value=[
+                {
+                    "id": "ca_test",
+                    "status": "ACTIVE",
+                    "toolkit": {"slug": "googlesuper"},
+                    "data": {"scope": "https://mail.google.com/"},
+                }
+            ],
         ),
     ):
         res = composio_mail_send(
@@ -79,17 +112,19 @@ def test_mail_send_success():
             user_id="telegram_7275339077", multi_account={"enable": True}
         )
         mock_session.execute.assert_called_once_with(
-            tool_slug="GMAIL_SEND_EMAIL",
+            tool_slug="GOOGLESUPER_SEND_EMAIL",
             arguments={
                 "recipient_email": "client@example.com",
                 "subject": "Chào bạn",
                 "body": "Nội dung email test",
             },
+            account="ca_test",
         )
 
 
 def test_mail_create_draft():
     mock_client = MagicMock()
+    mock_client.connected_accounts.get.return_value.toolkit.slug = "googlesuper"
     mock_session = MagicMock()
     mock_session.execute.return_value = {"draft_id": "draft_456"}
     mock_client.create.return_value = mock_session
@@ -101,6 +136,21 @@ def test_mail_create_draft():
         patch(
             "src.tools.composio.mail_tools.get_composio_client",
             return_value=mock_client,
+        ),
+        patch(
+            "src.tools.composio.auth.get_user_emails",
+            return_value={"ca_test": "user@gmail.com"},
+        ),
+        patch(
+            "src.tools.composio.auth._connected_accounts",
+            return_value=[
+                {
+                    "id": "ca_test",
+                    "status": "ACTIVE",
+                    "toolkit": {"slug": "googlesuper"},
+                    "data": {"scope": "https://mail.google.com/"},
+                }
+            ],
         ),
     ):
         res = composio_mail_create_draft(
@@ -114,10 +164,11 @@ def test_mail_create_draft():
             user_id="telegram_7275339077", multi_account={"enable": True}
         )
         mock_session.execute.assert_called_once_with(
-            tool_slug="GMAIL_CREATE_EMAIL_DRAFT",
+            tool_slug="GOOGLESUPER_CREATE_EMAIL_DRAFT",
             arguments={
                 "recipient_email": "boss@example.com",
                 "subject": "Kế hoạch tuần",
                 "body": "Bản nháp kế hoạch",
             },
+            account="ca_test",
         )

@@ -32,7 +32,36 @@ PROVIDER_OPERATIONS = {
     "composio_calendar_create_event": "calendar_tools",
     "composio_calendar_patch_event": "calendar_tools",
     "composio_calendar_delete_event": "calendar_tools",
+    "composio_drive_find": "drive_tools",
+    "composio_drive_read_file": "drive_tools",
+    "composio_drive_get_metadata": "drive_tools",
+    "composio_docs_get": "docs_tools",
+    "composio_docs_search": "docs_tools",
+    "composio_sheets_info": "docs_tools",
+    "composio_sheets_values": "docs_tools",
+    "composio_slides_get": "docs_tools",
+    "composio_slides_page": "docs_tools",
+    "composio_email_send_direct": "mutations",
+    "composio_drive_upload": "mutations",
+    "composio_drive_create_folder": "mutations",
+    "composio_drive_move": "mutations",
+    "composio_drive_copy": "mutations",
+    "composio_drive_share": "mutations",
+    "composio_drive_revoke_permission": "mutations",
+    "composio_drive_trash": "mutations",
+    "composio_drive_restore": "mutations",
+    "composio_docs_create": "mutations",
+    "composio_docs_insert_text": "mutations",
+    "composio_docs_replace_all": "mutations",
+    "composio_sheets_update_values": "mutations",
+    "composio_sheets_append": "mutations",
+    "composio_sheets_clear": "mutations",
+    "composio_sheets_add_sheet": "mutations",
+    "composio_slides_create": "mutations",
+    "composio_slides_batch_update": "mutations",
 }
+
+
 CALENDAR_OPERATIONS = frozenset(
     {
         "create_draft_event",
@@ -88,12 +117,7 @@ def dispatch(request):
         raise ValueError("Google operation parameters cannot override caller")
     if operation in PROVIDER_OPERATIONS:
         module = import_module(f"tools.composio.{PROVIDER_OPERATIONS[operation]}")
-        target_id = (
-            principal_id.split(":")[-1]
-            if principal_id.startswith("telegram:")
-            else principal_id
-        )
-        raw = getattr(module, operation)(target_id, **params)
+        raw = getattr(module, operation)(principal_id, **params)
         return normalize_result(raw)
     if isinstance(operation, str) and operation.startswith("calendar."):
         name = operation.removeprefix("calendar.")

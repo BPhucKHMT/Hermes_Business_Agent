@@ -280,3 +280,18 @@
   6) Use native scoped platform locks (`_acquire_platform_lock`) to prevent duplicate gateway polling instances on the same host.
 - Consequences: 100% clean isolation; zero modifications to Hermes core codebase; Telegram and Google Workspace adapters remain completely unaffected. 100% test pass rate across all 179 test cases.
 - Revisit when: Production VPS deployment requires public HTTPS webhook mode (`setWebhook`) or official multi-media support is published.
+
+## D028 — Unified Google Workspace Actions and Request-Scoped Direct Email Approval
+
+- Date: 2026-09-16
+- Status: accepted specification; implementation not started (H018)
+- Context: User approved extending `/connect_google` beyond Gmail/Calendar and read-only document access, including private Google links in Telegram, and allowing explicit send-now requests without mandatory draft preview.
+- Decision:
+  1) Reuse Composio and existing native plugins for Gmail, Calendar, Drive, Docs, Sheets and Slides read/write operations defined by REQ-GOOGLE-01..09. Effective capability intersects implementation, granted scopes, resource ACL, organization/workspace policy and action authorization; account ACTIVE alone is insufficient.
+  2) Preserve caller/account/workspace isolation; no first-account guess when ambiguous, public-file workaround, whole-Drive indexing or implicit group disclosure. Group requests continue privately with a user/workspace-bound, expiring, single-use handoff.
+  3) A trusted explicit send-now/skip-preview email request is Tier 2 approval for that particular action. With complete material inputs, send then report verified evidence without a redundant preview. Draft-only requests never send. This amends D016's mandatory preview interpretation, not its Tier 3, landlord draft-only, kill-switch or unattended-action restrictions; it does not waive approval for destructive/sharing actions.
+  4) Mutations need durable request identity, independent target read-back and honest unknown/partial outcomes. Reconcile ambiguous provider commits before any retry; never blindly resend.
+  5) Capability discovery and provider scope/compliance checks precede implementation. Missing provider operations block acceptance rather than silently narrowing scope. One connect entrypoint does not guarantee one OAuth token or consent screen.
+- Consequences: Existing connections may need additional consent; current account/status/tool/policy paths require changes. This specification does not deploy behavior or prove Google/Telegram acceptance. H009/H013 remain blocked; H018 stays not_started until implementation begins.
+- Implementation (2026-09-16): H018 M1-M5 coded; Layer 1/2 verified (295 tests, ruff clean, focused verifiers pass). Scope-based capability replaced ACTIVE-account inference; account selection never guesses among ambiguous accounts; direct-send approval is request-scoped with durable duplicate-safe evidence; group→DM handoff is single-use and workspace-bound. H018 remains `active` pending independent Layer 3 live acceptance; this note records implementation, not passing evidence.
+- Revisit when: Provider action/consent constraints require a different authenticated path, customer changes group-sharing policy, or operator changes the permanent autonomy locks.

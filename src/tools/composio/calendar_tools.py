@@ -16,7 +16,7 @@ from .client import (
 _NOT_CONNECTED = {
     "status": "error",
     "error_code": "NOT_CONNECTED",
-    "message": "Bạn chưa kết nối Google Calendar. Vui lòng dùng lệnh /connect-google để liên kết tài khoản.",
+    "message": "Google Calendar not connected. Use /connect-google to link your account.",
 }
 
 
@@ -128,7 +128,7 @@ def composio_calendar_list_events(
     except ValueError as exc:
         return _error(str(exc), code="INVALID_ACCOUNT_TARGET")
     except Exception as exc:  # noqa: BLE001 -- tool boundary maps provider failure to error payload
-        return _error(f"Lỗi khi đọc lịch trình: {exc}")
+        return _error(f"Failed to read schedule: {exc}")
 
 
 def composio_calendar_create_event(
@@ -184,7 +184,7 @@ def composio_calendar_create_event(
     except ValueError as exc:
         return _error(str(exc), code="INVALID_ACCOUNT_TARGET")
     except Exception as exc:  # noqa: BLE001 -- tool boundary maps provider failure to error payload
-        return _error(f"Lỗi khi tạo lịch hẹn: {exc}")
+        return _error(f"Failed to create event: {exc}")
 
 
 def composio_calendar_find_free_slots(
@@ -232,7 +232,7 @@ def composio_calendar_find_free_slots(
     except ValueError as exc:
         return _error(str(exc), code="INVALID_ACCOUNT_TARGET")
     except Exception as exc:  # noqa: BLE001 -- tool boundary maps provider failure to error payload
-        return _error(f"Lỗi khi tìm khoảng thời gian trống: {exc}")
+        return _error(f"Failed to find free slots: {exc}")
 
 
 def composio_calendar_get_event(
@@ -263,7 +263,7 @@ def composio_calendar_get_event(
     except ValueError as exc:
         return _error(str(exc), code="INVALID_ACCOUNT_TARGET")
     except Exception as exc:  # noqa: BLE001 -- tool boundary maps provider failure to error payload
-        return _error(f"Lỗi khi lấy thông tin sự kiện: {exc}")
+        return _error(f"Failed to get event details: {exc}")
 
 
 def composio_calendar_patch_event(
@@ -314,7 +314,7 @@ def composio_calendar_patch_event(
     except ValueError as exc:
         return _error(str(exc), code="INVALID_ACCOUNT_TARGET")
     except Exception as exc:  # noqa: BLE001 -- tool boundary maps provider failure to error payload
-        return _error(f"Lỗi khi dời/sửa lịch: {exc}")
+        return _error(f"Failed to reschedule/update event: {exc}")
 
 
 def composio_calendar_delete_event(
@@ -345,4 +345,4 @@ def composio_calendar_delete_event(
     except ValueError as exc:
         return _error(str(exc), code="INVALID_ACCOUNT_TARGET")
     except Exception as exc:  # noqa: BLE001 -- tool boundary maps provider failure to error payload
-        return _error(f"Lỗi khi hủy/xóa lịch: {exc}")
+        return _error(f"Failed to cancel/delete event: {exc}")

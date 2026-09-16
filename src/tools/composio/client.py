@@ -216,6 +216,49 @@ def is_unavailable_tool_error(error: Any) -> bool:
     )
 
 
+_SERVICE_TOOLKIT_PREFIXES = (
+    "GMAIL_",
+    "GOOGLEDRIVE_",
+    "GOOGLEDOCS_",
+    "GOOGLESHEETS_",
+    "GOOGLESLIDES_",
+)
+
+
+def rewrite_slug_for_account(tool_slug: str, account: str | None) -> str:
+    """Rewrite service-prefixed slugs to the account's toolkit slug.
+
+    Composio routes tool execution by the account's toolkit, not by the
+    service prefix in the slug. A googlesuper session rejects
+    ``GOOGLEDOCS_GET_DOCUMENT_BY_ID`` with "No active connection found for
+    toolkit 'googledocs'" even when the account holds full Workspace scopes;
+    the same action executes as ``GOOGLESUPER_GET_DOCUMENT_BY_ID``.
+    """
+    if not account:
+        return tool_slug
+    prefix = next(
+        (p for p in _SERVICE_TOOLKIT_PREFIXES if tool_slug.startswith(p)),
+        None,
+    )
+    if prefix is None:
+        return tool_slug
+    toolkit = _toolkit_for_account(account)
+    if not toolkit or toolkit.lower() == prefix.removesuffix("_").lower():
+        return tool_slug
+    return f"{toolkit.upper()}_{tool_slug.removeprefix(prefix)}"
+
+
+def _toolkit_for_account(account: str) -> str | None:
+    try:
+        selected = get_composio_client().connected_accounts.get(account)
+    except Exception:  # noqa: BLE001 -- unknown account keeps the original slug
+        return None
+    toolkit = getattr(getattr(selected, "toolkit", None), "slug", None)
+    if not toolkit and isinstance(selected, Mapping):
+        toolkit = _error_text(selected.get("toolkit"))
+    return toolkit
+
+
 def execute_composio_tool(
     session: Any,
     tool_slug: str,
@@ -224,6 +267,9 @@ def execute_composio_tool(
     **kwargs: Any,
 ) -> Any:
     """Execute a tool and retry a second slug only after a proven slug miss."""
+    account = kwargs.get("account")
+    if isinstance(account, str):
+        tool_slug = rewrite_slug_for_account(tool_slug, account)
 
     def execute_once(slug: str) -> Any:
         try:
@@ -294,8 +340,8 @@ def get_composio_client(force_refresh: bool = False) -> Any:
         _client_instance = composio_class(api_key=api_key)
     except api_key_error as exc:
         raise RuntimeError(
-            f"Mã COMPOSIO_API_KEY không hợp lệ hoặc đã hết hạn ({str(exc)}). "
-            "Vui lòng lấy API key mới từ https://dashboard.composio.dev và cập nhật vào ~/.hermes/.env."
+            f"COMPOSIO_API_KEY is invalid or expired ({str(exc)}). "
+            "Get a fresh API key from https://dashboard.composio.dev and update ~/.hermes/.env."
         ) from exc
 
     return _client_instance

@@ -16,44 +16,46 @@ def layer_1() -> None:
         COMPOSIO_DIR / "mail_tools.py",
         COMPOSIO_DIR / "calendar_tools.py",
         COMPOSIO_DIR / "commands.py",
-        ROOT
-        / "docs"
-        / "superpowers"
-        / "specs"
-        / "2026-09-03-composio-integration-design.md",
-        ROOT
-        / "docs"
-        / "superpowers"
-        / "plans"
-        / "2026-09-03-composio-integration-plan.md",
+        COMPOSIO_DIR / "capabilities.py",
+        COMPOSIO_DIR / "glinks.py",
+        COMPOSIO_DIR / "drive_tools.py",
+        COMPOSIO_DIR / "docs_tools.py",
+        COMPOSIO_DIR / "mutations.py",
+        COMPOSIO_DIR / "action_store.py",
+        COMPOSIO_DIR / "actions.py",
+        SRC / ".hermes" / "plugins" / "email-connector" / "workspace_tools.py",
+        SRC / ".hermes" / "plugins" / "email-connector" / "workspace_schemas.py",
+        SRC / ".hermes" / "plugins" / "email-connector" / "handoff.py",
     )
     missing = [str(p.relative_to(ROOT)) for p in required_files if not p.is_file()]
     assert not missing, f"Missing required Composio files: {missing}"
 
-    # Verify imports and basic signatures
     sys.path.insert(0, str(ROOT))
     sys.path.insert(0, str(SRC))
 
-    from src.tools.composio.auth import (  # noqa: PLC0415 -- layer 1 imports follow explicit source path bootstrap
+    print("composio layer 1: pass")
+
+    # Existing baseline interface checks
+    from src.tools.composio.auth import (  # noqa: PLC0415 -- source bootstrap
         check_connection_status,
         disconnect_user,
         initiate_google_connection,
     )
-    from src.tools.composio.calendar_tools import (  # noqa: PLC0415 -- layer 1 imports follow explicit source path bootstrap
+    from src.tools.composio.calendar_tools import (  # noqa: PLC0415
         composio_calendar_create_event,
         composio_calendar_find_free_slots,
         composio_calendar_list_events,
     )
-    from src.tools.composio.client import (  # noqa: PLC0415 -- layer 1 imports follow explicit source path bootstrap
+    from src.tools.composio.client import (  # noqa: PLC0415
         format_user_id,
         get_composio_client,
     )
-    from src.tools.composio.commands import (  # noqa: PLC0415 -- layer 1 imports follow explicit source path bootstrap
+    from src.tools.composio.commands import (  # noqa: PLC0415
         handle_connect_google,
         handle_disconnect_google,
         handle_google_status,
     )
-    from src.tools.composio.mail_tools import (  # noqa: PLC0415 -- layer 1 imports follow explicit source path bootstrap
+    from src.tools.composio.mail_tools import (  # noqa: PLC0415
         composio_mail_create_draft,
         composio_mail_search,
         composio_mail_send,
@@ -73,11 +75,7 @@ def layer_1() -> None:
     assert callable(handle_connect_google)
     assert callable(handle_google_status)
     assert callable(handle_disconnect_google)
-
-    # Verify user formatting
     assert format_user_id(123) == "telegram_123"
-
-    print("composio layer 1: pass")
 
 
 def layer_2() -> None:
@@ -87,6 +85,11 @@ def layer_2() -> None:
         "tests/test_composio_calendar.py",
         "tests/test_composio_commands.py",
         "tests/test_composio_mail_outbound.py",
+        "tests/test_composio_capabilities.py",
+        "tests/test_composio_glinks.py",
+        "tests/test_composio_mutations.py",
+        "tests/test_workspace_tools.py",
+        "tests/test_google_handoff.py",
     ]
 
     for test_file in test_files:

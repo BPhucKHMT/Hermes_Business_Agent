@@ -260,7 +260,7 @@ def test_missing_connector_or_caller_fails_closed():
 
     assert '"ok": false' in no_caller
     assert "connected" not in no_caller
-    assert "không khả dụng" in no_client.lower()
+    assert "unavailable" in no_client.lower()
     assert "connected" not in no_client.lower()
 
 

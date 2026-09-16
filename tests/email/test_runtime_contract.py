@@ -263,7 +263,7 @@ def test_command_caller_comes_from_trusted_gateway_hook(runtime_probe):
 def test_group_command_context_is_dm_redirect_only(runtime_probe):
     runtime_probe.capture(runtime_probe.group_event(user_id="111"))
 
-    with pytest.raises(DmOnlyError, match="Mở chat riêng"):
+    with pytest.raises(DmOnlyError, match="Open a private chat"):
         runtime_probe.registry.resolve_command()
 
 

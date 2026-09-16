@@ -28,7 +28,7 @@ def _error(code: str, message: str = "") -> str:
             for term in ("missing_access_token", "invalid_grant", "401", "unauthorized")
         ):
             err["hint"] = (
-                "Tài khoản Google chưa được kết nối hoặc token đã hết hạn. Hãy dùng lệnh /connect_google để kết nối lại."
+                "Google account is not connected or the token has expired. Use /connect_google to reconnect."
             )
     return _json({"ok": False, "error": err})
 
@@ -182,7 +182,7 @@ def handle_calendar_list_events(
                 )
             return _error(
                 c_res.get("error_code", "calendar_query_failed").lower(),
-                c_res.get("message", "Lỗi khi đọc lịch"),
+                c_res.get("message", "Failed to read calendar"),
             )
         except Exception as exc:  # noqa: BLE001 -- tool/gateway boundary maps to error payload
             return _error("calendar_query_failed", str(exc))
@@ -241,7 +241,7 @@ def handle_calendar_find_free_slots(
                     )
                 return _error(
                     c_res.get("error_code", "free_slots_search_failed").lower(),
-                    c_res.get("message", "Lỗi tìm khoảng trống"),
+                    c_res.get("message", "Failed to find free slots"),
                 )
             except Exception as exc:  # noqa: BLE001 -- tool/gateway boundary maps to error payload
                 return _error("free_slots_search_failed", str(exc))
@@ -435,7 +435,7 @@ def handle_calendar_get_event(
             )
         return _error(
             c_res.get("error_code", "get_event_failed").lower(),
-            c_res.get("message", "Lỗi khi lấy thông tin sự kiện"),
+            c_res.get("message", "Failed to get event details"),
         )
     except Exception as exc:  # noqa: BLE001 -- tool/gateway boundary maps to error payload
         return _error("get_event_failed", str(exc))
@@ -512,7 +512,8 @@ def handle_calendar_create_event(
                 }
             )
         return _error(
-            "create_event_failed", c_res.get("message", "Lỗi tạo sự kiện trên Calendar")
+            "create_event_failed",
+            c_res.get("message", "Failed to create Calendar event"),
         )
     except Exception as exc:  # noqa: BLE001 -- tool/gateway boundary maps to error payload
         return _error("create_event_failed", str(exc))
@@ -581,7 +582,7 @@ def handle_calendar_update_event(
                 }
             )
         return _error(
-            "update_event_failed", c_res.get("message", "Lỗi khi cập nhật sự kiện")
+            "update_event_failed", c_res.get("message", "Failed to update the event")
         )
     except Exception as exc:  # noqa: BLE001 -- tool/gateway boundary maps to error payload
         return _error("update_event_failed", str(exc))
@@ -637,6 +638,8 @@ def handle_calendar_delete_event(
                     },
                 }
             )
-        return _error("delete_event_failed", c_res.get("message", "Lỗi khi xóa lịch"))
+        return _error(
+            "delete_event_failed", c_res.get("message", "Failed to delete the calendar")
+        )
     except Exception as exc:  # noqa: BLE001 -- tool/gateway boundary maps to error payload
         return _error("delete_event_failed", str(exc))

@@ -205,7 +205,7 @@ CALENDAR_CREATE_EVENT_SCHEMA = {
 
 CALENDAR_UPDATE_EVENT_SCHEMA = {
     "name": "calendar_update_event",
-    "description": "Reschedule or modify an existing Google Calendar event. Use to update event times (dời lịch), summary, location, description, or attendees.",
+    "description": "Reschedule or modify an existing Google Calendar event. Use to update event times, summary, location, description, or attendees.",
     "parameters": {
         "type": "object",
         "properties": {

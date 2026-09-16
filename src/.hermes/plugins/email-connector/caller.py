@@ -11,7 +11,7 @@ from uuid import UUID
 
 from gateway.session import build_session_key
 
-DM_REDIRECT_TEXT = "Mở chat riêng với Hermes để xem Gmail cá nhân."
+DM_REDIRECT_TEXT = "Open a private chat with Hermes to use your personal Gmail."
 
 
 class DmOnlyError(ValueError):

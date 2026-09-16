@@ -24,8 +24,8 @@ def _error(code: str, message: str = "") -> str:
             for term in ("missing_access_token", "invalid_grant", "401", "unauthorized")
         ):
             err["hint"] = (
-                "Tài khoản Google/Gmail chưa được kết nối hoặc token đã hết hạn. "
-                "Hãy dùng lệnh /connect_google để kết nối lại."
+                "Google/Gmail account is not connected or the token has expired. "
+                "Use /connect_google to reconnect."
             )
     return json.dumps({"ok": False, "error": err}, ensure_ascii=False)
 
@@ -94,9 +94,18 @@ def _candidate_src_dirs() -> list[Path]:
 
 
 _composio_bridge = None
-try:
-    from tools.composio import bridge as _composio_bridge
-except (ImportError, ModuleNotFoundError):
+
+
+def _load_composio_bridge():
+    """Locate and load the repo composio bridge from candidate src dirs."""
+    global _composio_bridge
+    try:
+        from tools.composio import bridge as _bridge  # noqa: PLC0415
+
+        _composio_bridge = _bridge
+        return _bridge
+    except (ImportError, ModuleNotFoundError):
+        pass
     for _cand in _candidate_src_dirs():
         _target = _cand / "tools" / "composio" / "bridge.py"
         if _target.is_file():
@@ -111,7 +120,13 @@ except (ImportError, ModuleNotFoundError):
                 sys.modules["tools.composio.bridge"] = _mod
                 _spec.loader.exec_module(_mod)
                 _composio_bridge = _mod
-                break
+                return _mod
+    raise RuntimeError(
+        "call_google bridge unavailable; run python src/setup_local.py --local"
+    )
+
+
+_composio_bridge = _load_composio_bridge()
 
 
 def _call_google(
@@ -166,7 +181,7 @@ def handle_email_search(
         ):
             return _error(
                 "not_connected",
-                "Tài khoản Gmail chưa được kết nối. Hãy dùng lệnh /connect_google để kết nối.",
+                "Gmail account not connected. Use /connect_google to connect.",
             )
         result = _call_google(
             "composio_mail_search",
@@ -180,7 +195,7 @@ def handle_email_search(
         if result.get("status") != "success":
             return _error(
                 result.get("error_code", "mail_search_failed").lower(),
-                result.get("message", "Lỗi tìm kiếm email"),
+                result.get("message", "Email search failed"),
             )
         return json.dumps(
             {
@@ -230,7 +245,7 @@ def handle_email_get_thread(
         ):
             return _error(
                 "not_connected",
-                "Tài khoản Gmail chưa được kết nối. Hãy dùng lệnh /connect_google để kết nối.",
+                "Gmail account not connected. Use /connect_google to connect.",
             )
         result = _call_google(
             "composio_mail_get_thread",
@@ -240,7 +255,7 @@ def handle_email_get_thread(
         if result.get("status") != "success":
             return _error(
                 result.get("error_code", "mail_get_thread_failed").lower(),
-                result.get("message", "Lỗi khi đọc email"),
+                result.get("message", "Failed to read email"),
             )
         return json.dumps(
             {
@@ -334,7 +349,7 @@ def handle_email_send(
 
     if not recipient or not subject or not body:
         return _error(
-            "missing_required_fields", "recipient, subject, và body là bắt buộc."
+            "missing_required_fields", "recipient, subject, and body are required."
         )
 
     try:
@@ -359,7 +374,7 @@ def handle_email_send(
                 ensure_ascii=False,
             )
         return _error(
-            "mail_send_failed", res.get("message", "Lỗi gửi email qua Composio")
+            "mail_send_failed", res.get("message", "Failed to send email via Composio")
         )
     except Exception as exc:  # noqa: BLE001 -- tool/gateway boundary maps to error payload
         return _error("mail_send_failed", str(exc))
@@ -390,7 +405,7 @@ def handle_email_create_draft(
 
     if not recipient or not subject or not body:
         return _error(
-            "missing_required_fields", "recipient, subject, và body là bắt buộc."
+            "missing_required_fields", "recipient, subject, and body are required."
         )
 
     try:
@@ -415,7 +430,8 @@ def handle_email_create_draft(
                 ensure_ascii=False,
             )
         return _error(
-            "mail_draft_failed", res.get("message", "Lỗi tạo bản nháp qua Composio")
+            "mail_draft_failed",
+            res.get("message", "Failed to create draft via Composio"),
         )
     except Exception as exc:  # noqa: BLE001 -- tool/gateway boundary maps to error payload
         return _error("mail_draft_failed", str(exc))
@@ -444,7 +460,7 @@ def handle_email_reply(
     account_email = params.get("account_email")
 
     if not thread_id or not body:
-        return _error("missing_required_fields", "thread_id và body là bắt buộc.")
+        return _error("missing_required_fields", "thread_id and body are required.")
 
     try:
         res = _call_google(
@@ -467,7 +483,7 @@ def handle_email_reply(
                 ensure_ascii=False,
             )
         return _error(
-            "mail_reply_failed", res.get("message", "Lỗi trả lời email qua Composio")
+            "mail_reply_failed", res.get("message", "Failed to reply via Composio")
         )
     except Exception as exc:  # noqa: BLE001 -- tool/gateway boundary maps to error payload
         return _error("mail_reply_failed", str(exc))

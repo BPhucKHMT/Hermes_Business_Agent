@@ -115,7 +115,7 @@ def _call_google(
 
 
 def _unavailable(code: str = "connector_unavailable") -> str:
-    return f"Dịch vụ Gmail không khả dụng ({code})."
+    return f"Gmail service is unavailable ({code})."
 
 
 def handle_connect_gmail(
@@ -146,7 +146,7 @@ def handle_connect_gmail(
             return _unavailable(
                 response.get("error", {}).get("code", "oauth_start_failed")
             )
-        return f"Mở liên kết này để kết nối Google (Gmail, Calendar, YouTube): {url}"
+        return f"Open this link to connect Google (Gmail, Calendar, YouTube): {url}"
 
     return _call_google("handle_connect_google", principal_id)
 
@@ -217,7 +217,7 @@ def handle_share_mailbox(
 ) -> str:
     parts = raw_args.split()
     if len(parts) not in (2, 3):
-        return "Cần: <mã_kết_nối> <chat_id> [thread_id]."
+        return "Required: <connection_code> <chat_id> [thread_id]."
     if client is None:
         return _unavailable()
     try:
@@ -251,7 +251,7 @@ def handle_email_grant(
 ) -> str:
     parts = raw_args.split()
     if len(parts) != 2 or parts[1] not in ("approve", "deny"):
-        return "Cần: <mã_yêu_cầu> approve|deny."
+        return "Required: <request_code> approve|deny."
     if client is None:
         return _unavailable()
     try:

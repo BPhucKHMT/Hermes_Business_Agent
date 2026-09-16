@@ -68,7 +68,7 @@ def test_handle_email_send_success():
         res = json.loads(res_raw)
         assert res["ok"] is True
         mock_send.assert_called_once_with(
-            "7275339077",
+            "telegram:default:7275339077",
             recipient="partner@example.com",
             subject="Báo giá",
             body="Nội dung",
@@ -93,7 +93,7 @@ def test_handle_email_create_draft_success():
         res = json.loads(res_raw)
         assert res["ok"] is True
         mock_draft.assert_called_once_with(
-            "7275339077",
+            "telegram:default:7275339077",
             recipient="boss@example.com",
             subject="Dự thảo",
             body="Chi tiết dự thảo",
@@ -114,7 +114,7 @@ def test_handle_email_reply_success():
         res = json.loads(res_raw)
         assert res["ok"] is True
         mock_reply.assert_called_once_with(
-            "7275339077",
+            "telegram:default:7275339077",
             thread_id="thread_abc123",
             body="Đồng ý với điều khoản",
             account_email=None,
@@ -141,7 +141,7 @@ def test_handle_email_search_with_account_email():
         res = json.loads(res_raw)
         assert res["ok"] is True
         mock_search.assert_called_once_with(
-            "7275339077",
+            "telegram:default:7275339077",
             query="in:inbox",
             max_results=10,
             account_email="baophuc1204vn@gmail.com",
@@ -165,7 +165,7 @@ def test_handle_email_search_auto_detects_account_email():
         res = json.loads(res_raw)
         assert res["ok"] is True
         mock_search.assert_called_once_with(
-            "7275339077",
+            "telegram:default:7275339077",
             query="in:inbox to:nguyenlam.baophuc@gmail.com",
             max_results=10,
             account_email="nguyenlam.baophuc@gmail.com",
@@ -193,7 +193,7 @@ def test_handle_email_get_thread_success():
         assert res["ok"] is True
         assert res["result"]["threadId"] == "th_123"
         mock_th.assert_called_once_with(
-            "7275339077",
+            "telegram:default:7275339077",
             thread_id="th_123",
             account_email="baophuc1204vn@gmail.com",
         )

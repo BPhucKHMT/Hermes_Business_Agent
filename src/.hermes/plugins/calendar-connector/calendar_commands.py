@@ -114,7 +114,7 @@ def _call_google(
 
 
 def _unavailable(code: str = "connector_unavailable") -> str:
-    return f"Dịch vụ Calendar không khả dụng ({code})."
+    return f"Calendar service is unavailable ({code})."
 
 
 def handle_connect_calendar(

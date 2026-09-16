@@ -1,4 +1,4 @@
-# Hermes Business Agent
+/# Hermes Business Agent
 
 Production workspace and engineering harness for a Hermes-powered business agent.
 Current verified pilot routes one Telegram forum topic to an isolated Protein Bar

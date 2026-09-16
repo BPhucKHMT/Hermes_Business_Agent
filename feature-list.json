@@ -327,6 +327,23 @@
       "evidence": null,
       "blocked": "Implementer-local Layer 1/2 pass (230/230 tests incl. isolated langfuse venv) and isolated same-OS clean-tree bootstrap pass: pinned upstream Hermes commit ab173e26 in temp tree, fresh project venv from uv.lock, setup.cmd exit 0 on a path with spaces, setup_local.py --local idempotent, plugins doctor --ci 4/4, operator AppData untouched, release tree complete without .env/.runtime. Independent Layer 3 is blocked on: (1) a genuinely clean Windows machine/user (Windows Home lacks Windows Sandbox; no VM tooling on PATH) following README customer walkthrough; (2) customer-owned operator secrets and channel bindings (Telegram route/topic, Zalo token/pairing, Composio OAuth consent); (3) Azure provision/ingest and live citation verification; (4) reboot/single-poller cutover observation. Zalo image delivery additionally requires azure-storage-blob in the Hermes interpreter or SAS/URL-based images (graceful PhotoPublishError otherwise). Owner: independent verifier plus operator. No developer AppData is to be copied.",
       "depends_on": ["H003"]
+    }    ,
+    {
+      "id": "H018",
+      "title": "Unified caller-scoped Google Workspace read/write actions",
+      "behavior": "REQ-GOOGLE-01..09 and REQ-AUTONOMY-03 implemented: capability-aware /connect_google (Gmail, Calendar, Drive, Docs, Sheets, Slides read/write), authenticated private-link and Drive-hosted file reading, caller/account/workspace isolation, group-to-DM single-use handoff, explicit send-now email without mandatory preview, durable duplicate-safe write lifecycle with independent evidence.",
+      "verification": {
+        "layer_1": "ruff check/format, compileall, feature JSON, tests/verify_composio.py --layer 1 (portable interface checks).",
+        "layer_2": "tests/verify_composio.py --layer 2 (10 suites incl. capabilities, glinks, mutations, workspace tools, handoff security).",
+        "layer_3": "Independent verifier exercises approved real Google fixtures and Telegram DM/group across REQ-GOOGLE-01..09 and REQ-AUTONOMY-03; records UTC, command/event, exit status and read-back evidence (spec A01-A15)."
+      },
+      "state": "active",
+      "evidence": null,
+      "blocked": "Layer 1/2 complete 2026-09-16: 295/295 tests pass, ruff clean, verify_composio L1/L2, verify_calendar L1/L2, verify_email_intake L1/L2 pass. Layer 3 blocked on operator prerequisites: live Google fixtures (multi-tab Doc, two-tab Sheet with formulas, Slides, Office files, scan PDF), approved Telegram DM/group users, test email recipient, independent verifier run of A01-A15. Owner: operator + independent verifier.",
+      "depends_on": [
+        "H003"
+      ]
     }
+
   ]
 }

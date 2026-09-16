@@ -3,6 +3,10 @@ EMAIL_SEARCH_SCHEMA = {
     "description": (
         "Search accessible Gmail threads for the authenticated user using Gmail search "
         "syntax (e.g. 'from:supplier@example.com newer_than:7d' or 'in:inbox'). "
+        "Plain keywords match subject AND body loosely: 'invoice' also finds "
+        "'invoices' and 'proforma invoice'; unaccented Vietnamese like 'bao gia' "
+        "matches 'Bảo giá' in message text. For broader recall use OR: "
+        '"invoice OR receipt". '
         "If the user names a connected account (full address or unique prefix), pass it "
         "in 'account_email'. With exactly one connected mailbox, run the search "
         "immediately without asking which account. Only ask which mailbox to use when "
@@ -17,7 +21,7 @@ EMAIL_SEARCH_SCHEMA = {
             },
             "limit": {
                 "type": "integer",
-                "description": "Maximum threads to retrieve (1 to 20)",
+                "description": "Maximum threads to retrieve (1 to 40)",
                 "default": 10,
             },
             "account_email": {

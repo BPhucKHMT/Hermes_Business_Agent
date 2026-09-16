@@ -8,6 +8,18 @@ Behavioral guidelines to reduce common LLM coding mistakes. Merge with project-s
 
 Read `AGENTS.md` before project work. Follow its startup workflow, state artifacts, Definition of Done, verification gates, and end-of-session handoff.
 
+### Approved Google Action Policy (H018, D028)
+
+Google account consent grants capabilities, not blanket unattended execution.
+Preserve caller/account/workspace isolation and enforce resource permissions.
+A trusted user's explicit send-now/skip-preview email request is approval for
+that specific email when material inputs are complete; do not require a redundant
+draft preview. Draft-only requests do not authorize sending. Keep landlord
+draft-only, Tier 3, outbound kill switch and destructive/sharing approval rules.
+Verify effects and report unknown outcomes without blindly retrying a write.
+This is approved target policy; runtime enforcement remains H018 implementation
+work, not a claim that current production already complies.
+
 ## Unified Workflow: Claude Plugins (Superpowers) + Antigravity Kit
 
 This project merges Claude Code's installed plugin ecosystem with the Antigravity Kit (`.agents/`):

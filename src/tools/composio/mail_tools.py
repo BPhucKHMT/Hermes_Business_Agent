@@ -20,8 +20,10 @@ from .client import (
 _NOT_CONNECTED = {
     "status": "error",
     "error_code": "NOT_CONNECTED",
-    "message": "Bạn chưa kết nối tài khoản Gmail. Vui lòng dùng lệnh /connect-google để liên kết tài khoản.",
+    "message": "Gmail account not connected. Use /connect-google to link your account.",
 }
+
+_MAX_SEARCH_RESULTS = 40
 
 
 def _context(
@@ -72,7 +74,14 @@ def composio_mail_search(
     max_results: int = 5,
     account_email: str | None = None,
 ) -> dict[str, Any]:
-    """Search Gmail messages for the caller's selected mailbox."""
+    """Search Gmail messages for the caller's selected mailbox.
+
+    ``max_results`` is capped at 40. Plain keywords search subject and body
+    through Gmail's matching; wrap the query in ``*term*`` or pass
+    ``fuzzy=True``-style multi-word queries as-is — Gmail handles substring
+    matching on words, so 'invoice' matches 'Invoices Q3' and 'proforma
+    invoice'.
+    """
     try:
         if not check_connection_status(telegram_user_id, app="gmail"):
             return dict(_NOT_CONNECTED)
@@ -82,7 +91,10 @@ def composio_mail_search(
         result = _execute(
             session,
             "GMAIL_FETCH_EMAILS",
-            {"query": query, "max_results": max_results},
+            {
+                "query": query,
+                "max_results": max(1, min(int(max_results), _MAX_SEARCH_RESULTS)),
+            },
             account_id,
         )
         return {
@@ -94,7 +106,7 @@ def composio_mail_search(
     except ValueError as exc:
         return _error(str(exc), code="INVALID_ACCOUNT_TARGET")
     except Exception as exc:  # noqa: BLE001 -- tool boundary maps provider failure to error payload
-        return _error(f"Lỗi khi tìm kiếm email: {exc}")
+        return _error(f"Email search failed: {exc}")
 
 
 def composio_mail_get_thread(
@@ -124,7 +136,7 @@ def composio_mail_get_thread(
     except ValueError as exc:
         return _error(str(exc), code="INVALID_ACCOUNT_TARGET")
     except Exception as exc:  # noqa: BLE001 -- tool boundary maps provider failure to error payload
-        return _error(f"Lỗi khi đọc chuỗi email: {exc}")
+        return _error(f"Failed to read email thread: {exc}")
 
 
 def composio_mail_send(
@@ -156,7 +168,7 @@ def composio_mail_send(
     except ValueError as exc:
         return _error(str(exc), code="INVALID_ACCOUNT_TARGET")
     except Exception as exc:  # noqa: BLE001 -- tool boundary maps provider failure to error payload
-        return _error(f"Lỗi khi gửi email: {exc}")
+        return _error(f"Failed to send email: {exc}")
 
 
 def composio_mail_create_draft(
@@ -188,7 +200,7 @@ def composio_mail_create_draft(
     except ValueError as exc:
         return _error(str(exc), code="INVALID_ACCOUNT_TARGET")
     except Exception as exc:  # noqa: BLE001 -- tool boundary maps provider failure to error payload
-        return _error(f"Lỗi khi tạo bản nháp email: {exc}")
+        return _error(f"Failed to create email draft: {exc}")
 
 
 def composio_mail_reply(
@@ -219,4 +231,4 @@ def composio_mail_reply(
     except ValueError as exc:
         return _error(str(exc), code="INVALID_ACCOUNT_TARGET")
     except Exception as exc:  # noqa: BLE001 -- tool boundary maps provider failure to error payload
-        return _error(f"Lỗi khi trả lời email: {exc}")
+        return _error(f"Failed to reply to email: {exc}")

@@ -15,6 +15,11 @@ provides_tools:
   - email_send
   - email_create_draft
   - email_reply
+  - google_drive_find
+  - google_file_read
+  - google_doc_read
+  - google_sheet_read
+  - google_slide_read
 provides_hooks:
   - pre_gateway_dispatch
   - pre_tool_call

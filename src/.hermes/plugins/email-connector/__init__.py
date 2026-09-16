@@ -63,6 +63,20 @@ try:
         EMAIL_SEARCH_SCHEMA,
         EMAIL_SEND_SCHEMA,
     )
+    from .workspace_schemas import (
+        GOOGLE_DOC_READ_SCHEMA,
+        GOOGLE_DRIVE_FIND_SCHEMA,
+        GOOGLE_FILE_READ_SCHEMA,
+        GOOGLE_SHEET_READ_SCHEMA,
+        GOOGLE_SLIDE_READ_SCHEMA,
+    )
+    from .workspace_tools import (
+        handle_google_doc_read,
+        handle_google_drive_find,
+        handle_google_file_read,
+        handle_google_sheet_read,
+        handle_google_slide_read,
+    )
 except (ImportError, ValueError, KeyError):
     from client import get_default_client
     from commands import (
@@ -88,6 +102,20 @@ except (ImportError, ValueError, KeyError):
         EMAIL_REPLY_SCHEMA,
         EMAIL_SEARCH_SCHEMA,
         EMAIL_SEND_SCHEMA,
+    )
+    from workspace_schemas import (
+        GOOGLE_DOC_READ_SCHEMA,
+        GOOGLE_DRIVE_FIND_SCHEMA,
+        GOOGLE_FILE_READ_SCHEMA,
+        GOOGLE_SHEET_READ_SCHEMA,
+        GOOGLE_SLIDE_READ_SCHEMA,
+    )
+    from workspace_tools import (
+        handle_google_doc_read,
+        handle_google_drive_find,
+        handle_google_file_read,
+        handle_google_sheet_read,
+        handle_google_slide_read,
     )
 
 logger = logging.getLogger(__name__)
@@ -144,6 +172,40 @@ def register(ctx: Any) -> PersonalGmailTools:
         handler=partial(handle_email_reply, client=client, registry=registry),
         description="Reply to an existing Gmail thread from the user's connected Gmail account.",
     )
+    for schema, handler, description in (
+        (
+            GOOGLE_DRIVE_FIND_SCHEMA,
+            handle_google_drive_find,
+            "Search the user's Google Drive files and folders.",
+        ),
+        (
+            GOOGLE_FILE_READ_SCHEMA,
+            handle_google_file_read,
+            "Read a Google resource by link or ID with the user's connected account.",
+        ),
+        (
+            GOOGLE_DOC_READ_SCHEMA,
+            handle_google_doc_read,
+            "Read a Google Docs document's content.",
+        ),
+        (
+            GOOGLE_SHEET_READ_SCHEMA,
+            handle_google_sheet_read,
+            "Read values from a Google Sheets spreadsheet.",
+        ),
+        (
+            GOOGLE_SLIDE_READ_SCHEMA,
+            handle_google_slide_read,
+            "Read a Google Slides presentation's content.",
+        ),
+    ):
+        ctx.register_tool(
+            name=schema["name"],
+            toolset="email_connector",
+            schema=schema,
+            handler=partial(handler, client=client, registry=registry),
+            description=description,
+        )
 
     for cmd_name in (
         "connect_google",
