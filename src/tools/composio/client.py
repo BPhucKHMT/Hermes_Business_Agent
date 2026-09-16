@@ -98,7 +98,19 @@ def _load_sdk() -> tuple[Any, type[BaseException]]:
 
     composio_class = getattr(module, "Composio", None)
     if composio_class is None:
-        raise RuntimeError("Installed Composio SDK does not expose Composio.")
+        from importlib.metadata import version
+
+        try:
+            installed = version("composio")
+        except Exception:  # noqa: BLE001 -- version lookup is best-effort
+            installed = "unknown"
+        raise RuntimeError(
+            f"Installed Composio SDK {installed} does not expose Composio. "
+            "The gateway Python environment needs composio>=0.21: run "
+            "'uv pip install --python \"$(command -v python3)\" "
+            "\"composio>=0.21.0,<1\"' inside the gateway's venv, or reinstall "
+            "the hermes CLI so its tool venv picks up the current dependency."
+        )
 
     try:
         exceptions = importlib.import_module("composio.exceptions")
