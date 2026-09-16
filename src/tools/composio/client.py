@@ -104,12 +104,13 @@ def _load_sdk() -> tuple[Any, type[BaseException]]:
             installed = version("composio")
         except Exception:  # noqa: BLE001 -- version lookup is best-effort
             installed = "unknown"
+        module_file = getattr(module, "__file__", None) or "namespace package"
         raise RuntimeError(
-            f"Installed Composio SDK {installed} does not expose Composio. "
-            "The gateway Python environment needs composio>=0.21: run "
-            "'uv pip install --python \"$(command -v python3)\" "
-            "\"composio>=0.21.0,<1\"' inside the gateway's venv, or reinstall "
-            "the hermes CLI so its tool venv picks up the current dependency."
+            f"Installed Composio SDK {installed} at {module_file} does not "
+            "expose Composio. A stale or shadowing 'composio' module is "
+            "earlier on sys.path in the gateway environment: clear it with "
+            "'python3 -m pip install --user --force-reinstall "
+            "\"composio>=0.21.0,<1\"' or remove the shadowing directory."
         )
 
     try:
